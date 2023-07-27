@@ -1,0 +1,80 @@
+syntax = "proto3";
+import "feed.proto";
+package GuGo.Rpc.Favorite;
+option go_package = "GuGoRpc/Favorite";
+
+message FavoriteRequest {
+  uint32 actor_id = 1; // 用户id
+  uint32 video_id = 2; // 视频id
+  uint32 action_type = 3; // 1-点赞，2-取消点赞
+}
+
+message FavoriteResponse {
+  uint32 status_code = 1; // 状态码，0-成功，其他值-失败
+  optional string status_msg = 2; // 返回状态描述
+}
+
+message FavoriteListRequest {
+  uint32 actor_id = 1; // 发出请求的用户的id
+  uint32 user_id = 2; // 用户id
+}
+
+message FavoriteListResponse {
+  uint32 status_code = 1; // 状态码，0-成功，其他值-失败
+  optional string status_msg = 2; // 返回状态描述
+  repeated Feed.Video video_list = 3; // 用户点赞视频列表
+}
+
+message IsFavoriteRequest {
+  uint32 user_id = 1; // 用户id
+  uint32 video_id = 2; // 视频id
+}
+
+message IsFavoriteResponse {
+  bool result = 1; // 结果
+}
+
+message CountFavoriteRequest {
+  uint32 video_id = 1; // 视频id
+}
+
+message CountFavoriteResponse {
+  uint32 status_code = 1;
+  optional string status_msg = 2;
+  uint32 count = 3; // 点赞数
+}
+
+message CountUserFavoriteRequest {
+  uint32 user_id = 1; // 用户id
+}
+
+message CountUserFavoriteResponse {
+  uint32 status_code = 1;
+  optional string status_msg = 2;
+  uint32 count = 3; // 点赞数
+}
+
+message CountUserTotalFavoritedRequest {
+  uint32 actor_id = 1;
+  uint32 user_id = 2;
+}
+
+message CountUserTotalFavoritedResponse {
+  uint32 status_code = 1;
+  optional string status_msg = 2;
+  uint32 count = 3; // 点赞数
+}
+
+service FavoriteService {
+  rpc FavoriteAction (FavoriteRequest) returns (FavoriteResponse);
+
+  rpc FavoriteList (FavoriteListRequest) returns (FavoriteListResponse);
+
+  rpc IsFavorite (IsFavoriteRequest) returns (IsFavoriteResponse);
+
+  rpc CountFavorite (CountFavoriteRequest) returns (CountFavoriteResponse);
+
+  rpc CountUserFavorite (CountUserFavoriteRequest) returns (CountUserFavoriteResponse);
+
+  rpc CountUserTotalFavorited (CountUserTotalFavoritedRequest) returns (CountUserTotalFavoritedResponse);
+}

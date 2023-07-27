@@ -1,0 +1,41 @@
+syntax = "proto3";
+package GuGo.Rpc.Chat;
+option go_package = "GuGoRpc/Chat";
+
+message ChatRequest {
+  uint32 actor_id = 1;
+  uint32 user_id = 2;
+  int64 pre_msg_time = 3;
+}
+
+message Message {
+  uint32 id = 1;
+  string content = 2;
+  int64 create_time = 3;
+  optional uint32 from_user_id = 4;
+  optional uint32 to_user_id = 5;
+}
+
+message ChatResponse {
+  uint32 status_code = 1;
+  string status_msg = 2;
+  repeated Message message_list = 3;
+}
+
+message ActionRequest {
+  uint32 actor_id = 1;
+  uint32 user_id = 2;
+  uint32 action_type = 3; // 1-发送消息
+  string content = 4;
+}
+
+message ActionResponse {
+  uint32 status_code = 1;
+  string status_msg = 2;
+}
+
+service ChatService {
+  rpc Chat(ChatRequest) returns (ChatResponse);
+
+  rpc ChatAction(ActionRequest) returns (ActionResponse);
+}

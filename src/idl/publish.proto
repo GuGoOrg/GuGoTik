@@ -1,0 +1,42 @@
+syntax = "proto3";
+import "feed.proto";
+package GuGo.Rpc.Publish;
+option go_package = "GuGoRpc/Publish";
+
+message CreateVideoRequest {
+  uint32 actor_id = 1; // 用户id
+  bytes data = 2; // 视频数据
+  string title = 3; // 视频标题
+}
+
+message CreateVideoResponse {
+  uint32 status_code = 1 [json_name = "status_code"]; // 状态码，0-成功，其他值-失败
+  string status_msg = 2 [json_name = "status_msg"]; // 返回状态描述
+}
+
+message ListVideoRequest{
+  uint32 actor_id = 1; // 用户id
+  uint32 user_id = 2; // 被请求查询的用户id
+}
+
+message ListVideoResponse{
+  uint32 status_code = 1; // 状态码，0-成功，其他值-失败
+  optional string status_msg = 2; // 返回状态描述
+  repeated Feed.Video video_list = 3; // 视频列表
+}
+
+message CountVideoRequest{
+  uint32 user_id = 1; // 用户id
+}
+
+message CountVideoResponse{
+  uint32 status_code = 1; // 状态码，0-成功，其他值-失败
+  optional string status_msg = 2; // 返回状态描述
+  uint32 count = 3; // 视频数量
+}
+
+service PublishService {
+  rpc CreateVideo(CreateVideoRequest) returns (CreateVideoResponse) {}
+  rpc ListVideo(ListVideoRequest) returns (ListVideoResponse) {}
+  rpc CountVideo(CountVideoRequest) returns (CountVideoResponse) {}
+}
