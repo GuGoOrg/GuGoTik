@@ -10,8 +10,8 @@ message CreateVideoRequest {
 }
 
 message CreateVideoResponse {
-  uint32 status_code = 1 [json_name = "status_code"]; // 状态码，0-成功，其他值-失败
-  string status_msg = 2 [json_name = "status_msg"]; // 返回状态描述
+  uint32 status_code = 1; // 状态码，0-成功，其他值-失败
+  string status_msg = 2; // 返回状态描述
 }
 
 message ListVideoRequest{

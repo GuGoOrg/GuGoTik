@@ -3,37 +3,37 @@ package GuGo.Rpc.Auth;
 option go_package = "GuGoRpc/Auth";
 
 message LoginRequest {
-  string username = 1 [json_name = "username"]; // 登录用户名
-  string password = 2 [json_name = "password"]; // 登录密码
+  string username = 1; // 登录用户名
+  string password = 2; // 登录密码
 }
 
 message LoginResponse {
-  uint32 status_code = 1 [json_name = "status_code"]; // 状态码，0-成功，其他值-失败
-  string status_msg = 2 [json_name = "status_msg"]; // 返回状态描述
-  uint32 user_id = 3 [json_name = "user_id"]; // 用户id
-  string token = 4 [json_name = "token"]; // 用户鉴权token
+  uint32 status_code = 1; // 状态码，0-成功，其他值-失败
+  string status_msg = 2; // 返回状态描述
+  uint32 user_id = 3; // 用户id
+  string token = 4; // 用户鉴权token
 }
 
 message RegisterRequest {
-  string username = 1 [json_name = "username"]; // 注册用户名，最长32个字符
-  string password = 2 [json_name = "password"]; // 密码，最长32个字符
+  string username = 1; // 注册用户名，最长32个字符
+  string password = 2; // 密码，最长32个字符
 }
 
 message RegisterResponse {
-  uint32 status_code = 1 [json_name = "status_code"]; // 状态码，0-成功，其他值-失败
-  string status_msg = 2 [json_name = "status_msg"]; // 返回状态描述
-  uint32 user_id = 3 [json_name = "user_id"]; // 用户id
-  string token = 4 [json_name = "token"]; // 用户鉴权token
+  uint32 status_code = 1; // 状态码，0-成功，其他值-失败
+  string status_msg = 2; // 返回状态描述
+  uint32 user_id = 3; // 用户id
+  string token = 4; // 用户鉴权token
 }
 
 message AuthenticateRequest {
-  string token = 1 [json_name = "token"]; // 用户鉴权token
+  string token = 1; // 用户鉴权token
 }
 
 message AuthenticateResponse {
-  uint32 status_code = 1 [json_name = "status_code"]; // 状态码，0-成功，其他值-失败
-  string status_msg = 2 [json_name = "status_msg"]; // 返回状态描述
-  uint32 user_id = 3 [json_name = "user_id"]; // 用户id
+  uint32 status_code = 1; // 状态码，0-成功，其他值-失败
+  string status_msg = 2; // 返回状态描述
+  uint32 user_id = 3; // 用户id
 }
 
 service AuthService {
