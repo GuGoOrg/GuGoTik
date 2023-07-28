@@ -1,4 +1,0 @@
-package config
-
-const WebServiceName = "GuGoTik-gateway"
-const WebServiceAddr = ":37000"

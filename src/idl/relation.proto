@@ -1,7 +1,7 @@
 syntax = "proto3";
 import "user.proto";
-package GuGo.Rpc.Relation;
-option go_package = "GuGoRpc/Relation";
+package rpc.Relation;
+option go_package = "rpc/relation";
 
 
 message RelationActionRequest {
@@ -22,7 +22,7 @@ message FollowListRequest {
 message FollowListResponse {
   int32 status_code = 1; // 状态码，0-成功，其他值-失败
   string status_msg = 2; // 返回状态描述
-  repeated User.User user_list = 3; // 用户信息列表
+  repeated user.User user_list = 3; // 用户信息列表
 }
 
 message CountFollowListRequest {
@@ -43,7 +43,7 @@ message FollowerListRequest {
 message FollowerListResponse {
   int32 status_code = 1; // 状态码，0-成功，其他值-失败
   string status_msg = 2; // 返回状态描述
-  repeated User.User user_list = 3; // 用户列表
+  repeated user.User user_list = 3; // 用户列表
 }
 
 message CountFollowerListRequest {
@@ -64,7 +64,7 @@ message FriendListRequest {
 message FriendListResponse {
   int32 status_code = 1; // 状态码，0-成功，其他值-失败
   string status_msg = 2; // 返回状态描述
-  repeated User.User user_list = 3; // 用户列表
+  repeated user.User user_list = 3; // 用户列表
 }
 
 message IsFollowRequest {

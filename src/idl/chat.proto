@@ -1,6 +1,6 @@
 syntax = "proto3";
-package GuGo.Rpc.Chat;
-option go_package = "GuGoRpc/Chat";
+package rpc.chat;
+option go_package = "rpc/chat";
 
 message ChatRequest {
   uint32 actor_id = 1;

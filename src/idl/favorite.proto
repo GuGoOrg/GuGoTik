@@ -1,7 +1,7 @@
 syntax = "proto3";
 import "feed.proto";
-package GuGo.Rpc.Favorite;
-option go_package = "GuGoRpc/Favorite";
+package rpc.favorite;
+option go_package = "rpc/favorite";
 
 message FavoriteRequest {
   uint32 actor_id = 1; // 用户id
@@ -22,7 +22,7 @@ message FavoriteListRequest {
 message FavoriteListResponse {
   uint32 status_code = 1; // 状态码，0-成功，其他值-失败
   optional string status_msg = 2; // 返回状态描述
-  repeated Feed.Video video_list = 3; // 用户点赞视频列表
+  repeated feed.Video video_list = 3; // 用户点赞视频列表
 }
 
 message IsFavoriteRequest {

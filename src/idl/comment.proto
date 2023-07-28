@@ -1,11 +1,11 @@
 syntax = "proto3";
 import "user.proto";
-package GuGo.Rpc.Comment;
-option go_package = "GuGoRpc/Comment";
+package rpc.comment;
+option go_package = "rpc/comment";
 
 message Comment {
   uint32 id = 1;
-  User.User user = 2;
+  user.User user = 2;
   string content = 3;
   string create_date = 4;
 }

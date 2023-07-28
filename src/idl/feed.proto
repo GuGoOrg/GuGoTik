@@ -1,11 +1,11 @@
 syntax = "proto3";
 import "user.proto";
-package GuGo.Rpc.Feed;
-option go_package = "GuGoRpc/Feed";
+package rpc.feed;
+option go_package = "rpc/feed";
 
 message Video {
   uint32 id = 1;
-  User.User author = 2;
+  user.User author = 2;
   string play_url = 3;
   string cover_url = 4;
   uint32 favorite_count = 5;

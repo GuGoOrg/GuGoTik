@@ -1,6 +1,7 @@
 package about
 
 import (
+	"GuGoTik/src/constant/strings"
 	"GuGoTik/src/web/models"
 	"github.com/gin-gonic/gin"
 	"net/http"
@@ -11,7 +12,8 @@ func Handle(c *gin.Context) {
 	var req models.AboutReq
 	if err := c.ShouldBind(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"status_msg": "GuGoTik Gateway can not response to your request, please try again later",
+			"status_code": strings.GateWayErrorCode,
+			"status_msg":  strings.GateWayError,
 		})
 	}
 	res := models.AboutRes{

@@ -1,6 +1,6 @@
 syntax = "proto3";
-package GuGo.Rpc.Auth;
-option go_package = "GuGoRpc/Auth";
+package rpc.auth;
+option go_package = "rpc/auth";
 
 message LoginRequest {
   string username = 1; // 登录用户名
