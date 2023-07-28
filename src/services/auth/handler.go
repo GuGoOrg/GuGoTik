@@ -14,6 +14,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"io"
 	"net/http"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -23,8 +24,39 @@ type AuthServiceImpl struct {
 }
 
 func (a AuthServiceImpl) Authenticate(ctx context.Context, request *auth.AuthenticateRequest) (resp *auth.AuthenticateResponse, err error) {
-	//TODO implement me
-	panic("implement me")
+	has, userId, err := hasToken(ctx, request.Token)
+	if err != nil {
+		resp = &auth.AuthenticateResponse{
+			StatusCode: strings.AuthServiceInnerErrorCode,
+			StatusMsg:  strings.AuthServiceInnerError,
+		}
+		return
+	}
+
+	if !has {
+		resp = &auth.AuthenticateResponse{
+			StatusCode: strings.AuthUserNotExistedCode,
+			StatusMsg:  strings.AuthUserNotExisted,
+		}
+		return
+	}
+
+	id, err := strconv.ParseUint(userId, 10, 32)
+	if err != nil {
+		resp = &auth.AuthenticateResponse{
+			StatusCode: strings.AuthServiceInnerErrorCode,
+			StatusMsg:  strings.AuthServiceInnerError,
+		}
+		return
+	}
+
+	resp = &auth.AuthenticateResponse{
+		StatusCode: strings.ServiceOKCode,
+		StatusMsg:  strings.ServiceOK,
+		UserId:     uint32(id),
+	}
+
+	return
 }
 
 func (a AuthServiceImpl) Register(ctx context.Context, request *auth.RegisterRequest) (resp *auth.RegisterResponse, err error) {
@@ -35,8 +67,6 @@ func (a AuthServiceImpl) Register(ctx context.Context, request *auth.RegisterReq
 		resp = &auth.RegisterResponse{
 			StatusCode: strings.AuthUserExistedCode,
 			StatusMsg:  strings.AuthUserExisted,
-			UserId:     0,
-			Token:      "",
 		}
 		return
 	}
@@ -46,8 +76,6 @@ func (a AuthServiceImpl) Register(ctx context.Context, request *auth.RegisterReq
 		resp = &auth.RegisterResponse{
 			StatusCode: strings.AuthServiceInnerErrorCode,
 			StatusMsg:  strings.AuthServiceInnerError,
-			UserId:     0,
-			Token:      "",
 		}
 		return
 	}
@@ -93,26 +121,23 @@ func (a AuthServiceImpl) Register(ctx context.Context, request *auth.RegisterReq
 	user.UserName = request.Username
 	user.Password = hashedPassword
 
-	// We should ensure it can get token, then we can write new user data into database
-	if resp.Token, err = getToken(ctx, user.UserName); err != nil {
-		resp = &auth.RegisterResponse{
-			StatusCode: strings.AuthServiceInnerErrorCode,
-			StatusMsg:  strings.AuthServiceInnerError,
-			UserId:     0,
-			Token:      "",
-		}
-		return
-	}
-	result = database.DB.WithContext(ctx).Create(user)
+	result = database.DB.WithContext(ctx).Create(&user)
 	if result.Error != nil {
 		resp = &auth.RegisterResponse{
 			StatusCode: strings.AuthServiceInnerErrorCode,
 			StatusMsg:  strings.AuthServiceInnerError,
-			UserId:     0,
-			Token:      "",
 		}
 		return
 	}
+
+	if resp.Token, err = getToken(ctx, user.ID); err != nil {
+		resp = &auth.RegisterResponse{
+			StatusCode: strings.AuthServiceInnerErrorCode,
+			StatusMsg:  strings.AuthServiceInnerError,
+		}
+		return resp, nil
+	}
+
 	resp.UserId = uint32(user.ID)
 	resp.StatusCode = strings.ServiceOKCode
 	resp.StatusMsg = strings.ServiceOK
@@ -120,8 +145,41 @@ func (a AuthServiceImpl) Register(ctx context.Context, request *auth.RegisterReq
 }
 
 func (a AuthServiceImpl) Login(ctx context.Context, request *auth.LoginRequest) (resp *auth.LoginResponse, err error) {
-	//TODO implement me
-	panic("implement me")
+	resp = &auth.LoginResponse{}
+	user := models.User{
+		UserName: request.Username,
+	}
+	result := database.DB.Limit(1).Find(&user)
+	if result.Error != nil {
+		resp = &auth.LoginResponse{
+			StatusCode: strings.AuthServiceInnerErrorCode,
+			StatusMsg:  strings.AuthServiceInnerError,
+		}
+		return
+	}
+
+	if result.RowsAffected == 0 {
+		resp = &auth.LoginResponse{
+			StatusCode: strings.AuthUserNotExistedCode,
+			StatusMsg:  strings.AuthUserNotExisted,
+		}
+		return
+	}
+
+	if resp.Token, err = getToken(ctx, user.ID); err != nil {
+		resp = &auth.LoginResponse{
+			StatusCode: strings.AuthServiceInnerErrorCode,
+			StatusMsg:  strings.AuthServiceInnerError,
+		}
+		return resp, nil
+	}
+
+	resp = &auth.LoginResponse{
+		StatusCode: strings.ServiceOKCode,
+		StatusMsg:  strings.ServiceOK,
+		UserId:     uint32(user.ID),
+	}
+	return
 }
 
 func hashPassword(password string) (string, error) {
@@ -134,14 +192,27 @@ func checkPasswordHash(password, hash string) bool {
 	return err == nil
 }
 
-func getToken(ctx context.Context, username string) (token string, err error) {
-	token, err = redis.Client.Get(ctx, username).Result()
+func getToken(ctx context.Context, userId uint) (token string, err error) {
+	token, err = redis.Client.Get(ctx, "U2T"+strconv.Itoa(int(userId))).Result()
 	switch {
 	case err == redisLib.Nil: // User do not log in
 		token = uuid.New().String()
-		redis.Client.Set(ctx, username, token, 240*time.Hour)
-		return
+		redis.Client.Set(ctx, "U2T"+strconv.Itoa(int(userId)), token, 240*time.Hour)
+		redis.Client.Set(ctx, "T2U"+token, userId, 240*time.Hour)
+		return token, nil
 	default:
 		return
+	}
+}
+
+func hasToken(ctx context.Context, token string) (bool, string, error) {
+	userId, err := redis.Client.Get(ctx, "T2U"+token).Result()
+	switch {
+	case err == redisLib.Nil: // User do not log in
+		return false, "", nil
+	case err != nil:
+		return false, "", err
+	default:
+		return true, userId, nil
 	}
 }
