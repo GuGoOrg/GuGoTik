@@ -1,4 +1,2 @@
 .idea/
 debug/
-src/constant/config/env.go
-src/constant/config/service.go
