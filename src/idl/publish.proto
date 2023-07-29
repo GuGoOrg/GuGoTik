@@ -1,7 +1,7 @@
 syntax = "proto3";
 import "feed.proto";
 package rpc.publish;
-option go_package = "rpc/publish";
+option go_package = "GuGoTik/src/rpc/publish";
 
 message CreateVideoRequest {
   uint32 actor_id = 1; // 用户id

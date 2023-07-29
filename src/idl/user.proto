@@ -1,6 +1,6 @@
 syntax = "proto3";
 package rpc.user;
-option go_package = "rpc/user";
+option go_package = "GuGoTik/src/rpc/user";
 
 message UserRequest {
   int64 user_id = 1; // 用户id

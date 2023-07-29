@@ -1,7 +1,7 @@
 syntax = "proto3";
 import "user.proto";
 package rpc.Relation;
-option go_package = "rpc/relation";
+option go_package = "GuGoTik/src/rpc/relation";
 
 
 message RelationActionRequest {

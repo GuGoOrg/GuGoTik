@@ -1,6 +1,6 @@
 syntax = "proto3";
 package rpc.auth;
-option go_package = "rpc/auth";
+option go_package = "GuGoTik/src/rpc/auth";
 
 message LoginRequest {
   string username = 1; // 登录用户名

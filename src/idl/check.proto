@@ -1,7 +1,7 @@
 syntax = "proto3";
 
 package grpc.health.v1;
-option go_package = "rpc/health";
+option go_package = "GuGoTik/src/rpc/health";
 message HealthCheckRequest {
   string service = 1;
 }

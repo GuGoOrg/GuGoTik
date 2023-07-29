@@ -1,7 +1,7 @@
 syntax = "proto3";
 import "feed.proto";
 package rpc.favorite;
-option go_package = "rpc/favorite";
+option go_package = "GuGoTik/src/rpc/favorite";
 
 message FavoriteRequest {
   uint32 actor_id = 1; // 用户id

@@ -1,6 +1,6 @@
 syntax = "proto3";
 package rpc.chat;
-option go_package = "rpc/chat";
+option go_package = "GuGoTik/src/rpc/chat";
 
 message ChatRequest {
   uint32 actor_id = 1;
