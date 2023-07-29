@@ -20,13 +20,12 @@ func main() {
 	// Register Service
 	// Test Service
 	g.GET("/about", about.Handle)
-
 	// Production Service
 	rootPath := g.Group("/douyin")
 	user := rootPath.Group("/user")
 	{
-		user.GET("/login", auth.LoginHandle)
-		user.GET("/register", auth.RegisterHandle)
+		user.POST("/login", auth.LoginHandle)
+		user.POST("/register", auth.RegisterHandle)
 	}
 
 	// Run Server

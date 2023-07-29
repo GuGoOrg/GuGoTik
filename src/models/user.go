@@ -15,7 +15,7 @@ type User struct {
 	gorm.Model
 }
 
-func (u *User) isEmail() bool {
+func (u *User) IsNameEmail() bool {
 	pattern := `\w+([-+.]\w+)*@\w+([-.]\w+)*\.\w+([-.]\w+)*`
 	reg := regexp.MustCompile(pattern)
 	return reg.MatchString(u.UserName)
