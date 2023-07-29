@@ -232,14 +232,14 @@ func (a AuthServiceImpl) Login(ctx context.Context, request *auth.LoginRequest) 
 }
 
 func hashPassword(ctx context.Context, password string) (string, error) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "Auth-PasswordHash")
+	span, _ := opentracing.StartSpanFromContext(ctx, "Auth-PasswordHash")
 	defer span.Finish()
 	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 12)
 	return string(bytes), err
 }
 
 func checkPasswordHash(ctx context.Context, password, hash string) bool {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "Auth-PasswordHashChecked")
+	span, _ := opentracing.StartSpanFromContext(ctx, "Auth-PasswordHashChecked")
 	defer span.Finish()
 	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
 	return err == nil
