@@ -3,6 +3,8 @@ package file
 import (
 	"GuGoTik/src/constant/config"
 	"GuGoTik/src/utils/logging"
+	"context"
+	"github.com/opentracing/opentracing-go"
 	"io"
 	"net/url"
 	"os"
@@ -14,8 +16,10 @@ import (
 type FSStorage struct {
 }
 
-func (f FSStorage) Upload(fileName string, content io.Reader) (output *PutObjectOutput, err error) {
-	logger := logging.LogMethod("FSStorage.Upload")
+func (f FSStorage) Upload(ctx context.Context, fileName string, content io.Reader) (output *PutObjectOutput, err error) {
+	span, _ := opentracing.StartSpanFromContext(ctx, "FSStorage-Upload")
+	defer span.Finish()
+	logger := logging.GetSpanLogger(span, "FSStorage.Upload")
 	logger = logger.WithFields(logrus.Fields{
 		"file_name": fileName,
 	})
@@ -50,6 +54,8 @@ func (f FSStorage) Upload(fileName string, content io.Reader) (output *PutObject
 	return &PutObjectOutput{}, nil
 }
 
-func (f FSStorage) GetLink(fileName string) (string, error) {
+func (f FSStorage) GetLink(ctx context.Context, fileName string) (string, error) {
+	span, _ := opentracing.StartSpanFromContext(ctx, "FSStorage-Upload")
+	defer span.Finish()
 	return url.JoinPath(config.EnvCfg.FileSystemBaseUrl, fileName)
 }

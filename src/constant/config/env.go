@@ -23,6 +23,7 @@ type envConfig struct {
 	RedisAddr           string `env:"REDIS_ADDR"`
 	RedisPassword       string `env:"REDIS_PASSWORD" envDefault:""`
 	RedisDB             int    `env:"REDIS_DB" envDefault:"0"`
+	TracingEndPoint     string `env:"TRACING_ENDPOINT"`
 }
 
 func init() {

@@ -1,4 +1,4 @@
-package test
+package rpc
 
 import (
 	"GuGoTik/src/constant/config"
@@ -37,6 +37,21 @@ func TestRegister(t *testing.T) {
 	assert.Empty(t, err)
 	Client = auth.NewAuthServiceClient(conn)
 	res, err := Client.Register(context.Background(), &req)
+	assert.Empty(t, err)
+	assert.Equal(t, uint32(0), res.StatusCode)
+}
+
+func TestLogin(t *testing.T) {
+	var Client auth.AuthServiceClient
+	conn, err := grpc.Dial(fmt.Sprintf("127.0.0.1%s", config.AuthRpcServerPort),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithDefaultServiceConfig(`{"loadBalancingPolicy": "round_robin"}`))
+	assert.Empty(t, err)
+	Client = auth.NewAuthServiceClient(conn)
+	res, err := Client.Login(context.Background(), &auth.LoginRequest{
+		Username: "epicmo",
+		Password: "epicmo",
+	})
 	assert.Empty(t, err)
 	assert.Equal(t, uint32(0), res.StatusCode)
 }

@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-var DB *gorm.DB
+var Client *gorm.DB
 
 func init() {
 	var err error
@@ -25,7 +25,7 @@ func init() {
 		},
 	)
 
-	if DB, err = gorm.Open(
+	if Client, err = gorm.Open(
 		postgres.Open(
 			fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s",
 				config.EnvCfg.PostgreSQLHost,
@@ -41,11 +41,11 @@ func init() {
 		panic(err)
 	}
 
-	if err := DB.AutoMigrate(&models.User{}); err != nil {
+	if err := Client.AutoMigrate(&models.User{}); err != nil {
 		panic(err)
 	}
 
-	if err := DB.Use(tracing.NewPlugin()); err != nil {
+	if err := Client.Use(tracing.NewPlugin()); err != nil {
 		panic(err)
 	}
 }

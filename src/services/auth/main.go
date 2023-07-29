@@ -6,13 +6,34 @@ import (
 	"GuGoTik/src/rpc/health"
 	healthImpl "GuGoTik/src/services/health"
 	"GuGoTik/src/utils/consul"
+	"GuGoTik/src/utils/interceptor"
 	"GuGoTik/src/utils/logging"
+	"GuGoTik/src/web/middleware"
+	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
+	"io"
 	"net"
 )
 
 func main() {
-	s := grpc.NewServer()
+	tracer, closer, err := middleware.NewTracer(config.AuthRpcServerName)
+	if err != nil {
+		logging.Logger.WithFields(logrus.Fields{
+			"err": err,
+		}).Errorf("Can not init Jaeger")
+		return
+	}
+	defer func(closer io.Closer) {
+		err := closer.Close()
+		if err != nil {
+			logging.Logger.WithFields(logrus.Fields{
+				"err": err,
+			}).Errorf("Error when close closer")
+		}
+	}(closer)
+	s := grpc.NewServer(
+		grpc.UnaryInterceptor(interceptor.OpentracingServerInterceptor(tracer)),
+	)
 	log := logging.LogService(config.AuthRpcServerName)
 	lis, err := net.Listen("tcp", config.AuthRpcServerPort)
 

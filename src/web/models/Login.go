@@ -1,8 +1,8 @@
 package models
 
 type LoginReq struct {
-	UserName string `uri:"username" binding:"required"`
-	Password string `uri:"password" binding:"required"`
+	UserName string `form:"username" binding:"required"`
+	Password string `form:"password" binding:"required"`
 }
 
 type LoginRes struct {
@@ -13,8 +13,8 @@ type LoginRes struct {
 }
 
 type RegisterReq struct {
-	UserName string `uri:"username" binding:"required"`
-	Password string `uri:"password" binding:"required"`
+	UserName string `form:"username" binding:"required"`
+	Password string `form:"password" binding:"required"`
 }
 
 type RegisterRes struct {
