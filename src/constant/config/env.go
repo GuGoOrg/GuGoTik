@@ -24,6 +24,8 @@ type envConfig struct {
 	RedisPassword       string `env:"REDIS_PASSWORD" envDefault:""`
 	RedisDB             int    `env:"REDIS_DB" envDefault:"0"`
 	TracingEndPoint     string `env:"TRACING_ENDPOINT"`
+	PyroscopeState      string `env:"PYROSCOPE_STATE" envDefault:"false"`
+	PyroscopeAddr       string `env:"PYROSCOPE_ADDR"`
 }
 
 func init() {

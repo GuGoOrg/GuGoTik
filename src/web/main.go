@@ -17,6 +17,10 @@ func main() {
 	// Configure Tracing
 	g.Use(middleware.Jaeger())
 	g.Use(authmw.TokenAuthMiddleware())
+
+	// Configure Pyroscope
+	middleware.InitPyroscope("GuGoTik.GateWay")
+
 	// Register Service
 	// Test Service
 	g.GET("/about", about.Handle)

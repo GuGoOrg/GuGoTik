@@ -16,6 +16,9 @@ import (
 )
 
 func main() {
+	// Configure Pyroscope
+	middleware.InitPyroscope("GuGoTik.AuthService")
+
 	tracer, closer, err := middleware.NewTracer(config.AuthRpcServerName)
 	if err != nil {
 		logging.Logger.WithFields(logrus.Fields{
