@@ -15,7 +15,7 @@ for /D %%i in (*) do (
         set "capName=!name:~0,1!"
         set "capName=!capName:a=A!"
         set "capName=!capName:b=B!"
-	set "capName=!capName:c=C!"
+	    set "capName=!capName:c=C!"
         set "capName=!capName:d=D!"
         set "capName=!capName:e=E!"
         set "capName=!capName:f=F!"
