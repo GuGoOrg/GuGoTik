@@ -29,9 +29,9 @@ func (g GormLogger) Info(ctx context.Context, s string, i ...interface{}) {
 		g.entry.WithFields(logrus.Fields{
 			"trace_id": span.Context().(jaeger.SpanContext).TraceID().String(),
 			"span_id":  span.Context().(jaeger.SpanContext).SpanID().String(),
-		}).Infof(s, i)
+		}).Infof(s, i...)
 	} else {
-		g.entry.Infof(s, i)
+		g.entry.Infof(s, i...)
 	}
 }
 
@@ -41,9 +41,9 @@ func (g GormLogger) Warn(ctx context.Context, s string, i ...interface{}) {
 		g.entry.WithFields(logrus.Fields{
 			"trace_id": span.Context().(jaeger.SpanContext).TraceID().String(),
 			"span_id":  span.Context().(jaeger.SpanContext).SpanID().String(),
-		}).Infof(s, i)
+		}).Infof(s, i...)
 	} else {
-		g.entry.Warnf(s, i)
+		g.entry.Warnf(s, i...)
 	}
 }
 
@@ -53,9 +53,9 @@ func (g GormLogger) Error(ctx context.Context, s string, i ...interface{}) {
 		g.entry.WithFields(logrus.Fields{
 			"trace_id": span.Context().(jaeger.SpanContext).TraceID().String(),
 			"span_id":  span.Context().(jaeger.SpanContext).SpanID().String(),
-		}).Infof(s, i)
+		}).Infof(s, i...)
 	} else {
-		g.entry.Errorf(s, i)
+		g.entry.Errorf(s, i...)
 	}
 }
 
