@@ -2,6 +2,9 @@ module GuGoTik
 
 go 1.20
 
+// replace gorm.io/gorm => github.com/liaosunny123/gorm v1.25.2
+replace gorm.io/gorm => github.com/liaosunny123/Gorm-Temp-Fork v1.25.2
+
 require (
 	github.com/caarlos0/env/v6 v6.10.1
 	github.com/gin-contrib/gzip v0.0.6

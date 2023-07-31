@@ -215,7 +215,7 @@ func (a AuthServiceImpl) Login(ctx context.Context, request *auth.LoginRequest) 
 	}
 
 	if !isUserVerifiedInRedis(ctx, request.Username, request.Password) {
-		result := database.Client.Where("user_name = ?", request.Username).Find(&user)
+		result := database.Client.Where("user_name = ?", request.Username).WithContext(ctx).Find(&user)
 		if result.Error != nil {
 			logger.WithFields(logrus.Fields{
 				"err":      result.Error,

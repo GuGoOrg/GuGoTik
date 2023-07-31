@@ -4,6 +4,7 @@ import (
 	"github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/log"
 	"github.com/sirupsen/logrus"
+	"github.com/uber/jaeger-client-go"
 )
 
 type JaegerLogger struct {
@@ -30,4 +31,12 @@ func SetSpanError(span opentracing.Span, err error) {
 		log.String("message", err.Error()),
 	)
 	span.SetTag("error", true)
+}
+
+func GetSpanLogger(span opentracing.Span, method string) *logrus.Entry {
+	return logrus.WithFields(logrus.Fields{
+		"operation": method,
+		"trace_id":  span.Context().(jaeger.SpanContext).TraceID().String(),
+		"span_id":   span.Context().(jaeger.SpanContext).SpanID().String(),
+	})
 }

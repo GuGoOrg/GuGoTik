@@ -3,27 +3,27 @@ package database
 import (
 	"GuGoTik/src/constant/config"
 	"GuGoTik/src/models"
+	"GuGoTik/src/utils/logging"
 	"fmt"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
-	"gorm.io/plugin/opentelemetry/logging/logrus"
 	"gorm.io/plugin/opentelemetry/tracing"
-	"time"
 )
 
 var Client *gorm.DB
 
 func init() {
 	var err error
-	gormLogrus := logger.New(
-		logrus.NewWriter(),
-		logger.Config{
-			SlowThreshold: time.Millisecond,
-			Colorful:      false,
-			LogLevel:      logger.Info,
-		},
-	)
+	//gormLogrus := logger.New(
+	//	logging.Logger,
+	//	logger.Config{
+	//		SlowThreshold: time.Millisecond,
+	//		Colorful:      false,
+	//		LogLevel:      logger.Info,
+	//	},
+	//)
+
+	gormLogrus := logging.GetGormLogger()
 
 	if Client, err = gorm.Open(
 		postgres.Open(
