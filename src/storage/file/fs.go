@@ -55,7 +55,7 @@ func (f FSStorage) Upload(ctx context.Context, fileName string, content io.Reade
 }
 
 func (f FSStorage) GetLink(ctx context.Context, fileName string) (string, error) {
-	ctx, span := tracing.Tracer.Start(ctx, "FSStorage-GetLink")
+	_, span := tracing.Tracer.Start(ctx, "FSStorage-GetLink")
 	defer span.End()
 	return url.JoinPath(config.EnvCfg.FileSystemBaseUrl, fileName)
 }
