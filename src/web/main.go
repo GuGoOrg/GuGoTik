@@ -12,6 +12,7 @@ import (
 	"github.com/gin-contrib/gzip"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
+	ginprometheus "github.com/zsais/go-gin-prometheus"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 )
 
@@ -34,6 +35,9 @@ func main() {
 	}()
 
 	g := gin.Default()
+	// Configure Prometheus
+	p := ginprometheus.NewPrometheus("gin")
+	p.Use(g)
 	// Configure Gzip
 	g.Use(gzip.Gzip(gzip.DefaultCompression))
 	// Configure Tracing
