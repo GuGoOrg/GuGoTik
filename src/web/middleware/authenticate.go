@@ -1,15 +1,16 @@
-package authmw
+package middleware
 
 import (
 	"GuGoTik/src/constant/config"
 	"GuGoTik/src/constant/strings"
+	"GuGoTik/src/extra/tracing"
 	"GuGoTik/src/rpc/auth"
-	"GuGoTik/src/utils/interceptor"
 	"GuGoTik/src/utils/logging"
-	"GuGoTik/src/utils/trace"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	"go.opentelemetry.io/otel/attribute"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"net/http"
@@ -25,16 +26,18 @@ func TokenAuthMiddleware() gin.HandlerFunc {
 		}
 
 		token := c.Query("token")
-		span := trace.GetChildSpanFromGinContext(c, "GateWay-Auth")
-		defer span.Finish()
-		log := logging.GetSpanLogger(span, "GateWay.Auth")
-		authenticate, err := client.Authenticate(c.Request.Context(), &auth.AuthenticateRequest{Token: token})
+		ctx, span := tracing.Tracer.Start(c.Request.Context(), "AuthMiddleWare")
+		defer span.End()
+		span.SetAttributes(attribute.String("token", token))
+		logger := logging.LogService("GateWay.AuthMiddleWare").WithContext(ctx)
 
+		// Verify User Token
+		authenticate, err := client.Authenticate(c.Request.Context(), &auth.AuthenticateRequest{Token: token})
 		if err != nil {
-			log.WithFields(logrus.Fields{
+			logger.WithFields(logrus.Fields{
 				"err": err,
 			}).Errorf("Gatewat Auth meet trouble")
-
+			span.RecordError(err)
 			c.JSON(http.StatusOK, gin.H{
 				"status_code": strings.GateWayErrorCode,
 				"status_msg":  strings.GateWayError,
@@ -60,7 +63,7 @@ func init() {
 		fmt.Sprintf("consul://%s/%s?wait=15s", config.EnvCfg.ConsulAddr, config.AuthRpcServerName),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithDefaultServiceConfig(`{"loadBalancingPolicy": "round_robin"}`),
-		grpc.WithUnaryInterceptor(interceptor.OpenTracingClientInterceptor()),
+		grpc.WithUnaryInterceptor(otelgrpc.UnaryClientInterceptor()),
 	)
 
 	if err != nil {

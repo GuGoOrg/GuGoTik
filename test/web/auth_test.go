@@ -11,7 +11,6 @@ import (
 )
 
 func TestRegister(t *testing.T) {
-
 	url := "http://127.0.0.1:37000/douyin/user/register?username=" + uuid.New().String() + "&password=epicmo"
 	method := "POST"
 	client := &http.Client{}
@@ -34,8 +33,8 @@ func TestRegister(t *testing.T) {
 	assert.Equal(t, 0, user.StatusCode)
 }
 
+// This Test can only run once.
 func TestDisplayRegister(t *testing.T) {
-
 	url := "http://127.0.0.1:37000/douyin/user/register?username=epicmo&password=epicmo"
 	method := "POST"
 	client := &http.Client{}
@@ -58,6 +57,7 @@ func TestDisplayRegister(t *testing.T) {
 	assert.Equal(t, 0, user.StatusCode)
 }
 
+// This test must run after `TestDisplayRegister`
 func TestLogin(t *testing.T) {
 
 	url := "http://127.0.0.1:37000/douyin/user/login?username=epicmo&password=epicmo"

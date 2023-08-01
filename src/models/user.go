@@ -1,9 +1,6 @@
 package models
 
 import (
-	"GuGoTik/src/utils/logging"
-	"github.com/opentracing/opentracing-go"
-	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 	"regexp"
 )
@@ -22,40 +19,4 @@ func (u *User) IsNameEmail() bool {
 	pattern := `\w+([-+.]\w+)*@\w+([-.]\w+)*\.\w+([-.]\w+)*`
 	reg := regexp.MustCompile(pattern)
 	return reg.MatchString(u.UserName)
-}
-
-func (u *User) BeforeFind(tx *gorm.DB) (err error) {
-	span, ctx := opentracing.StartSpanFromContext(tx.Statement.Context, "DB-Find")
-	tx.Statement.Context = opentracing.ContextWithSpan(ctx, span)
-	return nil
-}
-
-func (u *User) BeforeCreate(tx *gorm.DB) (err error) {
-	span, ctx := opentracing.StartSpanFromContext(tx.Statement.Context, "DB-Create")
-	tx.Statement.Context = opentracing.ContextWithSpan(ctx, span)
-	return nil
-}
-
-func (u *User) AfterCreate(tx *gorm.DB) (err error) {
-	span := opentracing.SpanFromContext(tx.Statement.Context)
-	defer span.Finish()
-	if tx.Error != nil {
-		logging.SetSpanError(span, err)
-		logging.GetSpanLogger(span, "DB.Create").WithFields(logrus.Fields{
-			"err": err,
-		}).Warnf("DB Create meet trouble")
-	}
-	return nil
-}
-
-func (u *User) AfterFindMust(tx *gorm.DB) (err error) {
-	span := opentracing.SpanFromContext(tx.Statement.Context)
-	defer span.Finish()
-	if tx.Error != nil {
-		logging.SetSpanError(span, err)
-		logging.GetSpanLogger(span, "DB.Find").WithFields(logrus.Fields{
-			"err": err,
-		}).Warnf("DB Find meet trouble")
-	}
-	return nil
 }

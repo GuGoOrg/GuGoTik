@@ -2,6 +2,7 @@ package main
 
 import (
 	"GuGoTik/src/constant/strings"
+	"GuGoTik/src/extra/tracing"
 	"GuGoTik/src/models"
 	"GuGoTik/src/rpc/auth"
 	"GuGoTik/src/storage/database"
@@ -12,15 +13,14 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/google/uuid"
-	"github.com/opentracing/opentracing-go"
-	"github.com/opentracing/opentracing-go/log"
 	redisLib "github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
+	"go.opentelemetry.io/otel/attribute"
 	"golang.org/x/crypto/bcrypt"
 	"io"
 	"net/http"
 	"strconv"
-	strings2 "strings"
+	stringsLib "strings"
 	"sync"
 	"time"
 )
@@ -30,9 +30,9 @@ type AuthServiceImpl struct {
 }
 
 func (a AuthServiceImpl) Authenticate(ctx context.Context, request *auth.AuthenticateRequest) (resp *auth.AuthenticateResponse, err error) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "AuthenticateService")
-	defer span.Finish()
-	logger := logging.GetSpanLogger(span, "AuthService.Authenticate")
+	ctx, span := tracing.Tracer.Start(ctx, "AuthenticateService")
+	defer span.End()
+	logger := logging.LogService("AuthService.Authenticate").WithContext(ctx)
 
 	has, userId, err := hasToken(ctx, request.Token)
 	if err != nil {
@@ -40,7 +40,7 @@ func (a AuthServiceImpl) Authenticate(ctx context.Context, request *auth.Authent
 			"err":   err,
 			"token": request.Token,
 		}).Warnf("AuthService Authenticate Action failed to response when checking token")
-		logging.SetSpanError(span, err)
+		span.RecordError(err)
 
 		resp = &auth.AuthenticateResponse{
 			StatusCode: strings.AuthServiceInnerErrorCode,
@@ -82,9 +82,9 @@ func (a AuthServiceImpl) Authenticate(ctx context.Context, request *auth.Authent
 }
 
 func (a AuthServiceImpl) Register(ctx context.Context, request *auth.RegisterRequest) (resp *auth.RegisterResponse, err error) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "RegisterService")
-	defer span.Finish()
-	logger := logging.GetSpanLogger(span, "AuthService.Register")
+	ctx, span := tracing.Tracer.Start(ctx, "RegisterService")
+	defer span.End()
+	logger := logging.LogService("AuthService.Register").WithContext(ctx)
 
 	resp = &auth.RegisterResponse{}
 	var user models.User
@@ -119,8 +119,9 @@ func (a AuthServiceImpl) Register(ctx context.Context, request *auth.RegisterReq
 	go func() {
 		defer wg.Done()
 		resp, err := http.Get("https://v1.hitokoto.cn/?c=b&encode=text")
-		span, _ := opentracing.StartSpanFromContext(ctx, "FetchSignature")
-		logger := logging.GetSpanLogger(span, "Auth.FetchSignature")
+		_, span := tracing.Tracer.Start(ctx, "FetchSignature")
+		defer span.End()
+		logger := logging.LogService("AuthService.FetchSignature").WithContext(ctx)
 
 		if err != nil {
 			user.Signature = user.UserName
@@ -194,6 +195,10 @@ func (a AuthServiceImpl) Register(ctx context.Context, request *auth.RegisterReq
 		return resp, nil
 	}
 
+	logger.WithFields(logrus.Fields{
+		"username": request.Username,
+	}).Infof("User register success!")
+
 	resp.UserId = uint32(user.ID)
 	resp.StatusCode = strings.ServiceOKCode
 	resp.StatusMsg = strings.ServiceOK
@@ -201,10 +206,9 @@ func (a AuthServiceImpl) Register(ctx context.Context, request *auth.RegisterReq
 }
 
 func (a AuthServiceImpl) Login(ctx context.Context, request *auth.LoginRequest) (resp *auth.LoginResponse, err error) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "LoginService")
-	defer span.Finish()
-
-	logger := logging.GetSpanLogger(span, "AuthService.Login")
+	ctx, span := tracing.Tracer.Start(ctx, "LoginService")
+	defer span.End()
+	logger := logging.LogService("AuthService.Login").WithContext(ctx)
 	logger.WithFields(logrus.Fields{
 		"username": request.Username,
 	}).Infof("User try to log in.")
@@ -288,25 +292,25 @@ func (a AuthServiceImpl) Login(ctx context.Context, request *auth.LoginRequest) 
 }
 
 func hashPassword(ctx context.Context, password string) (string, error) {
-	span, _ := opentracing.StartSpanFromContext(ctx, "Auth-PasswordHash")
-	defer span.Finish()
+	_, span := tracing.Tracer.Start(ctx, "Auth-PasswordHash")
+	defer span.End()
 
 	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 12)
 	return string(bytes), err
 }
 
 func checkPasswordHash(ctx context.Context, password, hash string) bool {
-	span, _ := opentracing.StartSpanFromContext(ctx, "Auth-PasswordHashChecked")
-	defer span.Finish()
+	_, span := tracing.Tracer.Start(ctx, "Auth-PasswordHashChecked")
+	defer span.End()
 	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
 	return err == nil
 }
 
 func getToken(ctx context.Context, userId uint) (token string, err error) {
-	span, _ := opentracing.StartSpanFromContext(ctx, "Redis-GetToken")
-	defer span.Finish()
+	ctx, span := tracing.Tracer.Start(ctx, "Redis-GetToken")
+	defer span.End()
 	token, err = redis.Client.Get(ctx, "U2T"+strconv.Itoa(int(userId))).Result()
-	span.LogFields(log.String("token", token))
+	span.SetAttributes(attribute.String("token", token))
 	switch {
 	case err == redisLib.Nil: // User do not log in
 		token = uuid.New().String()
@@ -319,8 +323,8 @@ func getToken(ctx context.Context, userId uint) (token string, err error) {
 }
 
 func hasToken(ctx context.Context, token string) (bool, string, error) {
-	span, _ := opentracing.StartSpanFromContext(ctx, "Redis-HasToken")
-	defer span.Finish()
+	ctx, span := tracing.Tracer.Start(ctx, "Redis-HasToken")
+	defer span.End()
 
 	userId, err := redis.Client.Get(ctx, "T2U"+token).Result()
 	switch {
@@ -334,9 +338,9 @@ func hasToken(ctx context.Context, token string) (bool, string, error) {
 }
 
 func isUserVerifiedInRedis(ctx context.Context, username string, password string) bool {
-	span, _ := opentracing.StartSpanFromContext(ctx, "Redis-VerifiedLogUserInfo")
-	defer span.Finish()
-	logger := logging.GetSpanLogger(span, "Redis.VerifiedLogUserInfo")
+	ctx, span := tracing.Tracer.Start(ctx, "Redis-VerifiedLogUserInfo")
+	defer span.End()
+	logger := logging.LogService("Redis.VerifiedLogUserInfo").WithContext(ctx)
 
 	saved, err := redis.Client.Get(ctx, "UserLog"+username).Result()
 	switch {
@@ -359,9 +363,9 @@ func isUserVerifiedInRedis(ctx context.Context, username string, password string
 }
 
 func setUserInfoToRedis(ctx context.Context, username string, password string) {
-	span, _ := opentracing.StartSpanFromContext(ctx, "Redis-SetUserLog")
-	defer span.Finish()
-	logger := logging.GetSpanLogger(span, "Redis.SetUserLog")
+	ctx, span := tracing.Tracer.Start(ctx, "Redis-SetUserLog")
+	defer span.End()
+	logger := logging.LogService("Redis.SetUserLog").WithContext(ctx)
 
 	saved, err := redis.Client.Get(ctx, "UserLog"+username).Result()
 	switch {
@@ -380,16 +384,16 @@ func setUserInfoToRedis(ctx context.Context, username string, password string) {
 }
 
 func getAvatarByEmail(ctx context.Context, email string) string {
-	span, _ := opentracing.StartSpanFromContext(ctx, "Auth-GetAvatar")
-	defer span.Finish()
+	ctx, span := tracing.Tracer.Start(ctx, "Auth-GetAvatar")
+	defer span.End()
 	return fmt.Sprintf("https://cravatar.cn/avatar/%s?d=identicon", getEmailMD5(ctx, email))
 }
 
 func getEmailMD5(ctx context.Context, email string) (md5String string) {
-	span, _ := opentracing.StartSpanFromContext(ctx, "Auth-EmailMD5")
-	defer span.Finish()
+	_, span := tracing.Tracer.Start(ctx, "Auth-EmailMD5")
+	defer span.End()
 
-	lowerEmail := strings2.ToLower(email)
+	lowerEmail := stringsLib.ToLower(email)
 	hashed := md5.New()
 	hashed.Write([]byte(lowerEmail))
 	md5Bytes := hashed.Sum(nil)

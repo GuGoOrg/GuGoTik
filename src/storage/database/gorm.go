@@ -8,20 +8,13 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/plugin/opentelemetry/tracing"
+	"time"
 )
 
 var Client *gorm.DB
 
 func init() {
 	var err error
-	//gormLogrus := logger.New(
-	//	logging.Logger,
-	//	logger.Config{
-	//		SlowThreshold: time.Millisecond,
-	//		Colorful:      false,
-	//		LogLevel:      logger.Info,
-	//	},
-	//)
 
 	gormLogrus := logging.GetGormLogger()
 
@@ -40,6 +33,15 @@ func init() {
 	); err != nil {
 		panic(err)
 	}
+
+	sqlDB, err := Client.DB()
+	if err != nil {
+		panic(err)
+	}
+
+	sqlDB.SetMaxIdleConns(10)
+	sqlDB.SetMaxOpenConns(100)
+	sqlDB.SetConnMaxLifetime(time.Hour)
 
 	if err := Client.AutoMigrate(&models.User{}); err != nil {
 		panic(err)
