@@ -292,7 +292,7 @@ func (a AuthServiceImpl) Login(ctx context.Context, request *auth.LoginRequest) 
 }
 
 func hashPassword(ctx context.Context, password string) (string, error) {
-	ctx, span := tracing.Tracer.Start(ctx, "Auth-PasswordHash")
+	_, span := tracing.Tracer.Start(ctx, "Auth-PasswordHash")
 	defer span.End()
 
 	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 12)
@@ -300,7 +300,7 @@ func hashPassword(ctx context.Context, password string) (string, error) {
 }
 
 func checkPasswordHash(ctx context.Context, password, hash string) bool {
-	ctx, span := tracing.Tracer.Start(ctx, "Auth-PasswordHashChecked")
+	_, span := tracing.Tracer.Start(ctx, "Auth-PasswordHashChecked")
 	defer span.End()
 	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
 	return err == nil
@@ -390,7 +390,7 @@ func getAvatarByEmail(ctx context.Context, email string) string {
 }
 
 func getEmailMD5(ctx context.Context, email string) (md5String string) {
-	ctx, span := tracing.Tracer.Start(ctx, "Auth-EmailMD5")
+	_, span := tracing.Tracer.Start(ctx, "Auth-EmailMD5")
 	defer span.End()
 
 	lowerEmail := stringsLib.ToLower(email)
