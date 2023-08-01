@@ -1,4 +1,4 @@
-package middleware
+package profiling
 
 import (
 	"GuGoTik/src/constant/config"

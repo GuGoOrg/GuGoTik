@@ -2,41 +2,43 @@ package main
 
 import (
 	"GuGoTik/src/constant/config"
+	"GuGoTik/src/extra/profiling"
+	"GuGoTik/src/extra/tracing"
 	"GuGoTik/src/rpc/auth"
 	"GuGoTik/src/rpc/health"
 	healthImpl "GuGoTik/src/services/health"
 	"GuGoTik/src/utils/consul"
-	"GuGoTik/src/utils/interceptor"
 	"GuGoTik/src/utils/logging"
-	"GuGoTik/src/web/middleware"
+	"context"
 	"github.com/sirupsen/logrus"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
-	"io"
 	"net"
 )
 
 func main() {
-	// Configure Pyroscope
-	middleware.InitPyroscope("GuGoTik.AuthService")
+	tp, err := tracing.SetTraceProvider(config.AuthRpcServerName)
 
-	tracer, closer, err := middleware.NewTracer(config.AuthRpcServerName)
 	if err != nil {
 		logging.Logger.WithFields(logrus.Fields{
 			"err": err,
-		}).Errorf("Can not init Jaeger")
-		return
+		}).Panicf("Error to set the trace")
 	}
-	defer func(closer io.Closer) {
-		err := closer.Close()
-		if err != nil {
+	defer func() {
+		if err := tp.Shutdown(context.Background()); err != nil {
 			logging.Logger.WithFields(logrus.Fields{
 				"err": err,
-			}).Errorf("Error when close closer")
+			}).Errorf("Error to set the trace")
 		}
-	}(closer)
+	}()
+
+	// Configure Pyroscope
+	profiling.InitPyroscope("GuGoTik.AuthService")
+
 	s := grpc.NewServer(
-		grpc.UnaryInterceptor(interceptor.OpentracingServerInterceptor(tracer)),
+		grpc.UnaryInterceptor(otelgrpc.UnaryServerInterceptor()),
 	)
+
 	log := logging.LogService(config.AuthRpcServerName)
 	lis, err := net.Listen("tcp", config.AuthRpcServerPort)
 

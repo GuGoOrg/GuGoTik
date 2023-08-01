@@ -3,14 +3,13 @@ package logging
 import (
 	"GuGoTik/src/constant/config"
 	log "github.com/sirupsen/logrus"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 	"os"
 )
 
 func init() {
-	log.SetOutput(os.Stdout)
-	log.SetFormatter(&log.JSONFormatter{
-		PrettyPrint: false,
-	})
 	switch config.EnvCfg.LoggerLevel {
 	case "DEBUG":
 		log.SetLevel(log.DebugLevel)
@@ -25,14 +24,65 @@ func init() {
 	case "TRACE":
 		log.SetLevel(log.TraceLevel)
 	}
+	log.SetOutput(os.Stdout)
+	log.SetFormatter(&log.JSONFormatter{})
+	log.AddHook(logTraceHook{})
+	Logger = log.WithFields(log.Fields{
+		"Tied": config.EnvCfg.TiedLogging,
+	})
 }
 
-var Logger = log.WithFields(log.Fields{
-	"Tied": config.EnvCfg.TiedLogging,
-})
+type logTraceHook struct{}
+
+func (t logTraceHook) Levels() []log.Level { return log.AllLevels }
+
+func (t logTraceHook) Fire(entry *log.Entry) error {
+	ctx := entry.Context
+	if ctx == nil {
+		return nil
+	}
+
+	span := trace.SpanFromContext(ctx)
+	if !span.IsRecording() {
+		return nil
+	}
+
+	sCtx := span.SpanContext()
+	if sCtx.HasTraceID() {
+		entry.Data["trace_id"] = sCtx.TraceID().String()
+	}
+	if sCtx.HasSpanID() {
+		entry.Data["span_id"] = sCtx.SpanID().String()
+	}
+
+	if config.EnvCfg.LoggerWithTraceState == "enable" {
+		attrs := make([]attribute.KeyValue, 0)
+		logSeverityKey := attribute.Key("log.severity")
+		logMessageKey := attribute.Key("log.message")
+		attrs = append(attrs, logSeverityKey.String(entry.Level.String()))
+		attrs = append(attrs, logMessageKey.String(entry.Message))
+		span.AddEvent("log", trace.WithAttributes(attrs...))
+		if entry.Level <= log.ErrorLevel {
+			span.SetStatus(codes.Error, entry.Message)
+		}
+	}
+	return nil
+}
+
+var Logger *log.Entry
 
 func LogService(name string) *log.Entry {
 	return Logger.WithFields(log.Fields{
 		"Service": name,
 	})
+}
+
+func SetSpanError(span trace.Span, err error) {
+	span.RecordError(err)
+	span.SetStatus(codes.Error, "Internal Error")
+}
+
+func SetSpanErrorWithDesc(span trace.Span, err error, desc string) {
+	span.RecordError(err)
+	span.SetStatus(codes.Error, desc)
 }
