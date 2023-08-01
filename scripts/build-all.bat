@@ -3,7 +3,7 @@
 echo Please Run Me on the root dir, not in scripts dir.
 
 IF EXIST output (
-    echo Output dir existed, del and remkdir...
+    echo "Output dir existed, deleting and recreating..."
     rd /s /q output
 )
 mkdir output\services
