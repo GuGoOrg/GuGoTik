@@ -20,7 +20,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
-	strings2 "strings"
+	stringsLib "strings"
 	"sync"
 	"time"
 )
@@ -194,6 +194,10 @@ func (a AuthServiceImpl) Register(ctx context.Context, request *auth.RegisterReq
 		}
 		return resp, nil
 	}
+
+	logger.WithFields(logrus.Fields{
+		"username": request.Username,
+	}).Infof("User register success!")
 
 	resp.UserId = uint32(user.ID)
 	resp.StatusCode = strings.ServiceOKCode
@@ -389,7 +393,7 @@ func getEmailMD5(ctx context.Context, email string) (md5String string) {
 	ctx, span := tracing.Tracer.Start(ctx, "Auth-EmailMD5")
 	defer span.End()
 
-	lowerEmail := strings2.ToLower(email)
+	lowerEmail := stringsLib.ToLower(email)
 	hashed := md5.New()
 	hashed.Write([]byte(lowerEmail))
 	md5Bytes := hashed.Sum(nil)

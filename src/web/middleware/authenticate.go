@@ -27,7 +27,7 @@ func TokenAuthMiddleware() gin.HandlerFunc {
 
 		token := c.Query("token")
 		ctx, span := tracing.Tracer.Start(c.Request.Context(), "AuthMiddleWare")
-		c.Request.WithContext(ctx)
+		defer span.End()
 		span.SetAttributes(attribute.String("token", token))
 		logger := logging.LogService("GateWay.AuthMiddleWare").WithContext(ctx)
 
