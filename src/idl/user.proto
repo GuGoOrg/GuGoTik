@@ -4,7 +4,7 @@ option go_package = "GuGoTik/src/rpc/user";
 
 message UserRequest {
   int64 user_id = 1; // 用户id
-  string token = 2; // 用户鉴权token
+  uint32 actor_id = 2; // 发送请求的用户的id
 }
 
 message UserResponse {
