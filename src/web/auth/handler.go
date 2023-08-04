@@ -62,7 +62,7 @@ func RegisterHandle(c *gin.Context) {
 	logger := logging.LogService("GateWay.Register").WithContext(c.Request.Context())
 
 	if err := c.ShouldBindQuery(&req); err != nil {
-		c.JSON(http.StatusOK, models.LoginRes{
+		c.JSON(http.StatusOK, models.RegisterRes{
 			StatusCode: strings.GateWayParamsErrorCode,
 			StatusMsg:  strings.GateWayParamsError,
 			UserId:     0,
