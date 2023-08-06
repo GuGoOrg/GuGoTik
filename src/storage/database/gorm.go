@@ -2,7 +2,6 @@ package database
 
 import (
 	"GuGoTik/src/constant/config"
-	"GuGoTik/src/models"
 	"GuGoTik/src/utils/logging"
 	"fmt"
 	"gorm.io/driver/postgres"
@@ -42,10 +41,6 @@ func init() {
 	sqlDB.SetMaxIdleConns(10)
 	sqlDB.SetMaxOpenConns(100)
 	sqlDB.SetConnMaxLifetime(time.Hour)
-
-	if err := Client.AutoMigrate(&models.User{}); err != nil {
-		panic(err)
-	}
 
 	if err := Client.Use(tracing.NewPlugin()); err != nil {
 		panic(err)

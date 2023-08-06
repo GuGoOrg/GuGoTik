@@ -5,3 +5,6 @@ const WebServiceAddr = ":37000"
 
 const AuthRpcServerName = "GuGoTik-AuthService"
 const AuthRpcServerPort = ":37001"
+
+const UserRpcServerName = "GuGoTik-UserService"
+const UserRpcServerPort = ":37002"

@@ -10,7 +10,7 @@ message CreateVideoRequest {
 }
 
 message CreateVideoResponse {
-  uint32 status_code = 1; // 状态码，0-成功，其他值-失败
+  int32 status_code = 1; // 状态码，0-成功，其他值-失败
   string status_msg = 2; // 返回状态描述
 }
 
@@ -20,8 +20,8 @@ message ListVideoRequest{
 }
 
 message ListVideoResponse{
-  uint32 status_code = 1; // 状态码，0-成功，其他值-失败
-  optional string status_msg = 2; // 返回状态描述
+  int32 status_code = 1; // 状态码，0-成功，其他值-失败
+  string status_msg = 2; // 返回状态描述
   repeated feed.Video video_list = 3; // 视频列表
 }
 
@@ -30,9 +30,9 @@ message CountVideoRequest{
 }
 
 message CountVideoResponse{
-  uint32 status_code = 1; // 状态码，0-成功，其他值-失败
-  optional string status_msg = 2; // 返回状态描述
-  uint32 count = 3; // 视频数量
+  int32 status_code = 1; // 状态码，0-成功，其他值-失败
+  string status_msg = 2; // 返回状态描述
+  uint64 count = 3; // 视频数量
 }
 
 service PublishService {

@@ -10,7 +10,7 @@ message RelationActionRequest {
 }
 
 message RelationActionResponse {
-  uint32 status_code = 1; // 状态码，0-成功，其他值-失败
+  int32 status_code = 1; // 状态码，0-成功，其他值-失败
   string status_msg = 2; // 返回状态描述
 }
 
@@ -32,7 +32,7 @@ message CountFollowListRequest {
 message CountFollowListResponse {
   int32 status_code = 1; // 状态码，0-成功，其他值-失败
   string status_msg = 2; // 返回状态描述
-  uint32 count = 3; // 关注数
+  uint64 count = 3; // 关注数
 }
 
 message FollowerListRequest {
@@ -53,7 +53,7 @@ message CountFollowerListRequest {
 message CountFollowerListResponse {
   int32 status_code = 1; // 状态码，0-成功，其他值-失败
   string status_msg = 2; // 返回状态描述
-  uint32 count = 3; // 粉丝数
+  uint64 count = 3; // 粉丝数
 }
 
 message FriendListRequest {

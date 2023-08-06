@@ -10,8 +10,8 @@ message FavoriteRequest {
 }
 
 message FavoriteResponse {
-  uint32 status_code = 1; // 状态码，0-成功，其他值-失败
-  optional string status_msg = 2; // 返回状态描述
+  int32 status_code = 1; // 状态码，0-成功，其他值-失败
+  string status_msg = 2; // 返回状态描述
 }
 
 message FavoriteListRequest {
@@ -20,14 +20,14 @@ message FavoriteListRequest {
 }
 
 message FavoriteListResponse {
-  uint32 status_code = 1; // 状态码，0-成功，其他值-失败
-  optional string status_msg = 2; // 返回状态描述
+  int32 status_code = 1; // 状态码，0-成功，其他值-失败
+  string status_msg = 2; // 返回状态描述
   repeated feed.Video video_list = 3; // 用户点赞视频列表
 }
 
 message IsFavoriteRequest {
-  uint32 user_id = 1; // 用户id
-  uint32 video_id = 2; // 视频id
+  uint32 actor_id = 1; // 用户id
+  uint64 video_id = 2; // 视频id
 }
 
 message IsFavoriteResponse {
@@ -35,13 +35,13 @@ message IsFavoriteResponse {
 }
 
 message CountFavoriteRequest {
-  uint32 video_id = 1; // 视频id
+  uint64 video_id = 1; // 视频id
 }
 
 message CountFavoriteResponse {
-  uint32 status_code = 1;
-  optional string status_msg = 2;
-  uint32 count = 3; // 点赞数
+  int32 status_code = 1;
+  string status_msg = 2;
+  uint64 count = 3; // 点赞数
 }
 
 message CountUserFavoriteRequest {
@@ -49,9 +49,9 @@ message CountUserFavoriteRequest {
 }
 
 message CountUserFavoriteResponse {
-  uint32 status_code = 1;
-  optional string status_msg = 2;
-  uint32 count = 3; // 点赞数
+  int32 status_code = 1;
+  string status_msg = 2;
+  uint64 count = 3; // 点赞数
 }
 
 message CountUserTotalFavoritedRequest {
@@ -60,9 +60,9 @@ message CountUserTotalFavoritedRequest {
 }
 
 message CountUserTotalFavoritedResponse {
-  uint32 status_code = 1;
-  optional string status_msg = 2;
-  uint32 count = 3; // 点赞数
+  int32 status_code = 1;
+  string status_msg = 2;
+  uint64 count = 3; // 点赞数
 }
 
 service FavoriteService {
