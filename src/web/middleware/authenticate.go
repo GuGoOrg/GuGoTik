@@ -45,7 +45,7 @@ func TokenAuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		if authenticate.StatusCode != uint32(0) {
+		if authenticate.StatusCode != 0 {
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"status_code": strings.AuthUserNeededCode,
 				"status_msg":  strings.AuthUserNeeded,

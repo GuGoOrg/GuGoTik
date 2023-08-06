@@ -38,7 +38,7 @@ func TestRegister(t *testing.T) {
 	Client = auth.NewAuthServiceClient(conn)
 	res, err := Client.Register(context.Background(), &req)
 	assert.Empty(t, err)
-	assert.Equal(t, uint32(0), res.StatusCode)
+	assert.Equal(t, int32(0), res.StatusCode)
 }
 
 func TestLogin(t *testing.T) {
@@ -53,5 +53,5 @@ func TestLogin(t *testing.T) {
 		Password: "epicmo",
 	})
 	assert.Empty(t, err)
-	assert.Equal(t, uint32(0), res.StatusCode)
+	assert.Equal(t, int32(0), res.StatusCode)
 }

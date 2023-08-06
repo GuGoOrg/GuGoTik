@@ -4,7 +4,7 @@ package rpc.comment;
 option go_package = "GuGoTik/src/rpc/comment";
 
 message Comment {
-  uint32 id = 1;
+  uint64 id = 1;
   user.User user = 2;
   string content = 3;
   string create_date = 4;
@@ -16,23 +16,23 @@ message ActionCommentRequest {
   uint32 action_type = 3;
   oneof action {
     string comment_text = 4;
-    uint32 comment_id = 5;
+    uint64 comment_id = 5;
   }
 }
 
 message ActionCommentResponse {
-  uint32 status_code = 1;
-  optional string status_msg = 2;
+  int32 status_code = 1;
+  string status_msg = 2;
   optional Comment comment = 3;
 }
 
 message ListCommentRequest {
-  uint32 video_id = 1;
+  uint64 video_id = 1;
 }
 
 message ListCommentResponse {
-  uint32 status_code = 1;
-  optional string status_msg = 2;
+  int32 status_code = 1;
+  string status_msg = 2;
   repeated Comment comment_list = 3;
 }
 

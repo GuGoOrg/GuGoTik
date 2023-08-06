@@ -8,8 +8,8 @@ message Video {
   user.User author = 2;
   string play_url = 3;
   string cover_url = 4;
-  uint32 favorite_count = 5;
-  uint32 comment_count = 6;
+  uint64 favorite_count = 5;
+  uint64 comment_count = 6;
   bool is_favorite = 7;
   string title = 8;
 }
@@ -20,20 +20,20 @@ message ListFeedRequest {
 }
 
 message ListFeedResponse {
-  uint32 status_code = 1;
+  int32 status_code = 1;
   optional string status_msg = 2;
-  optional int64 next_time = 3;
+  optional uint64 next_time = 3;
   repeated Video video_list = 4;
 }
 
 message QueryVideosRequest {
   uint32 actor_id = 1;
-  repeated uint32 video_ids = 2;
+  repeated uint64 video_ids = 2;
 }
 
 message QueryVideosResponse {
-  uint32 status_code = 1;
-  optional string status_msg = 2;
+  int32 status_code = 1;
+  string status_msg = 2;
   repeated Video video_list = 3;
 }
 

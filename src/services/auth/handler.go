@@ -51,8 +51,8 @@ func (a AuthServiceImpl) Authenticate(ctx context.Context, request *auth.Authent
 
 	if !has {
 		resp = &auth.AuthenticateResponse{
-			StatusCode: strings.AuthUserNotExistedCode,
-			StatusMsg:  strings.AuthUserNotExisted,
+			StatusCode: strings.UserNotExistedCode,
+			StatusMsg:  strings.UserNotExisted,
 		}
 		return
 	}
@@ -236,8 +236,8 @@ func (a AuthServiceImpl) Login(ctx context.Context, request *auth.LoginRequest) 
 
 		if result.RowsAffected == 0 {
 			resp = &auth.LoginResponse{
-				StatusCode: strings.AuthUserNotExistedCode,
-				StatusMsg:  strings.AuthUserNotExisted,
+				StatusCode: strings.UserNotExistedCode,
+				StatusMsg:  strings.UserNotExisted,
 			}
 			return
 		}
