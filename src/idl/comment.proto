@@ -27,7 +27,7 @@ message ActionCommentRequest {
 }
 
 message ActionCommentResponse {
-  uint32 status_code = 1;
+  int32 status_code = 1;
   string status_msg = 2;
   optional Comment comment = 3;
 }
@@ -38,8 +38,8 @@ message ListCommentRequest {
 }
 
 message ListCommentResponse {
-  uint32 status_code = 1;
-  optional string status_msg = 2;
+  int32 status_code = 1;
+  string status_msg = 2;
   repeated Comment comment_list = 3;
 }
 
@@ -49,8 +49,8 @@ message CountCommentRequest {
 }
 
 message CountCommentResponse {
-  uint32 status_code = 1;
-  optional string status_msg = 2;
+  int32 status_code = 1;
+  string status_msg = 2;
   uint32 comment_count = 3;
 }
 

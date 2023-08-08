@@ -26,7 +26,7 @@ func TestActionComment_Add(t *testing.T) {
 		Action:     &comment.ActionCommentRequest_CommentText{CommentText: "Test comment"},
 	})
 	assert.Empty(t, err)
-	assert.Equal(t, uint32(0), res.StatusCode)
+	assert.Equal(t, int32(0), res.StatusCode)
 }
 
 func TestActionComment_Delete(t *testing.T) {
