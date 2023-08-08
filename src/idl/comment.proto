@@ -10,33 +10,52 @@ message Comment {
   string create_date = 4;
 }
 
+enum ActionCommentType {
+  ACTION_COMMENT_TYPE_UNSPECIFIED = 0;
+  ACTION_COMMENT_TYPE_ADD = 1;
+  ACTION_COMMENT_TYPE_DELETE = 2;
+}
+
 message ActionCommentRequest {
   uint32 actor_id = 1;
   uint32 video_id = 2;
-  uint32 action_type = 3;
+  ActionCommentType action_type = 3;
   oneof action {
     string comment_text = 4;
-    uint64 comment_id = 5;
+    uint32 comment_id = 5;
   }
 }
 
 message ActionCommentResponse {
-  int32 status_code = 1;
+  uint32 status_code = 1;
   string status_msg = 2;
   optional Comment comment = 3;
 }
 
 message ListCommentRequest {
-  uint64 video_id = 1;
+  uint32 actor_id = 1;
+  uint32 video_id = 2;
 }
 
 message ListCommentResponse {
-  int32 status_code = 1;
-  string status_msg = 2;
+  uint32 status_code = 1;
+  optional string status_msg = 2;
   repeated Comment comment_list = 3;
+}
+
+message CountCommentRequest {
+  uint32 actor_id = 1;
+  uint32 video_id = 2;
+}
+
+message CountCommentResponse {
+  uint32 status_code = 1;
+  optional string status_msg = 2;
+  uint32 comment_count = 3;
 }
 
 service CommentService {
   rpc ActionComment(ActionCommentRequest) returns (ActionCommentResponse);
   rpc ListComment(ListCommentRequest) returns (ListCommentResponse);
+  rpc CountComment(CountCommentRequest) returns (CountCommentResponse);
 }
