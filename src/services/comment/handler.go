@@ -8,13 +8,12 @@ import (
 	"GuGoTik/src/rpc/comment"
 	"GuGoTik/src/rpc/user"
 	"GuGoTik/src/storage/database"
+	"GuGoTik/src/utils/consul"
+	grpc2 "GuGoTik/src/utils/grpc"
 	"GuGoTik/src/utils/logging"
 	"context"
-	"fmt"
 	"github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel/trace"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
 var UserClient user.UserServiceClient
@@ -24,9 +23,16 @@ type CommentServiceImpl struct {
 }
 
 func init() {
-	conn, err := grpc.Dial(fmt.Sprintf("127.0.0.1%s", config.UserRpcServerPort),
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithDefaultServiceConfig(`{"loadBalancingPolicy": "round_robin"}`))
+	service, err := consul.ResolveService(config.UserRpcServerName)
+	if err != nil {
+		logging.Logger.WithFields(logrus.Fields{
+			"err": err,
+		}).Fatalf("Cannot find user rpc server")
+	}
+
+	logging.Logger.Debugf("Found service %v in port %v", service.ServiceID, service.ServicePort)
+
+	conn, err := grpc2.Connect(service)
 	if err != nil {
 		logging.Logger.WithFields(logrus.Fields{
 			"err": err,
@@ -37,7 +43,7 @@ func init() {
 
 // ActionComment implements the CommentServiceImpl interface.
 func (c CommentServiceImpl) ActionComment(ctx context.Context, request *comment.ActionCommentRequest) (resp *comment.ActionCommentResponse, err error) {
-	ctx, span := tracing.Tracer.Start(ctx, "ActionCommentService")
+	ctx, span := tracing.Tracer.Start(ctx, "CommentService-ActionComment")
 	defer span.End()
 	logger := logging.LogService("CommentService.ActionComment").WithContext(ctx)
 	logger.WithFields(logrus.Fields{
@@ -120,32 +126,17 @@ func (c CommentServiceImpl) CountComment(ctx context.Context, request *comment.C
 }
 
 func addComment(ctx context.Context, logger *logrus.Entry, span trace.Span, pUser *user.User, pVideoID uint32, pCommentText string) (resp *comment.ActionCommentResponse, err error) {
-	count, err := count(ctx, pVideoID)
-	if err != nil {
-		logger.WithFields(logrus.Fields{
-			"err": err,
-		}).Errorf("Failed to query db entry")
-		logging.SetSpanError(span, err)
-
-		resp = &comment.ActionCommentResponse{
-			StatusCode: strings.UnableToQueryCommentErrorCode,
-			StatusMsg:  strings.UnableToQueryCommentError,
-		}
-		return
-	}
-
 	rComment := models.Comment{
-		VideoId:   pVideoID,
-		CommentId: uint32(count + 1),
-		UserId:    pUser.Id,
-		Content:   pCommentText,
+		VideoId: pVideoID,
+		UserId:  pUser.Id,
+		Content: pCommentText,
 	}
 
 	result := database.Client.WithContext(ctx).Create(&rComment)
 	if result.Error != nil {
 		logger.WithFields(logrus.Fields{
 			"err":        result.Error,
-			"comment_id": count + 1,
+			"comment_id": rComment.ID,
 			"video_id":   pVideoID,
 		}).Errorf("CommentService add comment action failed to response when adding comment")
 		logging.SetSpanError(span, err)
@@ -161,7 +152,7 @@ func addComment(ctx context.Context, logger *logrus.Entry, span trace.Span, pUse
 		StatusCode: strings.ServiceOKCode,
 		StatusMsg:  strings.ServiceOK,
 		Comment: &comment.Comment{
-			Id:         rComment.CommentId,
+			Id:         rComment.ID,
 			User:       pUser,
 			Content:    rComment.Content,
 			CreateDate: rComment.CreatedAt.Format("01-02"),
