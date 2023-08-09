@@ -7,7 +7,9 @@ import (
 	"GuGoTik/src/utils/logging"
 	"context"
 	"github.com/patrickmn/go-cache"
+	redis2 "github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
+	"math/rand"
 	"reflect"
 	"strconv"
 	"sync"
@@ -28,9 +30,9 @@ type cachedItem interface {
 
 // ScanGet 采用二级缓存(Memory-Redis)的模式读取结构体类型，并且填充到传入的结构体中，结构体需要实现IDGetter且确保ID可用。
 func ScanGet(ctx context.Context, key string, obj interface{}) {
-	ctx, span := tracing.Tracer.Start(ctx, "Cached-GetFromCache")
+	ctx, span := tracing.Tracer.Start(ctx, "Cached-GetFromScanCache")
 	defer span.End()
-	logger := logging.LogService("Cached.GetFromCache").WithContext(ctx)
+	logger := logging.LogService("Cached.GetFromScanCache").WithContext(ctx)
 
 	c := getOrCreateCache(key)
 	wrappedObj := obj.(cachedItem)
@@ -49,7 +51,8 @@ func ScanGet(ctx context.Context, key string, obj interface{}) {
 	if err := redis.Client.HGetAll(ctx, key).Scan(obj); err != nil {
 		logger.WithFields(logrus.Fields{
 			"err": err,
-		}).Errorf("Redis error when find user info")
+			"key": key,
+		}).Errorf("Redis error when find struct")
 		logging.SetSpanError(span, err)
 	}
 
@@ -78,7 +81,8 @@ func ScanGet(ctx context.Context, key string, obj interface{}) {
 	if err := redis.Client.HSet(ctx, key, obj); err != nil {
 		logger.WithFields(logrus.Fields{
 			"err": err,
-		}).Errorf("Redis error when set user info")
+			"key": key,
+		}).Errorf("Redis error when set struct info")
 		logging.SetSpanError(span, err.Err())
 	}
 
@@ -86,9 +90,9 @@ func ScanGet(ctx context.Context, key string, obj interface{}) {
 	return
 }
 
-// TagDelete 将缓存值标记为删除，下次从 cache 读取时会 FallBack 到数据库。
-func TagDelete(ctx context.Context, key string, obj interface{}) {
-	ctx, span := tracing.Tracer.Start(ctx, "Cached-TagDelete")
+// ScanTagDelete 将缓存值标记为删除，下次从 cache 读取时会 FallBack 到数据库。
+func ScanTagDelete(ctx context.Context, key string, obj interface{}) {
+	ctx, span := tracing.Tracer.Start(ctx, "Cached-ScanTagDelete")
 	defer span.End()
 	redis.Client.HDel(ctx, key)
 
@@ -98,11 +102,11 @@ func TagDelete(ctx context.Context, key string, obj interface{}) {
 	c.Delete(key)
 }
 
-// WriteCache 写入缓存，如果 state 为 false 那么只会写入 localCached
-func WriteCache(ctx context.Context, key string, obj interface{}, state bool) (err error) {
-	ctx, span := tracing.Tracer.Start(ctx, "Cached-WriteCache")
+// ScanWriteCache 写入缓存，如果 state 为 false 那么只会写入 localCached
+func ScanWriteCache(ctx context.Context, key string, obj interface{}, state bool) (err error) {
+	ctx, span := tracing.Tracer.Start(ctx, "Cached-ScanWriteCache")
 	defer span.End()
-	logger := logging.LogService("Cached.WriteCache").WithContext(ctx)
+	logger := logging.LogService("Cached.ScanWriteCache").WithContext(ctx)
 
 	wrappedObj := obj.(cachedItem)
 	key = key + strconv.FormatUint(uint64(wrappedObj.GetID()), 10)
@@ -113,12 +117,92 @@ func WriteCache(ctx context.Context, key string, obj interface{}, state bool) (e
 		if err = redis.Client.HGetAll(ctx, key).Scan(obj); err != nil {
 			logger.WithFields(logrus.Fields{
 				"err": err,
-			}).Errorf("Redis error when find user info")
+				"key": key,
+			}).Errorf("Redis error when find struct info")
 			logging.SetSpanError(span, err)
 		}
 	}
 
 	return
+}
+
+// Get 读取字符串缓存
+func Get(ctx context.Context, key string) string {
+	ctx, span := tracing.Tracer.Start(ctx, "Cached-GetFromStringCache")
+	defer span.End()
+	logger := logging.LogService("Cached.GetFromStringCache").WithContext(ctx)
+
+	c := getOrCreateCache("strings")
+	if x, found := c.Get(key); found {
+		return x.(string)
+	}
+
+	//缓存没有命中，Fallback 到 Redis
+	logger.WithFields(logrus.Fields{
+		"key": key,
+	}).Infof("Missed local memory cached")
+
+	var result *redis2.StringCmd
+	if result = redis.Client.Get(ctx, key); result.Err() != nil {
+		logger.WithFields(logrus.Fields{
+			"err":    result.Err(),
+			"string": key,
+		}).Errorf("Redis error when find string")
+		logging.SetSpanError(span, result.Err())
+	}
+
+	value, err := result.Result()
+	switch {
+	case err == redis2.Nil:
+		return ""
+	case err != nil:
+		logger.WithFields(logrus.Fields{
+			"err": err,
+		}).Errorf("Err when write Redis")
+		logging.SetSpanError(span, err)
+		return ""
+	default:
+		c.Set(key, value, cache.DefaultExpiration)
+		return value
+	}
+}
+
+// GetWithFunc 从缓存中获取字符串，如果不存在调用 Func 函数获取
+func GetWithFunc(ctx context.Context, key string, f func(ctx context.Context) string) string {
+	ctx, span := tracing.Tracer.Start(ctx, "Cached-GetFromStringCacheWithFunc")
+	defer span.End()
+	value := Get(ctx, key)
+	if value != "" {
+		return value
+	}
+	// 如果不存在，那么就获取他
+	value = f(ctx)
+	Write(ctx, key, value, true)
+	return value
+}
+
+// Write 写入字符串缓存，如果 state 为 false 则只写入 Local Memory
+func Write(ctx context.Context, key string, value string, state bool) {
+	ctx, span := tracing.Tracer.Start(ctx, "Cached-SetStringCache")
+	defer span.End()
+
+	c := getOrCreateCache("strings")
+	c.Set(key, value, cache.DefaultExpiration)
+
+	if state {
+		redis.Client.Set(ctx, key, value, 120*time.Hour+time.Duration(rand.Intn(redisRandomScope))*time.Second)
+	}
+}
+
+// TagDelete 删除字符串缓存
+func TagDelete(ctx context.Context, key string) {
+	ctx, span := tracing.Tracer.Start(ctx, "Cached-DeleteStringCache")
+	defer span.End()
+
+	c := getOrCreateCache("strings")
+	c.Delete(key)
+
+	redis.Client.Del(ctx, key)
 }
 
 func getOrCreateCache(name string) *cache.Cache {
