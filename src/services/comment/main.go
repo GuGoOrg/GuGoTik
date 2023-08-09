@@ -4,7 +4,7 @@ import (
 	"GuGoTik/src/constant/config"
 	"GuGoTik/src/extra/profiling"
 	"GuGoTik/src/extra/tracing"
-	"GuGoTik/src/rpc/auth"
+	"GuGoTik/src/rpc/comment"
 	"GuGoTik/src/rpc/health"
 	healthImpl "GuGoTik/src/services/health"
 	"GuGoTik/src/utils/consul"
@@ -17,7 +17,7 @@ import (
 )
 
 func main() {
-	tp, err := tracing.SetTraceProvider(config.AuthRpcServerName)
+	tp, err := tracing.SetTraceProvider(config.CommentRpcServerName)
 
 	if err != nil {
 		logging.Logger.WithFields(logrus.Fields{
@@ -33,28 +33,28 @@ func main() {
 	}()
 
 	// Configure Pyroscope
-	profiling.InitPyroscope("GuGoTik.AuthService")
+	profiling.InitPyroscope("GuGoTik.CommentService")
 
 	s := grpc.NewServer(
 		grpc.UnaryInterceptor(otelgrpc.UnaryServerInterceptor()),
 	)
 
-	log := logging.LogService(config.AuthRpcServerName)
-	lis, err := net.Listen("tcp", config.AuthRpcServerPort)
+	log := logging.LogService(config.CommentRpcServerName)
+	lis, err := net.Listen("tcp", config.CommentRpcServerPort)
 
 	if err != nil {
-		log.Panicf("Rpc %s listen happens error: %v", config.AuthRpcServerName, err)
+		log.Panicf("Rpc %s listen happens error: %v", config.CommentRpcServerName, err)
 	}
 
-	var srv AuthServiceImpl
+	var srv CommentServiceImpl
 	var probe healthImpl.ProbeImpl
-	auth.RegisterAuthServiceServer(s, srv)
+	comment.RegisterCommentServiceServer(s, srv)
 	health.RegisterHealthServer(s, &probe)
-	if err := consul.RegisterConsul(config.AuthRpcServerName, config.AuthRpcServerPort); err != nil {
-		log.Panicf("Rpc %s register consul happens error for: %v", config.AuthRpcServerName, err)
+	if err := consul.RegisterConsul(config.CommentRpcServerName, config.CommentRpcServerPort); err != nil {
+		log.Panicf("Rpc %s register consul happens error for: %v", config.CommentRpcServerName, err)
 	}
-	log.Infof("Rpc %s is running at %s now", config.AuthRpcServerName, config.AuthRpcServerPort)
+	log.Infof("Rpc %s is running at %s now", config.CommentRpcServerName, config.CommentRpcServerPort)
 	if err := s.Serve(lis); err != nil {
-		log.Panicf("Rpc %s listen happens error for: %v", config.AuthRpcServerName, err)
+		log.Panicf("Rpc %s listen happens error for: %v", config.CommentRpcServerName, err)
 	}
 }

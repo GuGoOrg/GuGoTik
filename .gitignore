@@ -1,4 +1,5 @@
 .idea/
 debug/
 output/
+log/
 .env

@@ -5,6 +5,7 @@ import (
 	"GuGoTik/src/extra/tracing"
 	"GuGoTik/src/models"
 	"GuGoTik/src/rpc/user"
+	"GuGoTik/src/storage/cached"
 	"GuGoTik/src/utils/logging"
 	"context"
 	"github.com/sirupsen/logrus"
@@ -20,8 +21,10 @@ func (a UserServiceImpl) GetUserInfo(ctx context.Context, request *user.UserRequ
 	logger := logging.LogService("UserService.GetUserInfo").WithContext(ctx)
 
 	var userModel models.User
-	userModel.ID = uint(request.UserId)
-	err = userModel.FillFromRedis(ctx)
+	userModel.ID = request.UserId
+	err = nil
+	cached.ScanGet(ctx, "UserInfo", &userModel)
+
 	if err != nil {
 		logger.WithFields(logrus.Fields{
 			"err":     err,
@@ -43,6 +46,7 @@ func (a UserServiceImpl) GetUserInfo(ctx context.Context, request *user.UserRequ
 			StatusMsg:  strings.UserNotExisted,
 			User:       nil,
 		}
+		return
 	}
 
 	//TODO 等待其他服务写完后接入

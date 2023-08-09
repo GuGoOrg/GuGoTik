@@ -16,15 +16,15 @@ message UserResponse {
 message User {
   uint32 id = 1; // 用户id
   string name = 2; // 用户名称
-  optional uint64 follow_count = 3; // 关注总数
-  optional uint64 follower_count = 4; // 粉丝总数
+  optional uint32 follow_count = 3; // 关注总数
+  optional uint32 follower_count = 4; // 粉丝总数
   bool is_follow = 5; // true-已关注，false-未关注
   optional string avatar = 6; //用户头像
   optional string background_image = 7; //用户个人页顶部大图
   optional string signature = 8; //个人简介
-  optional uint64 total_favorited = 9; //获赞数量
-  optional uint64 work_count = 10; //作品数量
-  optional uint64 favorite_count = 11; //点赞数量
+  optional uint32 total_favorited = 9; //获赞数量
+  optional uint32 work_count = 10; //作品数量
+  optional uint32 favorite_count = 11; //点赞数量
 }
 
 service UserService{

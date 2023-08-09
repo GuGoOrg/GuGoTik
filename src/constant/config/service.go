@@ -8,3 +8,6 @@ const AuthRpcServerPort = ":37001"
 
 const UserRpcServerName = "GuGoTik-UserService"
 const UserRpcServerPort = ":37002"
+
+const CommentRpcServerName = "GuGoTik-CommentService"
+const CommentRpcServerPort = ":37003"
