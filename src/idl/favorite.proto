@@ -27,7 +27,7 @@ message FavoriteListResponse {
 
 message IsFavoriteRequest {
   uint32 actor_id = 1; // 用户id
-  uint64 video_id = 2; // 视频id
+  uint32 video_id = 2; // 视频id
 }
 
 message IsFavoriteResponse {
@@ -35,13 +35,13 @@ message IsFavoriteResponse {
 }
 
 message CountFavoriteRequest {
-  uint64 video_id = 1; // 视频id
+  uint32 video_id = 1; // 视频id
 }
 
 message CountFavoriteResponse {
   int32 status_code = 1;
   string status_msg = 2;
-  uint64 count = 3; // 点赞数
+  uint32 count = 3; // 点赞数
 }
 
 message CountUserFavoriteRequest {
@@ -51,7 +51,7 @@ message CountUserFavoriteRequest {
 message CountUserFavoriteResponse {
   int32 status_code = 1;
   string status_msg = 2;
-  uint64 count = 3; // 点赞数
+  uint32 count = 3; // 点赞数
 }
 
 message CountUserTotalFavoritedRequest {
@@ -62,7 +62,7 @@ message CountUserTotalFavoritedRequest {
 message CountUserTotalFavoritedResponse {
   int32 status_code = 1;
   string status_msg = 2;
-  uint64 count = 3; // 点赞数
+  uint32 count = 3; // 点赞数
 }
 
 service FavoriteService {

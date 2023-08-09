@@ -20,7 +20,7 @@ func (a UserServiceImpl) GetUserInfo(ctx context.Context, request *user.UserRequ
 	logger := logging.LogService("UserService.GetUserInfo").WithContext(ctx)
 
 	var userModel models.User
-	userModel.ID = uint(request.UserId)
+	userModel.ID = request.UserId
 	err = userModel.FillFromRedis(ctx)
 	if err != nil {
 		logger.WithFields(logrus.Fields{

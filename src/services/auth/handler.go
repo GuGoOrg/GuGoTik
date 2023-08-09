@@ -285,7 +285,7 @@ func (a AuthServiceImpl) Login(ctx context.Context, request *auth.LoginRequest) 
 	resp = &auth.LoginResponse{
 		StatusCode: strings.ServiceOKCode,
 		StatusMsg:  strings.ServiceOK,
-		UserId:     uint32(user.ID),
+		UserId:     user.ID,
 		Token:      token,
 	}
 	return
@@ -306,15 +306,15 @@ func checkPasswordHash(ctx context.Context, password, hash string) bool {
 	return err == nil
 }
 
-func getToken(ctx context.Context, userId uint) (token string, err error) {
+func getToken(ctx context.Context, userId uint32) (token string, err error) {
 	ctx, span := tracing.Tracer.Start(ctx, "Redis-GetToken")
 	defer span.End()
-	token, err = redis.Client.Get(ctx, "U2T"+strconv.Itoa(int(userId))).Result()
+	token, err = redis.Client.Get(ctx, "U2T"+strconv.FormatUint(uint64(userId), 32)).Result()
 	span.SetAttributes(attribute.String("token", token))
 	switch {
 	case err == redisLib.Nil: // User do not log in
 		token = uuid.New().String()
-		redis.Client.Set(ctx, "U2T"+strconv.Itoa(int(userId)), token, 240*time.Hour)
+		redis.Client.Set(ctx, "U2T"+strconv.FormatUint(uint64(userId), 32), token, 240*time.Hour)
 		redis.Client.Set(ctx, "T2U"+token, userId, 240*time.Hour)
 		return token, nil
 	default:
