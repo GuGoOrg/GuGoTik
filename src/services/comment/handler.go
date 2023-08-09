@@ -9,14 +9,11 @@ import (
 	"GuGoTik/src/rpc/user"
 	"GuGoTik/src/storage/database"
 	"GuGoTik/src/utils/consul"
+	grpc2 "GuGoTik/src/utils/grpc"
 	"GuGoTik/src/utils/logging"
 	"context"
-	"fmt"
 	"github.com/sirupsen/logrus"
-	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.opentelemetry.io/otel/trace"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
 var UserClient user.UserServiceClient
@@ -35,10 +32,7 @@ func init() {
 
 	logging.Logger.Debugf("Found service %v in port %v", service.ServiceID, service.ServicePort)
 
-	conn, err := grpc.Dial(fmt.Sprintf("%v:%v", service.Address, service.ServicePort),
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithDefaultServiceConfig(`{"loadBalancingPolicy": "round_robin"}`),
-		grpc.WithUnaryInterceptor(otelgrpc.UnaryClientInterceptor()))
+	conn, err := grpc2.Connect(service)
 	if err != nil {
 		logging.Logger.WithFields(logrus.Fields{
 			"err": err,
