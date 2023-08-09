@@ -141,10 +141,10 @@ func addComment(ctx context.Context, logger *logrus.Entry, span trace.Span, pUse
 	}
 
 	rComment := models.Comment{
-		VideoId:   pVideoID,
-		CommentId: uint32(count + 1),
-		UserId:    pUser.Id,
-		Content:   pCommentText,
+		VideoId: pVideoID,
+		ID:      uint32(count + 1),
+		UserId:  pUser.Id,
+		Content: pCommentText,
 	}
 
 	result := database.Client.WithContext(ctx).Create(&rComment)
@@ -167,7 +167,7 @@ func addComment(ctx context.Context, logger *logrus.Entry, span trace.Span, pUse
 		StatusCode: strings.ServiceOKCode,
 		StatusMsg:  strings.ServiceOK,
 		Comment: &comment.Comment{
-			Id:         rComment.CommentId,
+			Id:         rComment.ID,
 			User:       pUser,
 			Content:    rComment.Content,
 			CreateDate: rComment.CreatedAt.Format("01-02"),
