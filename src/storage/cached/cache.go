@@ -29,7 +29,7 @@ type cachedItem interface {
 }
 
 // ScanGet 采用二级缓存(Memory-Redis)的模式读取结构体类型，并且填充到传入的结构体中，结构体需要实现IDGetter且确保ID可用。
-func ScanGet(ctx context.Context, key string, obj interface{}) {
+func ScanGet(ctx context.Context, key string, obj interface{}) bool {
 	ctx, span := tracing.Tracer.Start(ctx, "Cached-GetFromScanCache")
 	defer span.End()
 	logger := logging.LogService("Cached.GetFromScanCache").WithContext(ctx)
@@ -40,7 +40,7 @@ func ScanGet(ctx context.Context, key string, obj interface{}) {
 	if x, found := c.Get(key); found {
 		dstVal := reflect.ValueOf(obj)
 		dstVal.Elem().Set(x.(reflect.Value))
-		return
+		return true
 	}
 
 	//缓存没有命中，Fallback 到 Redis
@@ -62,7 +62,7 @@ func ScanGet(ctx context.Context, key string, obj interface{}) {
 			"key": key,
 		}).Infof("Redis hit the key")
 		c.Set(key, reflect.ValueOf(obj).Elem(), cache.DefaultExpiration)
-		return
+		return true
 	}
 
 	//缓存没有命中，Fallback 到 DB
@@ -75,7 +75,7 @@ func ScanGet(ctx context.Context, key string, obj interface{}) {
 		logger.WithFields(logrus.Fields{
 			"key": key,
 		}).Warnf("Missed DB obj, seems wrong key")
-		return
+		return false
 	}
 
 	if err := redis.Client.HSet(ctx, key, obj); err != nil {
@@ -87,7 +87,7 @@ func ScanGet(ctx context.Context, key string, obj interface{}) {
 	}
 
 	c.Set(key, reflect.ValueOf(obj).Elem(), cache.DefaultExpiration)
-	return
+	return true
 }
 
 // ScanTagDelete 将缓存值标记为删除，下次从 cache 读取时会 FallBack 到数据库。
@@ -127,14 +127,14 @@ func ScanWriteCache(ctx context.Context, key string, obj interface{}, state bool
 }
 
 // Get 读取字符串缓存
-func Get(ctx context.Context, key string) string {
+func Get(ctx context.Context, key string) (string, bool) {
 	ctx, span := tracing.Tracer.Start(ctx, "Cached-GetFromStringCache")
 	defer span.End()
 	logger := logging.LogService("Cached.GetFromStringCache").WithContext(ctx)
 
 	c := getOrCreateCache("strings")
 	if x, found := c.Get(key); found {
-		return x.(string)
+		return x.(string), true
 	}
 
 	//缓存没有命中，Fallback 到 Redis
@@ -154,16 +154,16 @@ func Get(ctx context.Context, key string) string {
 	value, err := result.Result()
 	switch {
 	case err == redis2.Nil:
-		return ""
+		return "", false
 	case err != nil:
 		logger.WithFields(logrus.Fields{
 			"err": err,
 		}).Errorf("Err when write Redis")
 		logging.SetSpanError(span, err)
-		return ""
+		return "", false
 	default:
 		c.Set(key, value, cache.DefaultExpiration)
-		return value
+		return value, true
 	}
 }
 
@@ -171,8 +171,8 @@ func Get(ctx context.Context, key string) string {
 func GetWithFunc(ctx context.Context, key string, f func(ctx context.Context) string) string {
 	ctx, span := tracing.Tracer.Start(ctx, "Cached-GetFromStringCacheWithFunc")
 	defer span.End()
-	value := Get(ctx, key)
-	if value != "" {
+	value, ok := Get(ctx, key)
+	if ok {
 		return value
 	}
 	// 如果不存在，那么就获取他
