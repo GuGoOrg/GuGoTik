@@ -1,15 +1,9 @@
 package models
 
 import (
-	"GuGoTik/src/extra/tracing"
 	"GuGoTik/src/storage/database"
-	"GuGoTik/src/storage/redis"
-	"GuGoTik/src/utils/logging"
-	"context"
-	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 	"regexp"
-	"strconv"
 )
 
 type User struct {
@@ -30,32 +24,12 @@ func (u *User) IsNameEmail() bool {
 	return reg.MatchString(u.UserName)
 }
 
-// FillFromRedis 利用实例的ID字段尝试从Redis中获取用户的完整信息，如果失败会查询数据库并写入缓存以方便下次查询。
-func (u *User) FillFromRedis(ctx context.Context) error {
-	ctx, span := tracing.Tracer.Start(ctx, "Redis-UserInfoGet")
-	defer span.End()
-	logger := logging.LogService("Redis.UserInfoGet").WithContext(ctx)
-	if err := redis.Client.HGetAll(ctx, "UserInfo"+strconv.Itoa(int(u.ID))).Scan(u); err != nil {
-		logger.WithFields(logrus.Fields{
-			"err": err,
-		}).Errorf("Redis error when find user info")
-		logging.SetSpanError(span, err)
-		return err
-	}
-	if u.UserName == "" {
-		result := database.Client.WithContext(ctx).Find(u)
-		if result.RowsAffected == 0 {
-			return nil
-		}
-		if err := redis.Client.HSet(ctx, "UserInfo"+strconv.Itoa(int(u.ID)), u); err != nil {
-			logger.WithFields(logrus.Fields{
-				"err": err,
-			}).Errorf("Redis error when find user info")
-			logging.SetSpanError(span, err.Err())
-			return err.Err()
-		}
-	}
-	return nil
+func (u *User) IsCompleted() bool {
+	return u.UserName != ""
+}
+
+func (u *User) GetID() uint32 {
+	return u.ID
 }
 
 func init() {
