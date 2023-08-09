@@ -25,7 +25,7 @@ var m = new(sync.Mutex)
 
 type cachedItem interface {
 	GetID() uint32
-	IsCompleted() bool
+	IsDirty() bool
 }
 
 // ScanGet 采用二级缓存(Memory-Redis)的模式读取结构体类型，并且填充到传入的结构体中，结构体需要实现IDGetter且确保ID可用。
@@ -57,7 +57,7 @@ func ScanGet(ctx context.Context, key string, obj interface{}) {
 	}
 
 	// 如果 Redis 命中，那么就存到 localCached 然后返回
-	if wrappedObj.IsCompleted() {
+	if wrappedObj.IsDirty() {
 		logger.WithFields(logrus.Fields{
 			"key": key,
 		}).Infof("Redis hit the key")

@@ -24,7 +24,7 @@ func (u *User) IsNameEmail() bool {
 	return reg.MatchString(u.UserName)
 }
 
-func (u *User) IsCompleted() bool {
+func (u *User) IsDirty() bool {
 	return u.UserName != ""
 }
 
