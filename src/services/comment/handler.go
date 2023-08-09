@@ -126,23 +126,8 @@ func (c CommentServiceImpl) CountComment(ctx context.Context, request *comment.C
 }
 
 func addComment(ctx context.Context, logger *logrus.Entry, span trace.Span, pUser *user.User, pVideoID uint32, pCommentText string) (resp *comment.ActionCommentResponse, err error) {
-	count, err := count(ctx, pVideoID)
-	if err != nil {
-		logger.WithFields(logrus.Fields{
-			"err": err,
-		}).Errorf("Failed to query db entry")
-		logging.SetSpanError(span, err)
-
-		resp = &comment.ActionCommentResponse{
-			StatusCode: strings.UnableToQueryCommentErrorCode,
-			StatusMsg:  strings.UnableToQueryCommentError,
-		}
-		return
-	}
-
 	rComment := models.Comment{
 		VideoId: pVideoID,
-		ID:      uint32(count + 1),
 		UserId:  pUser.Id,
 		Content: pCommentText,
 	}
@@ -151,7 +136,7 @@ func addComment(ctx context.Context, logger *logrus.Entry, span trace.Span, pUse
 	if result.Error != nil {
 		logger.WithFields(logrus.Fields{
 			"err":        result.Error,
-			"comment_id": count + 1,
+			"comment_id": rComment.ID,
 			"video_id":   pVideoID,
 		}).Errorf("CommentService add comment action failed to response when adding comment")
 		logging.SetSpanError(span, err)
