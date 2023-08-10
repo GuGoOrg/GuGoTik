@@ -210,8 +210,12 @@ func getOrCreateCache(name string) *cache.Cache {
 	if !ok {
 		m.Lock()
 		defer m.Unlock()
-		cc = cache.New(5*time.Minute, 10*time.Minute)
-		cacheMaps[name] = cc
+		cc, ok := cacheMaps[name]
+		if !ok {
+			cc = cache.New(5*time.Minute, 10*time.Minute)
+			cacheMaps[name] = cc
+			return cc
+		}
 		return cc
 	}
 	return cc
