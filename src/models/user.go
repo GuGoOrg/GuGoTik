@@ -7,7 +7,7 @@ import (
 )
 
 type User struct {
-	ID              uint32 `gorm:"not null;primarykey"`                             //用户 Id
+	ID              uint32 `gorm:"not null;primarykey;autoIncrement"`               //用户 Id
 	UserName        string `gorm:"not null;unique;size: 32;index" redis:"UserName"` // 用户名
 	Password        string `gorm:"not null" redis:"Password"`                       // 密码
 	Role            int    `gorm:"default:1" redis:"Role"`                          // 角色
