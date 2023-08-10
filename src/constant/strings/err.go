@@ -20,6 +20,8 @@ const (
 	UnableToQueryCommentError      = "无法查询到视频评论"
 	UnableToCreateCommentErrorCode = 50005
 	UnableToCreateCommentError     = "无法创建评论"
+	FeedServiceInnerErrorCode      = 50006
+	FeedServiceInnerError          = "视频服务出现内部错误，请稍后重试！"
 )
 
 // Expected Error
