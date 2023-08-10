@@ -21,7 +21,7 @@ message ListFeedRequest {
 
 message ListFeedResponse {
   int32 status_code = 1;
-  optional string status_msg = 2;
+  string status_msg = 2;
   optional uint32 next_time = 3;
   repeated Video video_list = 4;
 }
