@@ -164,8 +164,3 @@ func addComment(ctx context.Context, logger *logrus.Entry, span trace.Span, pUse
 func deleteComment(ctx context.Context, logger *logrus.Entry, span trace.Span, pUser *user.User, pVideoID uint32, commentID uint32) (resp *comment.ActionCommentResponse, err error) {
 	return
 }
-
-func count(ctx context.Context, videoID uint32) (count int64, err error) {
-	result := database.Client.Model(&models.Comment{}).WithContext(ctx).Where("video_id = ?", videoID).Count(&count)
-	return count, result.Error
-}
