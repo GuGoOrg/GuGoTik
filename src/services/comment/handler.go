@@ -8,7 +8,6 @@ import (
 	"GuGoTik/src/rpc/comment"
 	"GuGoTik/src/rpc/user"
 	"GuGoTik/src/storage/database"
-	"GuGoTik/src/utils/consul"
 	grpc2 "GuGoTik/src/utils/grpc"
 	"GuGoTik/src/utils/logging"
 	"context"
@@ -23,22 +22,8 @@ type CommentServiceImpl struct {
 }
 
 func init() {
-	service, err := consul.ResolveService(config.UserRpcServerName)
-	if err != nil {
-		logging.Logger.WithFields(logrus.Fields{
-			"err": err,
-		}).Fatalf("Cannot find user rpc server")
-	}
-
-	logging.Logger.Debugf("Found service %v in port %v", service.ServiceID, service.ServicePort)
-
-	conn, err := grpc2.Connect(service)
-	if err != nil {
-		logging.Logger.WithFields(logrus.Fields{
-			"err": err,
-		}).Fatalf("Cannot find user rpc server")
-	}
-	UserClient = user.NewUserServiceClient(conn)
+	userRpcConn := grpc2.Connect(config.UserRpcServerName)
+	UserClient = user.NewUserServiceClient(userRpcConn)
 }
 
 // ActionComment implements the CommentServiceImpl interface.
