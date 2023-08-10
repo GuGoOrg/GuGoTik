@@ -28,6 +28,6 @@ func TestListVideos(t *testing.T) {
 	assert.Empty(t, err)
 	feed := &models.ListVideosRes{}
 	err = json.Unmarshal(body, &feed)
-	//assert.Empty(t, err)
+	assert.Empty(t, err)
 	//assert.Equal(t, 0, feed.StatusCode)
 }
