@@ -11,7 +11,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-func Connect(serviceName string) (conn *grpc.ClientConn) {
+func Connect(serviceName string) (conn *grpc.ClientConn, err error) {
 	service, err := consul.ResolveService(serviceName)
 	if err != nil {
 		logging.Logger.WithFields(logrus.Fields{
