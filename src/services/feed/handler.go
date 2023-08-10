@@ -302,7 +302,6 @@ func queryDetailed(
 
 func query(ctx context.Context, logger *logrus.Entry, actorId uint32, videoIds []uint32) (resp []*feed.Video, err error) {
 	var videos []*models.Video
-	logger = logging.LogService("QueryVideos.query").WithContext(ctx)
 	//Gorm的操作，以后不需要在单独开span，通过传ctx的方式完成 "WithContext(ctx)"，如果在函数需要这样写，但是这个的目的是为了获取子 Span 的 ctx
 	err = database.Client.WithContext(ctx).Where("Id IN ?", videoIds).Find(&videos).Error
 	if err != nil {
