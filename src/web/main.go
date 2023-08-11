@@ -18,7 +18,6 @@ import (
 )
 
 func main() {
-
 	// Set Trace Provider
 	tp, err := tracing.SetTraceProvider(config.WebServiceName)
 

@@ -90,9 +90,6 @@ func RegisterHandle(c *gin.Context) {
 }
 
 func init() {
-	conn, err := grpc2.Connect(config.AuthRpcServerName)
-	if err != nil {
-		panic(err)
-	}
+	conn := grpc2.Connect(config.AuthRpcServerName)
 	Client = auth.NewAuthServiceClient(conn)
 }
