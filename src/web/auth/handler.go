@@ -5,15 +5,12 @@ import (
 	"GuGoTik/src/constant/strings"
 	"GuGoTik/src/extra/tracing"
 	"GuGoTik/src/rpc/auth"
+	grpc2 "GuGoTik/src/utils/grpc"
 	"GuGoTik/src/utils/logging"
 	"GuGoTik/src/web/models"
-	"fmt"
 	"github.com/gin-gonic/gin"
 	_ "github.com/mbobakov/grpc-consul-resolver"
 	"github.com/sirupsen/logrus"
-	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 	"net/http"
 )
 
@@ -93,17 +90,9 @@ func RegisterHandle(c *gin.Context) {
 }
 
 func init() {
-	conn, err := grpc.Dial(
-		fmt.Sprintf("consul://%s/%s?wait=15s", config.EnvCfg.ConsulAddr, config.AuthRpcServerName),
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithDefaultServiceConfig(`{"loadBalancingPolicy": "round_robin"}`),
-		grpc.WithUnaryInterceptor(otelgrpc.UnaryClientInterceptor()),
-	)
-
+	conn, err := grpc2.Connect(config.AuthRpcServerName)
 	if err != nil {
-		logging.Logger.WithFields(logrus.Fields{
-			"err": err,
-		}).Errorf("Build AuthService Client meet trouble")
+		panic(err)
 	}
 	Client = auth.NewAuthServiceClient(conn)
 }
