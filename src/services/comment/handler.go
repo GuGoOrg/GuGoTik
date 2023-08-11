@@ -8,7 +8,6 @@ import (
 	"GuGoTik/src/rpc/comment"
 	"GuGoTik/src/rpc/user"
 	"GuGoTik/src/storage/database"
-	"GuGoTik/src/utils/consul"
 	grpc2 "GuGoTik/src/utils/grpc"
 	"GuGoTik/src/utils/logging"
 	"context"
@@ -23,22 +22,11 @@ type CommentServiceImpl struct {
 }
 
 func init() {
-	service, err := consul.ResolveService(config.UserRpcServerName)
+	userRpcConn, err := grpc2.Connect(config.UserRpcServerName)
 	if err != nil {
-		logging.Logger.WithFields(logrus.Fields{
-			"err": err,
-		}).Fatalf("Cannot find user rpc server")
+		panic(err)
 	}
-
-	logging.Logger.Debugf("Found service %v in port %v", service.ServiceID, service.ServicePort)
-
-	conn, err := grpc2.Connect(service)
-	if err != nil {
-		logging.Logger.WithFields(logrus.Fields{
-			"err": err,
-		}).Fatalf("Cannot find user rpc server")
-	}
-	UserClient = user.NewUserServiceClient(conn)
+	UserClient = user.NewUserServiceClient(userRpcConn)
 }
 
 // ActionComment implements the CommentServiceImpl interface.
@@ -163,9 +151,4 @@ func addComment(ctx context.Context, logger *logrus.Entry, span trace.Span, pUse
 
 func deleteComment(ctx context.Context, logger *logrus.Entry, span trace.Span, pUser *user.User, pVideoID uint32, commentID uint32) (resp *comment.ActionCommentResponse, err error) {
 	return
-}
-
-func count(ctx context.Context, videoID uint32) (count int64, err error) {
-	result := database.Client.Model(&models.Comment{}).WithContext(ctx).Where("video_id = ?", videoID).Count(&count)
-	return count, result.Error
 }
