@@ -22,10 +22,7 @@ type CommentServiceImpl struct {
 }
 
 func init() {
-	userRpcConn, err := grpc2.Connect(config.UserRpcServerName)
-	if err != nil {
-		panic(err)
-	}
+	userRpcConn := grpc2.Connect(config.UserRpcServerName)
 	UserClient = user.NewUserServiceClient(userRpcConn)
 }
 

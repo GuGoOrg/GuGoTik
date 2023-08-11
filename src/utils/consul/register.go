@@ -55,7 +55,7 @@ func ResolveService(serviceName string) (*capi.CatalogService, error) {
 	for {
 		instances, err := getServiceInstances(serviceName)
 		if err != nil || len(instances) == 0 {
-			logging.Logger.Panicf("Cannot find service: %s", serviceName)
+			logging.Logger.Errorf("Cannot find service: %s", serviceName)
 		}
 
 		selectedInstance := roundRobin(instances)
