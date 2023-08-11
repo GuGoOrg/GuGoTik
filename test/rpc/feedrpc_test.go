@@ -28,5 +28,5 @@ func TestListVideos(t *testing.T) {
 
 	res, err := Client.ListVideos(context.Background(), &req)
 	assert.Empty(t, err)
-	assert.Equal(t, int32(0), res.StatusCode)
+	assert.Equal(t, 0, res.StatusCode)
 }

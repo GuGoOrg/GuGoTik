@@ -5,19 +5,15 @@ import (
 	"GuGoTik/src/constant/strings"
 	"GuGoTik/src/extra/tracing"
 	"GuGoTik/src/rpc/feed"
+	grpc2 "GuGoTik/src/utils/grpc"
 	"GuGoTik/src/utils/logging"
 	"GuGoTik/src/web/models"
-	"fmt"
 	"net/http"
 	"strconv"
-
-	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 
 	"github.com/gin-gonic/gin"
 	_ "github.com/mbobakov/grpc-consul-resolver"
 	"github.com/sirupsen/logrus"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
 var Client feed.FeedServiceClient
@@ -72,18 +68,9 @@ func ListVideosHandle(c *gin.Context) {
 }
 
 func init() {
-	//Dial creates a client connection to the given target.
-	conn, err := grpc.Dial(
-		fmt.Sprintf("consul://%s/%s?wait=15s", config.EnvCfg.ConsulAddr, config.FeedRpcServerName),
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithDefaultServiceConfig(`{"loadBalancingPolicy": "round_robin"}`),
-		grpc.WithUnaryInterceptor(otelgrpc.UnaryClientInterceptor()),
-	)
-
+	conn, err := grpc2.Connect(config.FeedRpcServerName)
 	if err != nil {
-		logging.Logger.WithFields(logrus.Fields{
-			"err": err,
-		}).Errorf("Build FeedService Client meet trouble")
+		panic(err)
 	}
 	Client = feed.NewFeedServiceClient(conn)
 }

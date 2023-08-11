@@ -7,7 +7,7 @@ import (
 
 // Video 视频表
 type Video struct {
-	UserId    int64  `json:"user_id" gorm:"not null;index"`
+	ID        uint32 `gorm:"not null;index:video;primarykey;autoIncrement"`
 	Title     string `json:"title" gorm:"not null;"`
 	FileName  string `json:"play_name" gorm:"not null;"`
 	CoverName string `json:"cover_name" gorm:"not null;"`
