@@ -7,6 +7,8 @@ import (
 	"GuGoTik/src/utils/logging"
 	"GuGoTik/src/web/about"
 	"GuGoTik/src/web/auth"
+	comment2 "GuGoTik/src/web/comment"
+	feed2 "GuGoTik/src/web/feed"
 	"GuGoTik/src/web/middleware"
 	"context"
 	"github.com/gin-contrib/gzip"
@@ -56,7 +58,16 @@ func main() {
 		user.POST("/login", auth.LoginHandle)
 		user.POST("/register", auth.RegisterHandle)
 	}
-
+	feed := rootPath.Group("/feed")
+	{
+		feed.GET("/", feed2.ListVideosHandle)
+	}
+	comment := rootPath.Group("/comment")
+	{
+		comment.POST("/action", comment2.ActionCommentHandler)
+		comment.GET("/list", comment2.ListCommentHandler)
+		comment.GET("/count", comment2.CountCommentHandler)
+	}
 	// Run Server
 	if err := g.Run(config.WebServiceAddr); err != nil {
 		panic("Can not run GuGoTik Gateway, binding port: " + config.WebServiceAddr)
