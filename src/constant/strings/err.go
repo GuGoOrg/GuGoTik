@@ -22,6 +22,10 @@ const (
 	UnableToCreateCommentError     = "无法创建评论"
 	FeedServiceInnerErrorCode      = 50006
 	FeedServiceInnerError          = "视频服务出现内部错误，请稍后重试！"
+	ActorIDNotMatchErrorCode       = 50007
+	ActorIDNotMatchError           = "用户不匹配"
+	UnableToDeleteCommentErrorCode = 50008
+	UnableToDeleteCommentError     = "无法删除视频评论"
 )
 
 // Expected Error
