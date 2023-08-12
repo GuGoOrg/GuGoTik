@@ -11,13 +11,13 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-func Connect(serviceName string) (conn *grpc.ClientConn, err error) {
+func Connect(serviceName string) (conn *grpc.ClientConn) {
 	service, err := consul.ResolveService(serviceName)
 	if err != nil {
 		logging.Logger.WithFields(logrus.Fields{
 			"service": serviceName,
 			"err":     err,
-		}).Fatalf("Cannot find %v rpc server", serviceName)
+		}).Errorf("Cannot find %v rpc server", serviceName)
 	}
 
 	logging.Logger.Debugf("Found service %v in %v:%v", service.ServiceName, service.Address, service.ServicePort)
@@ -27,7 +27,7 @@ func Connect(serviceName string) (conn *grpc.ClientConn, err error) {
 		logging.Logger.WithFields(logrus.Fields{
 			"service": service.ServiceName,
 			"err":     err,
-		}).Fatalf("Cannot connect to %v rpc server in %v:%v", service.ServiceName, service.Address, service.ServicePort)
+		}).Errorf("Cannot connect to %v rpc server in %v:%v", service.ServiceName, service.Address, service.ServicePort)
 	}
 	return
 }

@@ -11,3 +11,12 @@ const UserRpcServerPort = ":37002"
 
 const CommentRpcServerName = "GuGoTik-CommentService"
 const CommentRpcServerPort = ":37003"
+
+const FeedRpcServerName = "GuGoTik-FeedService"
+const FeedRpcServerPort = ":37004"
+
+const PublishRpcServerName = "GuGoTik-PublisherService"
+const PublishRpcServerPort = ":37005"
+
+const FavoriteRpcServerName = "GuGoTik-FavoriteService"
+const FavoriteRpcServerPort = ":37006"

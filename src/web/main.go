@@ -7,6 +7,7 @@ import (
 	"GuGoTik/src/utils/logging"
 	"GuGoTik/src/web/about"
 	"GuGoTik/src/web/auth"
+	feed2 "GuGoTik/src/web/feed"
 	"GuGoTik/src/web/middleware"
 	"context"
 	"github.com/gin-contrib/gzip"
@@ -17,7 +18,6 @@ import (
 )
 
 func main() {
-
 	// Set Trace Provider
 	tp, err := tracing.SetTraceProvider(config.WebServiceName)
 
@@ -57,7 +57,10 @@ func main() {
 		user.POST("/login", auth.LoginHandle)
 		user.POST("/register", auth.RegisterHandle)
 	}
-
+	feed := rootPath.Group("/feed")
+	{
+		feed.GET("/", feed2.ListVideosHandle)
+	}
 	// Run Server
 	if err := g.Run(config.WebServiceAddr); err != nil {
 		panic("Can not run GuGoTik Gateway, binding port: " + config.WebServiceAddr)
