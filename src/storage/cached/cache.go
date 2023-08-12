@@ -168,7 +168,7 @@ func Get(ctx context.Context, key string) (string, bool) {
 }
 
 // GetWithFunc 从缓存中获取字符串，如果不存在调用 Func 函数获取
-func GetWithFunc(ctx context.Context, key string, f func(ctx context.Context) string) string {
+func GetWithFunc(ctx context.Context, key string, f func(ctx context.Context, key string) (value string)) string {
 	ctx, span := tracing.Tracer.Start(ctx, "Cached-GetFromStringCacheWithFunc")
 	defer span.End()
 	value, ok := Get(ctx, key)
@@ -176,7 +176,7 @@ func GetWithFunc(ctx context.Context, key string, f func(ctx context.Context) st
 		return value
 	}
 	// 如果不存在，那么就获取他
-	value = f(ctx)
+	value = f(ctx, key)
 	Write(ctx, key, value, true)
 	return value
 }
