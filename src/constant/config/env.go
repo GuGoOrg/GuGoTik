@@ -27,8 +27,9 @@ type envConfig struct {
 	TracingEndPoint      string `env:"TRACING_ENDPOINT"`
 	PyroscopeState       string `env:"PYROSCOPE_STATE" envDefault:"false"`
 	PyroscopeAddr        string `env:"PYROSCOPE_ADDR"`
-	RedisPrefix          string `env:"REDIS_PREFIX" envDefault:""`
-	PostgreSQLSchema     string `env:"POSTGRESQL_SCHEMA" envDefault:""`
+	RedisPrefix          string `env:"REDIS_PREFIX" envDefault:"GUGUTIK"`
+	PostgreSQLSchema     string `env:"POSTGRESQL_SCHEMA"`
+	RedisMaster          string `env:"REDIS_MASTER"`
 }
 
 func init() {
