@@ -143,7 +143,7 @@ func Get(ctx context.Context, key string) (string, bool) {
 	}).Infof("Missed local memory cached")
 
 	var result *redis2.StringCmd
-	if result = redis.Client.Get(ctx, key); result.Err() != nil {
+	if result = redis.Client.Get(ctx, key); result.Err() != nil && result.Err() != redis2.Nil {
 		logger.WithFields(logrus.Fields{
 			"err":    result.Err(),
 			"string": key,
@@ -168,7 +168,7 @@ func Get(ctx context.Context, key string) (string, bool) {
 }
 
 // GetWithFunc 从缓存中获取字符串，如果不存在调用 Func 函数获取
-func GetWithFunc(ctx context.Context, key string, f func(ctx context.Context, key string) (value string)) string {
+func GetWithFunc(ctx context.Context, key string, f func(ctx context.Context, key string) string) string {
 	ctx, span := tracing.Tracer.Start(ctx, "Cached-GetFromStringCacheWithFunc")
 	defer span.End()
 	value, ok := Get(ctx, key)
