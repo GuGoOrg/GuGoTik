@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/gorm/schema"
 	"gorm.io/plugin/opentelemetry/tracing"
 	"time"
 )
@@ -28,6 +29,9 @@ func init() {
 		&gorm.Config{
 			PrepareStmt: true,
 			Logger:      gormLogrus,
+			NamingStrategy: schema.NamingStrategy{
+				TablePrefix: config.EnvCfg.PostgreSQLSchema,
+			},
 		},
 	); err != nil {
 		panic(err)

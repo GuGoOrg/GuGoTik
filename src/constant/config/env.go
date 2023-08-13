@@ -28,6 +28,7 @@ type envConfig struct {
 	PyroscopeState       string `env:"PYROSCOPE_STATE" envDefault:"false"`
 	PyroscopeAddr        string `env:"PYROSCOPE_ADDR"`
 	RedisPrefix          string `env:"REDIS_PREFIX" envDefault:""`
+	PostgreSQLSchema     string `env:"POSTGRESQL_SCHEMA" envDefault:""`
 }
 
 func init() {
