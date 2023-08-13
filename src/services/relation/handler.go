@@ -129,7 +129,7 @@ func (r RelationServiceImpl) Unfollow(ctx context.Context, request *relation.Rel
 	return
 }
 
-func (r RelationServiceImpl) GetFollowList(ctx context.Context, request *relation.FollowerListRequest) (resp *relation.FollowListResponse, err error) {
+func (r RelationServiceImpl) GetFollowList(ctx context.Context, request *relation.FollowListRequest) (resp *relation.FollowListResponse, err error) {
 	ctx, span := tracing.Tracer.Start(ctx, "GetFollowListService")
 	defer span.End()
 	logger := logging.LogService("RelationService.GetFollowList").WithContext(ctx)
