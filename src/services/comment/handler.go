@@ -60,7 +60,7 @@ func (c CommentServiceImpl) ActionComment(ctx context.Context, request *comment.
 
 	// TODO: Video check: check if the qVideo exists || check if creator is the same as actor
 
-	// Get target user
+	// Get target user TODO: 重复的用户不重复查询
 	userResponse, err := UserClient.GetUserInfo(ctx, &user.UserRequest{
 		UserId:  request.ActorId,
 		ActorId: request.ActorId,
