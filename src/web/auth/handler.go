@@ -29,6 +29,7 @@ func LoginHandle(c *gin.Context) {
 			UserId:     0,
 			Token:      "",
 		})
+		return
 	}
 
 	res, err := Client.Login(c.Request.Context(), &auth.LoginRequest{

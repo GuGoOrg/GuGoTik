@@ -30,6 +30,7 @@ func RegisterConsul(name string, port string) error {
 		"name": name,
 		"port": parsedPort,
 	}).Infof("Services Register Consul")
+	name = config.EnvCfg.ConsulAnonymityPrefix + name
 
 	if err != nil {
 		return err
@@ -52,6 +53,8 @@ func RegisterConsul(name string, port string) error {
 }
 
 func ResolveService(serviceName string) (*capi.CatalogService, error) {
+	serviceName = config.EnvCfg.ConsulAnonymityPrefix + serviceName
+
 	for {
 		instances, err := getServiceInstances(serviceName)
 		if err != nil || len(instances) == 0 {
@@ -67,6 +70,8 @@ func ResolveService(serviceName string) (*capi.CatalogService, error) {
 }
 
 func getServiceInstances(serviceName string) ([]*capi.CatalogService, error) {
+	serviceName = config.EnvCfg.ConsulAnonymityPrefix + serviceName
+
 	services, _, err := consulClient.Catalog().Service(serviceName, "", nil)
 	if err != nil {
 		return nil, err

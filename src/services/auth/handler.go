@@ -5,24 +5,23 @@ import (
 	"GuGoTik/src/extra/tracing"
 	"GuGoTik/src/models"
 	"GuGoTik/src/rpc/auth"
+	"GuGoTik/src/storage/cached"
 	"GuGoTik/src/storage/database"
-	"GuGoTik/src/storage/redis"
 	"GuGoTik/src/utils/logging"
 	"context"
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
 	"github.com/google/uuid"
-	redisLib "github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/crypto/bcrypt"
 	"io"
 	"net/http"
 	"strconv"
 	stringsLib "strings"
 	"sync"
-	"time"
 )
 
 type AuthServiceImpl struct {
@@ -34,22 +33,9 @@ func (a AuthServiceImpl) Authenticate(ctx context.Context, request *auth.Authent
 	defer span.End()
 	logger := logging.LogService("AuthService.Authenticate").WithContext(ctx)
 
-	has, userId, err := hasToken(ctx, request.Token)
-	if err != nil {
-		logger.WithFields(logrus.Fields{
-			"err":   err,
-			"token": request.Token,
-		}).Warnf("AuthService Authenticate Action failed to response when checking token")
-		span.RecordError(err)
+	userId, ok := hasToken(ctx, request.Token)
 
-		resp = &auth.AuthenticateResponse{
-			StatusCode: strings.AuthServiceInnerErrorCode,
-			StatusMsg:  strings.AuthServiceInnerError,
-		}
-		return
-	}
-
-	if !has {
+	if !ok {
 		resp = &auth.AuthenticateResponse{
 			StatusCode: strings.UserNotExistedCode,
 			StatusMsg:  strings.UserNotExisted,
@@ -181,19 +167,7 @@ func (a AuthServiceImpl) Register(ctx context.Context, request *auth.RegisterReq
 		return
 	}
 
-	if resp.Token, err = getToken(ctx, user.ID); err != nil {
-		logger.WithFields(logrus.Fields{
-			"err":      result.Error,
-			"username": request.Username,
-		}).Warnf("AuthService Register Action failed to response when getting token")
-		logging.SetSpanError(span, err)
-
-		resp = &auth.RegisterResponse{
-			StatusCode: strings.AuthServiceInnerErrorCode,
-			StatusMsg:  strings.AuthServiceInnerError,
-		}
-		return resp, nil
-	}
+	resp.Token = getToken(ctx, user.ID)
 
 	logger.WithFields(logrus.Fields{
 		"username": request.Username,
@@ -267,20 +241,7 @@ func (a AuthServiceImpl) Login(ctx context.Context, request *auth.LoginRequest) 
 		setUserInfoToRedis(ctx, user.UserName, hashed)
 	}
 
-	token, err := getToken(ctx, user.ID)
-	if err != nil {
-		logger.WithFields(logrus.Fields{
-			"err":      err,
-			"username": request.Username,
-		}).Warnf("AuthService Login Action failed to response with inner err.")
-		logging.SetSpanError(span, err)
-
-		resp = &auth.LoginResponse{
-			StatusCode: strings.AuthServiceInnerErrorCode,
-			StatusMsg:  strings.AuthServiceInnerError,
-		}
-		return resp, nil
-	}
+	token := getToken(ctx, user.ID)
 
 	resp = &auth.LoginResponse{
 		StatusCode: strings.ServiceOKCode,
@@ -292,7 +253,7 @@ func (a AuthServiceImpl) Login(ctx context.Context, request *auth.LoginRequest) 
 }
 
 func hashPassword(ctx context.Context, password string) (string, error) {
-	_, span := tracing.Tracer.Start(ctx, "Auth-PasswordHash")
+	_, span := tracing.Tracer.Start(ctx, "PasswordHash")
 	defer span.End()
 
 	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 12)
@@ -300,87 +261,44 @@ func hashPassword(ctx context.Context, password string) (string, error) {
 }
 
 func checkPasswordHash(ctx context.Context, password, hash string) bool {
-	_, span := tracing.Tracer.Start(ctx, "Auth-PasswordHashChecked")
+	_, span := tracing.Tracer.Start(ctx, "PasswordHashChecked")
 	defer span.End()
 	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
 	return err == nil
 }
 
-func getToken(ctx context.Context, userId uint32) (token string, err error) {
-	ctx, span := tracing.Tracer.Start(ctx, "Redis-GetToken")
-	defer span.End()
-	token, err = redis.Client.Get(ctx, "U2T"+strconv.FormatUint(uint64(userId), 32)).Result()
-	span.SetAttributes(attribute.String("token", token))
-	switch {
-	case err == redisLib.Nil: // User do not log in
-		token = uuid.New().String()
-		redis.Client.Set(ctx, "U2T"+strconv.FormatUint(uint64(userId), 32), token, 240*time.Hour)
-		redis.Client.Set(ctx, "T2U"+token, userId, 240*time.Hour)
-		return token, nil
-	default:
-		return token, err
-	}
+func getToken(ctx context.Context, userId uint32) string {
+	return cached.GetWithFunc(ctx, "U2T"+strconv.FormatUint(uint64(userId), 10),
+		func(ctx context.Context, key string) string {
+			span := trace.SpanFromContext(ctx)
+			token := uuid.New().String()
+			span.SetAttributes(attribute.String("token", token))
+			cached.Write(ctx, "T2U"+token, strconv.FormatUint(uint64(userId), 10), true)
+			return token
+		})
 }
 
-func hasToken(ctx context.Context, token string) (bool, string, error) {
-	ctx, span := tracing.Tracer.Start(ctx, "Redis-HasToken")
-	defer span.End()
-
-	userId, err := redis.Client.Get(ctx, "T2U"+token).Result()
-	switch {
-	case err == redisLib.Nil: // User do not log in
-		return false, "", nil
-	case err != nil:
-		return false, "", err
-	default:
-		return true, userId, nil
-	}
+func hasToken(ctx context.Context, token string) (string, bool) {
+	return cached.Get(ctx, "T2U"+token)
 }
 
 func isUserVerifiedInRedis(ctx context.Context, username string, password string) bool {
-	ctx, span := tracing.Tracer.Start(ctx, "Redis-VerifiedLogUserInfo")
-	defer span.End()
-	logger := logging.LogService("Redis.VerifiedLogUserInfo").WithContext(ctx)
-
-	saved, err := redis.Client.Get(ctx, "UserLog"+username).Result()
-	switch {
-	case err == redisLib.Nil: // User do not log in
-		return false
-	case err != nil:
-		logger.WithFields(logrus.Fields{
-			"err":      err,
-			"username": username,
-		}).Warnf("Redis have a trouble when verifying user's token.")
-		logging.SetSpanError(span, err)
-
-		return false
-	default:
-		if checkPasswordHash(ctx, password, saved) {
-			return true
-		}
+	pass, ok := cached.Get(ctx, "UserLog"+username)
+	if !ok {
 		return false
 	}
+
+	if checkPasswordHash(ctx, password, pass) {
+		return true
+	}
+	return false
 }
 
 func setUserInfoToRedis(ctx context.Context, username string, password string) {
-	ctx, span := tracing.Tracer.Start(ctx, "Redis-SetUserLog")
-	defer span.End()
-	logger := logging.LogService("Redis.SetUserLog").WithContext(ctx)
-
-	saved, err := redis.Client.Get(ctx, "UserLog"+username).Result()
-	switch {
-	case err == redisLib.Nil:
-		redis.Client.Set(ctx, "UserLog"+username, password, 240*time.Hour)
-	case err != nil:
-		logger.WithFields(logrus.Fields{
-			"err":      err,
-			"username": username,
-		}).Warnf("Redis have a trouble when set user's cached login info.")
-		logging.SetSpanError(span, err)
-	default:
-		redis.Client.Del(ctx, "UserLog"+saved)
-		redis.Client.Set(ctx, "UserLog"+username, password, 240*time.Hour)
+	if _, ok := cached.Get(ctx, "UserLog"+username); ok {
+		cached.TagDelete(ctx, "UserLog"+username)
 	}
+	cached.Write(ctx, "UserLog"+username, password, true)
 }
 
 func getAvatarByEmail(ctx context.Context, email string) string {

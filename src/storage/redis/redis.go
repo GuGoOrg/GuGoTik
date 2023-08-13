@@ -12,9 +12,10 @@ var Client redis.UniversalClient
 func init() {
 	addrs := strings.Split(config.EnvCfg.RedisAddr, ";")
 	Client = redis.NewUniversalClient(&redis.UniversalOptions{
-		Addrs:    addrs,
-		Password: config.EnvCfg.RedisPassword,
-		DB:       config.EnvCfg.RedisDB,
+		Addrs:      addrs,
+		Password:   config.EnvCfg.RedisPassword,
+		DB:         config.EnvCfg.RedisDB,
+		MasterName: config.EnvCfg.RedisMaster,
 	})
 
 	if err := redisotel.InstrumentTracing(Client); err != nil {
