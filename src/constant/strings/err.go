@@ -40,4 +40,6 @@ const (
 	AuthUserNeeded               = "用户无权限操作，请登陆后重试！"
 	ActionCommentTypeInvalidCode = 10005
 	ActionCommentTypeInvalid     = "不合法的评论类型"
+	ActionCommentLimitedCode     = 10006
+	ActionCommentLimited         = "评论频繁，请稍后再试！"
 )

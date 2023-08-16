@@ -9,6 +9,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"os"
+	"sync"
 	"testing"
 )
 
@@ -31,6 +32,29 @@ func TestActionComment_Add(t *testing.T) {
 	})
 	assert.Empty(t, err)
 	assert.Equal(t, int32(0), res.StatusCode)
+}
+
+func TestActionComment_Limiter(t *testing.T) {
+	wg := &sync.WaitGroup{}
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_, _ = Client.ActionComment(context.Background(), &comment.ActionCommentRequest{
+				ActorId:    1,
+				VideoId:    0,
+				ActionType: comment.ActionCommentType_ACTION_COMMENT_TYPE_ADD,
+				Action:     &comment.ActionCommentRequest_CommentText{CommentText: "Test comment for user 1"},
+			})
+			_, _ = Client.ActionComment(context.Background(), &comment.ActionCommentRequest{
+				ActorId:    2,
+				VideoId:    0,
+				ActionType: comment.ActionCommentType_ACTION_COMMENT_TYPE_ADD,
+				Action:     &comment.ActionCommentRequest_CommentText{CommentText: "Test comment for user 2"},
+			})
+		}()
+	}
+	wg.Wait()
 }
 
 func TestActionComment_Delete(t *testing.T) {
