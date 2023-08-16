@@ -53,7 +53,7 @@ func main() {
 	if err := consul.RegisterConsul(config.UserRpcServerName, config.UserRpcServerPort); err != nil {
 		log.Panicf("Rpc %s register consul hanpens error for: %v", config.UserRpcServerName, err)
 	}
-	log.Infof("Rpc %s is running at %s now", config.UserRpcServerName, config.UserRpcServerName)
+	log.Infof("Rpc %s is running at %s now", config.UserRpcServerName, config.UserRpcServerPort)
 	if err := s.Serve(lis); err != nil {
 		log.Panicf("Rpc %s listen hanpens error for: %v", config.UserRpcServerName, err)
 	}
