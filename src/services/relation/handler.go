@@ -21,8 +21,8 @@ type RelationServiceImpl struct {
 }
 
 func init() {
-	userRpcConn := grpc2.Connect(config.UserRpcServerName)
-	UserClient = user.NewUserServiceClient(userRpcConn)
+	userRPCConn := grpc2.Connect(config.UserRpcServerName)
+	UserClient = user.NewUserServiceClient(userRPCConn)
 }
 
 func (r RelationServiceImpl) Follow(ctx context.Context, request *relation.RelationActionRequest) (resp *relation.RelationActionResponse, err error) {
@@ -30,18 +30,24 @@ func (r RelationServiceImpl) Follow(ctx context.Context, request *relation.Relat
 	defer span.End()
 	logger := logging.LogService("RelationService.Follow").WithContext(ctx)
 
-	//检查登陆状态 todo
+	if request.UserId == request.ActorId {
+		resp = &relation.RelationActionResponse{
+			StatusCode: strings.UnableToRelateYourselfErrorCode,
+			StatusMsg:  strings.UnableToRelateYourselfError,
+		}
+		return
+	}
 
 	userResponse, err := UserClient.GetUserInfo(ctx, &user.UserRequest{
 		UserId:  request.UserId,
 		ActorId: request.ActorId,
 	})
 
-	if err != nil || userResponse.StatusCode != strings.ServiceOKCode {
+	if err != nil || userResponse.StatusCode != strings.ServiceOKCode || userResponse.User == nil {
 		logger.WithFields(logrus.Fields{
 			"err":     err,
 			"ActorId": request.ActorId,
-		}).Errorf("User service error")
+		}).Errorf("failed to get user info")
 		logging.SetSpanError(span, err)
 
 		return &relation.RelationActionResponse{
@@ -59,40 +65,42 @@ func (r RelationServiceImpl) Follow(ctx context.Context, request *relation.Relat
 
 	if result.Error != nil {
 		resp = &relation.RelationActionResponse{
-			StatusCode: strings.UnableToFollowErrorCode,
-			StatusMsg:  strings.UnableToFollowError,
+			StatusCode: strings.RelationAlreadyExistsErrorCode,
+			StatusMsg:  strings.RelationAlreadyExistsError,
 		}
 		return
 	}
-
-	//更新关注数和粉丝数
-	UpdateFollowerCount()
-	UpdateFollowCount()
 
 	resp = &relation.RelationActionResponse{
 		StatusCode: strings.ServiceOKCode,
 		StatusMsg:  strings.ServiceOK,
 	}
-
 	return
 }
 
 func (r RelationServiceImpl) Unfollow(ctx context.Context, request *relation.RelationActionRequest) (resp *relation.RelationActionResponse, err error) {
-
 	ctx, span := tracing.Tracer.Start(ctx, "UnfollowService")
 	defer span.End()
 	logger := logging.LogService("RelationService.Unfollow").WithContext(ctx)
+
+	if request.UserId == request.ActorId {
+		resp = &relation.RelationActionResponse{
+			StatusCode: strings.UnableToRelateYourselfErrorCode,
+			StatusMsg:  strings.UnableToRelateYourselfError,
+		}
+		return
+	}
 
 	userResponse, err := UserClient.GetUserInfo(ctx, &user.UserRequest{
 		UserId:  request.UserId,
 		ActorId: request.ActorId,
 	})
 
-	if err != nil || userResponse.StatusCode != strings.ServiceOKCode {
+	if err != nil || userResponse.StatusCode != strings.ServiceOKCode || userResponse.User == nil {
 		logger.WithFields(logrus.Fields{
 			"err":     err,
 			"ActorId": request.ActorId,
-		}).Errorf("User service error")
+		}).Errorf("failed to get user info")
 		logging.SetSpanError(span, err)
 
 		return &relation.RelationActionResponse{
@@ -106,7 +114,21 @@ func (r RelationServiceImpl) Unfollow(ctx context.Context, request *relation.Rel
 		UserId:  request.UserId,
 	}
 
+	// Check if relation exists before deleting
+	existingRelation := models.Relation{}
 	result := database.Client.WithContext(ctx).
+		Where(&rRelation).
+		First(&existingRelation)
+
+	if result.Error != nil {
+		resp = &relation.RelationActionResponse{
+			StatusCode: strings.RelationNotFoundErrorCode,
+			StatusMsg:  strings.RelationNotFoundError,
+		}
+		return
+	}
+
+	result = database.Client.WithContext(ctx).
 		Where(&rRelation).
 		Delete(&rRelation)
 
@@ -117,10 +139,6 @@ func (r RelationServiceImpl) Unfollow(ctx context.Context, request *relation.Rel
 		}
 		return
 	}
-
-	//更新关注数和粉丝数
-	UpdateFollowerCount()
-	UpdateFollowCount()
 
 	resp = &relation.RelationActionResponse{
 		StatusCode: strings.ServiceOKCode,
@@ -143,7 +161,7 @@ func (r RelationServiceImpl) GetFollowList(ctx context.Context, request *relatio
 	if result.Error != nil {
 		logger.WithFields(logrus.Fields{
 			"err": result.Error,
-		}).Errorf("GetFollowListService list follow failed to response when listing follows")
+		}).Errorf("GetFollowListService failed to response when listing follows")
 		logging.SetSpanError(span, err)
 
 		resp = &relation.FollowListResponse{
@@ -159,14 +177,15 @@ func (r RelationServiceImpl) GetFollowList(ctx context.Context, request *relatio
 			UserId:  follow.UserId,
 			ActorId: request.ActorId,
 		})
-		if err != nil || userResponse.StatusCode != strings.ServiceOKCode {
+		if err != nil || userResponse.StatusCode != strings.ServiceOKCode || userResponse.User == nil {
 			logger.WithFields(logrus.Fields{
 				"err":    err,
 				"follow": follow,
 			}).Errorf("Unable to get user info")
 			logging.SetSpanError(span, err)
+		} else {
+			rFollowList = append(rFollowList, userResponse.User)
 		}
-		rFollowList = append(rFollowList, userResponse.User)
 	}
 
 	resp = &relation.FollowListResponse{
@@ -225,7 +244,7 @@ func (r RelationServiceImpl) GetFollowerList(ctx context.Context, request *relat
 	if result.Error != nil {
 		logger.WithFields(logrus.Fields{
 			"err": result.Error,
-		}).Errorf("GetFollowerListService list follower failed to response when listing followers")
+		}).Errorf("GetFollowerListService failed to response when listing followers")
 		logging.SetSpanError(span, err)
 
 		resp = &relation.FollowerListResponse{
@@ -241,14 +260,16 @@ func (r RelationServiceImpl) GetFollowerList(ctx context.Context, request *relat
 			UserId:  follower.UserId,
 			ActorId: request.ActorId,
 		})
-		if err != nil || userResponse.StatusCode != strings.ServiceOKCode {
+		if err != nil || userResponse.StatusCode != strings.ServiceOKCode || userResponse.User == nil {
 			logger.WithFields(logrus.Fields{
 				"err":      err,
 				"follower": follower,
 			}).Errorf("Unable to get user info")
 			logging.SetSpanError(span, err)
+		} else {
+			rFollowerList = append(rFollowerList, userResponse.User)
 		}
-		rFollowerList = append(rFollowerList, userResponse.User)
+
 	}
 
 	resp = &relation.FollowerListResponse{
@@ -257,7 +278,6 @@ func (r RelationServiceImpl) GetFollowerList(ctx context.Context, request *relat
 		UserList:   rFollowerList,
 	}
 	return
-
 }
 
 func (r RelationServiceImpl) CountFollowerList(ctx context.Context, request *relation.CountFollowerListRequest) (resp *relation.CountFollowerListResponse, err error) {
@@ -293,6 +313,79 @@ func (r RelationServiceImpl) CountFollowerList(ctx context.Context, request *rel
 }
 
 func (r RelationServiceImpl) GetFriendList(ctx context.Context, request *relation.FriendListRequest) (resp *relation.FriendListResponse, err error) {
+	ctx, span := tracing.Tracer.Start(ctx, "GetFriendListService")
+	defer span.End()
+	logger := logging.LogService("RelationService.GetFriendList").WithContext(ctx)
+
+	// 查询关注列表，找出关注的用户
+	var followList []models.Relation
+	followResult := database.Client.WithContext(ctx).
+		Where("actor_id = ?", request.UserId).
+		Find(&followList)
+
+	if followResult.Error != nil {
+		logger.WithFields(logrus.Fields{
+			"err": followResult.Error,
+		}).Errorf("GetFriendListService failed with error")
+		logging.SetSpanError(span, followResult.Error)
+
+		resp = &relation.FriendListResponse{
+			StatusCode: strings.UnableToGetFollowListErrorCode,
+			StatusMsg:  strings.UnableToGetFollowListError,
+		}
+		return
+	}
+
+	// 构建关注列表的用户 ID 映射
+	followingMap := make(map[uint32]bool)
+	for _, follow := range followList {
+		followingMap[follow.UserId] = true
+	}
+
+	// 查询粉丝列表，找出关注者的粉丝
+	var followerList []models.Relation
+	followerResult := database.Client.WithContext(ctx).
+		Where("user_id = ?", request.UserId).
+		Find(&followerList)
+
+	if followerResult.Error != nil {
+		logger.WithFields(logrus.Fields{
+			"err": followerResult.Error,
+		}).Errorf("GetFriendListService failed with error")
+		logging.SetSpanError(span, followerResult.Error)
+
+		resp = &relation.FriendListResponse{
+			StatusCode: strings.UnableToGetFollowerListErrorCode,
+			StatusMsg:  strings.UnableToGetFollowerListError,
+		}
+		return
+	}
+
+	// 构建互相关注的用户列表（既关注了关注者又被关注者所关注的用户）
+	mutualFriends := make([]*user.User, 0)
+	for _, follower := range followerList {
+		if followingMap[follower.ActorId] {
+			userResponse, err := UserClient.GetUserInfo(ctx, &user.UserRequest{
+				UserId:  follower.ActorId,
+				ActorId: request.ActorId,
+			})
+			if err != nil || userResponse.StatusCode != strings.ServiceOKCode || userResponse.User == nil {
+				logger.WithFields(logrus.Fields{
+					"err":      err,
+					"follower": follower,
+				}).Errorf("无法获取互相关注的用户信息")
+				logging.SetSpanError(span, err)
+			} else {
+				mutualFriends = append(mutualFriends, userResponse.User)
+			}
+		}
+	}
+
+	resp = &relation.FriendListResponse{
+		StatusCode: strings.ServiceOKCode,
+		StatusMsg:  strings.ServiceOK,
+		UserList:   mutualFriends,
+	}
 	return
 }
 
@@ -309,7 +402,6 @@ func (r RelationServiceImpl) IsFollow(ctx context.Context, request *relation.IsF
 		Count(&count)
 
 	if result.Error != nil {
-
 		logger.WithFields(logrus.Fields{
 			"err":     result.Error,
 			"ActorId": request.ActorId,
@@ -323,24 +415,7 @@ func (r RelationServiceImpl) IsFollow(ctx context.Context, request *relation.IsF
 		return
 	}
 
-	if count > 0 {
-		resp = &relation.IsFollowResponse{
-			Result: true,
-		}
-	} else {
-		resp = &relation.IsFollowResponse{
-			Result: false,
-		}
-	}
-
-	return
-}
-
-// UpdateFollowCount 更新关注数和粉丝数
-// Todo
-func UpdateFollowCount() {
-
-}
-func UpdateFollowerCount() {
-
+	return &relation.IsFollowResponse{
+		Result: count > 0,
+	}, nil
 }

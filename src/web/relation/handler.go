@@ -20,12 +20,16 @@ func init() {
 	Client = relation.NewRelationServiceClient(conn)
 }
 
+//todo: frontend interface   relation/action
+//func ActionHandler(c *gin.Context) {
+//	actiontype := c.Query("")
+//}
+
 func FollowHandler(c *gin.Context) {
 
 	var req models.RelationActionReq
 	_, span := tracing.Tracer.Start(c.Request.Context(), "FollowHandler")
 	defer span.End()
-
 	logger := logging.LogService("GateWay.Follow").WithContext(c.Request.Context())
 
 	if err := c.ShouldBindQuery(&req); err != nil {
@@ -199,7 +203,7 @@ func GetFollowerListHandler(c *gin.Context) {
 
 }
 
-func CountFollowerListHandler(c *gin.Context) {
+func CountFollowerHandler(c *gin.Context) {
 	var req models.CountFollowerListReq
 	_, span := tracing.Tracer.Start(c.Request.Context(), "CounterFollowHandler")
 	defer span.End()
@@ -231,6 +235,39 @@ func CountFollowerListHandler(c *gin.Context) {
 }
 
 func GetFriendListHandler(c *gin.Context) {
+
+	var req models.FriendListReq
+	_, span := tracing.Tracer.Start(c.Request.Context(), "GetFriendListHandler")
+	defer span.End()
+	logger := logging.LogService("GateWay.GetFriendList").WithContext(c.Request.Context())
+
+	if err := c.ShouldBindQuery(&req); err != nil {
+		c.JSON(http.StatusOK, models.FriendListRes{
+			StatusCode: strings.GateWayParamsErrorCode,
+			StatusMsg:  strings.GateWayParamsError,
+		})
+		return
+	}
+
+	res, err := Client.GetFriendList(c.Request.Context(), &relation.FriendListRequest{
+		ActorId: uint32(req.ActorId),
+		UserId:  uint32(req.UserId),
+	})
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"actor_id": req.ActorId,
+			"user_id":  req.UserId,
+		}).Warnf("Error when trying to connect with GetFriendListService")
+		c.JSON(http.StatusOK, res)
+		return
+	}
+
+	logger.WithFields(logrus.Fields{
+		"actor_id": req.ActorId,
+		"user_id":  req.UserId,
+	}).Infof("GetFriendList success")
+
+	c.JSON(http.StatusOK, res)
 
 }
 

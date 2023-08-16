@@ -17,6 +17,7 @@ import (
 var Client auth.AuthServiceClient
 
 func LoginHandle(c *gin.Context) {
+
 	var req models.LoginReq
 	_, span := tracing.Tracer.Start(c.Request.Context(), "LoginHandler")
 	defer span.End()

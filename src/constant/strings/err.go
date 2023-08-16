@@ -26,14 +26,18 @@ const (
 	ActorIDNotMatchError             = "用户不匹配"
 	UnableToDeleteCommentErrorCode   = 50008
 	UnableToDeleteCommentError       = "无法删除视频评论"
-	UnableToFollowErrorCode          = 50009
-	UnableToFollowError              = "无法关注该用户"
-	UnableToUnFollowErrorCode        = 500010
+	RelationAlreadyExistsErrorCode   = 50009
+	RelationAlreadyExistsError       = "无法关注该用户"
+	UnableToUnFollowErrorCode        = 50010
 	UnableToUnFollowError            = "取消关注失败"
-	UnableToGetFollowListErrorCode   = 500011
+	UnableToGetFollowListErrorCode   = 50011
 	UnableToGetFollowListError       = "无法查询到关注列表"
-	UnableToGetFollowerListErrorCode = 500012
+	UnableToGetFollowerListErrorCode = 50012
 	UnableToGetFollowerListError     = "无法查询到粉丝列表"
+	UnableToRelateYourselfErrorCode  = 50013
+	UnableToRelateYourselfError      = "无法关注自己"
+	RelationNotFoundErrorCode        = 50014
+	RelationNotFoundError            = "未关注该用户"
 )
 
 // Expected Error
