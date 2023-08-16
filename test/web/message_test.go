@@ -3,6 +3,7 @@ package web
 import (
 	"GuGoTik/src/web/models"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"testing"
@@ -48,12 +49,14 @@ func TestChat(t *testing.T) {
 	url := baseUrl + "/chat"
 	method := "GET"
 	req, err := http.NewRequest(method, url, nil)
+
 	q := req.URL.Query()
-	q.Add("token", "2f54104f-96d1-4ba3-94af-ee2e6b72dc5f")
+	q.Add("token", "1206dfe1-5f2a-44fa-a121-ef27b0fe5f8d")
 	q.Add("actor_id", "1")
 	q.Add("user_id", "1")
 	q.Add("perMsgTime", "0")
 	req.URL.RawQuery = q.Encode()
+	assert.Empty(t, err)
 
 	res, err := client.Do(req)
 	assert.Empty(t, err)
@@ -65,6 +68,7 @@ func TestChat(t *testing.T) {
 	body, err := io.ReadAll(res.Body)
 	assert.Empty(t, err)
 	listMessage := &models.ListMessageRes{}
+	fmt.Println(listMessage)
 	err = json.Unmarshal(body, &listMessage)
 	assert.Empty(t, err)
 	assert.Equal(t, 0, listMessage.StatusCode)
