@@ -34,6 +34,9 @@ func init() {
 
 	channel, err = conn.Channel()
 
+	if err != nil {
+		panic(err)
+	}
 	queue, err = channel.QueueDeclare(
 		strings.VideoPicker, //视频信息采集(封面/水印)
 		true,
@@ -42,6 +45,10 @@ func init() {
 		false,
 		nil,
 	)
+
+	if err != nil {
+		panic(err)
+	}
 }
 
 func CloseMQConn() {

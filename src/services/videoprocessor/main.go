@@ -76,28 +76,25 @@ func Consume(channel *amqp.Channel) {
 		panic(err)
 	}
 
-	for {
-		select {
-		case d := <-msg:
-			//解包 Otel Context
-			ctx := rabbitmq.ExtractAMQPHeaders(context.Background(), d.Headers)
-			ctx, span := tracing.Tracer.Start(ctx, "VideoPickerService")
-			logger := logging.LogService("VideoPicker.Picker").WithContext(ctx)
+	for d := range msg {
+		//解包 Otel Context
+		ctx := rabbitmq.ExtractAMQPHeaders(context.Background(), d.Headers)
+		ctx, span := tracing.Tracer.Start(ctx, "VideoPickerService")
+		logger := logging.LogService("VideoPicker.Picker").WithContext(ctx)
 
-			var raw models.RawVideo
-			if err := json.Unmarshal(d.Body, &raw); err != nil {
-				logger.WithFields(logrus.Fields{
-					"err": err,
-				}).Errorf("Error when unmarshaling the prepare json body.")
-			}
+		var raw models.RawVideo
+		if err := json.Unmarshal(d.Body, &raw); err != nil {
+			logger.WithFields(logrus.Fields{
+				"err": err,
+			}).Errorf("Error when unmarshaling the prepare json body.")
+		}
 
-			span.End()
-			err = d.Ack(false)
-			if err != nil {
-				logger.WithFields(logrus.Fields{
-					"err": err,
-				}).Errorf("Error when dealing with the video...")
-			}
+		span.End()
+		err = d.Ack(false)
+		if err != nil {
+			logger.WithFields(logrus.Fields{
+				"err": err,
+			}).Errorf("Error when dealing with the video...")
 		}
 	}
 }

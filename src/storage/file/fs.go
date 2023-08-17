@@ -16,7 +16,7 @@ type FSStorage struct {
 }
 
 func (f FSStorage) GetLocalPath(ctx context.Context, fileName string) string {
-	ctx, span := tracing.Tracer.Start(ctx, "FSStorage-GetLocalPath")
+	_, span := tracing.Tracer.Start(ctx, "FSStorage-GetLocalPath")
 	defer span.End()
 	return path.Join(config.EnvCfg.FileSystemStartPath, fileName)
 }
