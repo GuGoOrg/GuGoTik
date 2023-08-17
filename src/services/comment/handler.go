@@ -250,17 +250,13 @@ func (c CommentServiceImpl) CountComment(ctx context.Context, request *comment.C
 	}).Debugf("Process start")
 
 	countStringKey := fmt.Sprintf("CommentCount-%d", request.VideoId)
-	countString := cached.GetWithFunc(ctx, countStringKey,
-		func(ctx context.Context, key string) string {
+	countString, err := cached.GetWithFunc(ctx, countStringKey,
+		func(ctx context.Context, key string) (string, error) {
 			rCount, err := count(ctx, request.VideoId)
-			if err != nil {
-				return "error"
-			}
 
-			return strconv.FormatInt(rCount, 10)
+			return strconv.FormatInt(rCount, 10), err
 		})
 
-	rCount, err := strconv.ParseUint(countString, 10, 64)
 	if err != nil {
 		cached.TagDelete(ctx, "CommentCount")
 		logger.WithFields(logrus.Fields{
@@ -275,6 +271,7 @@ func (c CommentServiceImpl) CountComment(ctx context.Context, request *comment.C
 		}
 		return
 	}
+	rCount, _ := strconv.ParseUint(countString, 10, 64)
 
 	resp = &comment.CountCommentResponse{
 		StatusCode:   strings.ServiceOKCode,
