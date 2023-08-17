@@ -195,7 +195,7 @@ func (c CommentServiceImpl) ListComment(ctx context.Context, request *comment.Li
 					StatusCode: strings.UnableToQueryUserErrorCode,
 					StatusMsg:  strings.UnableToQueryUserError,
 				}
-				return
+				return resp, err
 			}
 			curUser = userResponse.User
 			userList[pComment.UserId] = curUser
@@ -244,7 +244,7 @@ func (c CommentServiceImpl) CountComment(ctx context.Context, request *comment.C
 		})
 
 	rCount, err := strconv.ParseUint(countString, 10, 64)
-	if countString == "error" || err != nil {
+	if err != nil {
 		cached.TagDelete(ctx, "CommentCount")
 		logger.WithFields(logrus.Fields{
 			"err":      err,
