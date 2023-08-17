@@ -7,6 +7,7 @@ import (
 	"GuGoTik/src/models"
 	"GuGoTik/src/rpc/comment"
 	"GuGoTik/src/rpc/user"
+	"GuGoTik/src/storage/cached"
 	"GuGoTik/src/storage/database"
 	"GuGoTik/src/storage/redis"
 	grpc2 "GuGoTik/src/utils/grpc"
@@ -16,9 +17,11 @@ import (
 	"github.com/go-redis/redis_rate/v10"
 	"github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel/trace"
+	"strconv"
+	"sync"
 )
 
-var UserClient user.UserServiceClient
+var userClient user.UserServiceClient
 
 var actionCommentLimitKeyPrefix = config.EnvCfg.RedisPrefix + "comment_freq_limit"
 
@@ -35,7 +38,7 @@ type CommentServiceImpl struct {
 
 func init() {
 	userRpcConn := grpc2.Connect(config.UserRpcServerName)
-	UserClient = user.NewUserServiceClient(userRpcConn)
+	userClient = user.NewUserServiceClient(userRpcConn)
 }
 
 // ActionComment implements the CommentServiceImpl interface.
@@ -102,10 +105,8 @@ func (c CommentServiceImpl) ActionComment(ctx context.Context, request *comment.
 		return
 	}
 
-	// TODO: Video check: check if the qVideo exists || check if creator is the same as actor
-
-	// Get target user TODO: 重复的用户不重复查询
-	userResponse, err := UserClient.GetUserInfo(ctx, &user.UserRequest{
+	// Get target user
+	userResponse, err := userClient.GetUserInfo(ctx, &user.UserRequest{
 		UserId:  request.ActorId,
 		ActorId: request.ActorId,
 	})
@@ -137,6 +138,9 @@ func (c CommentServiceImpl) ActionComment(ctx context.Context, request *comment.
 		return
 	}
 
+	countCommentKey := fmt.Sprintf("CommentCount-%d", request.VideoId)
+	cached.TagDelete(ctx, countCommentKey)
+
 	logger.WithFields(logrus.Fields{
 		"response": resp,
 	}).Debugf("Process done.")
@@ -153,8 +157,6 @@ func (c CommentServiceImpl) ListComment(ctx context.Context, request *comment.Li
 		"user_id":  request.ActorId,
 		"video_id": request.VideoId,
 	}).Debugf("Process start")
-
-	// TODO: Video check: check if the qVideo exists
 
 	var pCommentList []models.Comment
 	result := database.Client.WithContext(ctx).
@@ -174,23 +176,51 @@ func (c CommentServiceImpl) ListComment(ctx context.Context, request *comment.Li
 		return
 	}
 
+	// Get user info of each comment
 	rCommentList := make([]*comment.Comment, 0, result.RowsAffected)
+	userMap := make(map[uint32]*user.User)
 	for _, pComment := range pCommentList {
-		userResponse, err := UserClient.GetUserInfo(ctx, &user.UserRequest{
-			UserId:  pComment.UserId,
-			ActorId: request.ActorId,
-		})
-		if err != nil || userResponse.StatusCode != strings.ServiceOKCode {
-			logger.WithFields(logrus.Fields{
-				"err":      err,
-				"pComment": pComment,
-			}).Errorf("Unable to get user info")
-			logging.SetSpanError(span, err)
+		userMap[pComment.UserId] = &user.User{}
+	}
+	getUserInfoError := false
+	wg := sync.WaitGroup{}
+	wg.Add(len(userMap))
+	for userId := range userMap {
+		go func(userId uint32) {
+			userResponse, getUserErr := userClient.GetUserInfo(ctx, &user.UserRequest{
+				UserId:  userId,
+				ActorId: request.ActorId,
+			})
+			if err != nil || userResponse.StatusCode != strings.ServiceOKCode {
+				logger.WithFields(logrus.Fields{
+					"err":     getUserErr,
+					"user_id": userId,
+				}).Errorf("Unable to get user info")
+				logging.SetSpanError(span, getUserErr)
+				getUserInfoError = true
+				err = getUserErr
+			}
+			userMap[userId] = userResponse.User
+			wg.Done()
+		}(userId)
+	}
+	wg.Wait()
+
+	if getUserInfoError {
+		resp = &comment.ListCommentResponse{
+			StatusCode: strings.UnableToQueryUserErrorCode,
+			StatusMsg:  strings.UnableToQueryUserError,
 		}
+		return
+	}
+
+	// Create rCommentList
+	for _, pComment := range pCommentList {
+		curUser := userMap[pComment.UserId]
 
 		rCommentList = append(rCommentList, &comment.Comment{
 			Id:         pComment.ID,
-			User:       userResponse.User,
+			User:       curUser,
 			Content:    pComment.Content,
 			CreateDate: pComment.CreatedAt.Format("01-02"),
 		})
@@ -219,11 +249,20 @@ func (c CommentServiceImpl) CountComment(ctx context.Context, request *comment.C
 		"video_id": request.VideoId,
 	}).Debugf("Process start")
 
-	rCount, err := count(ctx, request.VideoId)
+	countStringKey := fmt.Sprintf("CommentCount-%d", request.VideoId)
+	countString, err := cached.GetWithFunc(ctx, countStringKey,
+		func(ctx context.Context, key string) (string, error) {
+			rCount, err := count(ctx, request.VideoId)
+
+			return strconv.FormatInt(rCount, 10), err
+		})
+
 	if err != nil {
+		cached.TagDelete(ctx, "CommentCount")
 		logger.WithFields(logrus.Fields{
-			"err": err,
-		}).Errorf("Faild to count comments")
+			"err":      err,
+			"video_id": request.VideoId,
+		}).Errorf("Unable to get comment count")
 		logging.SetSpanError(span, err)
 
 		resp = &comment.CountCommentResponse{
@@ -232,6 +271,7 @@ func (c CommentServiceImpl) CountComment(ctx context.Context, request *comment.C
 		}
 		return
 	}
+	rCount, _ := strconv.ParseUint(countString, 10, 64)
 
 	resp = &comment.CountCommentResponse{
 		StatusCode:   strings.ServiceOKCode,
@@ -331,8 +371,19 @@ func deleteComment(ctx context.Context, logger *logrus.Entry, span trace.Span, p
 }
 
 func count(ctx context.Context, videoId uint32) (count int64, err error) {
+	ctx, span := tracing.Tracer.Start(ctx, "CountComment")
+	defer span.End()
+	logger := logging.LogService("CommentService.CountComment").WithContext(ctx)
+
 	result := database.Client.Model(&models.Comment{}).WithContext(ctx).
 		Where("video_id = ?", videoId).
 		Count(&count)
+
+	if result.Error != nil {
+		logger.WithFields(logrus.Fields{
+			"err": err,
+		}).Errorf("Faild to count comments")
+		logging.SetSpanError(span, err)
+	}
 	return count, result.Error
 }
