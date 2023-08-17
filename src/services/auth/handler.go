@@ -33,7 +33,15 @@ func (a AuthServiceImpl) Authenticate(ctx context.Context, request *auth.Authent
 	defer span.End()
 	logger := logging.LogService("AuthService.Authenticate").WithContext(ctx)
 
-	userId, ok := hasToken(ctx, request.Token)
+	userId, ok, err := hasToken(ctx, request.Token)
+
+	if err != nil {
+		resp = &auth.AuthenticateResponse{
+			StatusCode: strings.AuthServiceInnerErrorCode,
+			StatusMsg:  strings.AuthServiceInnerError,
+		}
+		return
+	}
 
 	if !ok {
 		resp = &auth.AuthenticateResponse{
@@ -167,7 +175,15 @@ func (a AuthServiceImpl) Register(ctx context.Context, request *auth.RegisterReq
 		return
 	}
 
-	resp.Token = getToken(ctx, user.ID)
+	resp.Token, err = getToken(ctx, user.ID)
+
+	if err != nil {
+		resp = &auth.RegisterResponse{
+			StatusCode: strings.AuthServiceInnerErrorCode,
+			StatusMsg:  strings.AuthServiceInnerError,
+		}
+		return
+	}
 
 	logger.WithFields(logrus.Fields{
 		"username": request.Username,
@@ -192,7 +208,16 @@ func (a AuthServiceImpl) Login(ctx context.Context, request *auth.LoginRequest) 
 		UserName: request.Username,
 	}
 
-	if !isUserVerifiedInRedis(ctx, request.Username, request.Password) {
+	ok, err := isUserVerifiedInRedis(ctx, request.Username, request.Password)
+	if err != nil {
+		resp = &auth.LoginResponse{
+			StatusCode: strings.AuthServiceInnerErrorCode,
+			StatusMsg:  strings.AuthServiceInnerError,
+		}
+		return
+	}
+
+	if !ok {
 		result := database.Client.Where("user_name = ?", request.Username).WithContext(ctx).Find(&user)
 		if result.Error != nil {
 			logger.WithFields(logrus.Fields{
@@ -238,10 +263,25 @@ func (a AuthServiceImpl) Login(ctx context.Context, request *auth.LoginRequest) 
 			}
 			return
 		}
-		setUserInfoToRedis(ctx, user.UserName, hashed)
+
+		if err := setUserInfoToRedis(ctx, user.UserName, hashed); err != nil {
+			resp = &auth.LoginResponse{
+				StatusCode: strings.AuthServiceInnerErrorCode,
+				StatusMsg:  strings.AuthServiceInnerError,
+			}
+			return
+		}
 	}
 
-	token := getToken(ctx, user.ID)
+	token, err := getToken(ctx, user.ID)
+
+	if err != nil {
+		resp = &auth.LoginResponse{
+			StatusCode: strings.AuthServiceInnerErrorCode,
+			StatusMsg:  strings.AuthServiceInnerError,
+		}
+		return
+	}
 
 	resp = &auth.LoginResponse{
 		StatusCode: strings.ServiceOKCode,
@@ -267,38 +307,51 @@ func checkPasswordHash(ctx context.Context, password, hash string) bool {
 	return err == nil
 }
 
-func getToken(ctx context.Context, userId uint32) string {
+func getToken(ctx context.Context, userId uint32) (string, error) {
 	return cached.GetWithFunc(ctx, "U2T"+strconv.FormatUint(uint64(userId), 10),
-		func(ctx context.Context, key string) string {
+		func(ctx context.Context, key string) (string, error) {
 			span := trace.SpanFromContext(ctx)
 			token := uuid.New().String()
 			span.SetAttributes(attribute.String("token", token))
 			cached.Write(ctx, "T2U"+token, strconv.FormatUint(uint64(userId), 10), true)
-			return token
+			return token, nil
 		})
 }
 
-func hasToken(ctx context.Context, token string) (string, bool) {
+func hasToken(ctx context.Context, token string) (string, bool, error) {
 	return cached.Get(ctx, "T2U"+token)
 }
 
-func isUserVerifiedInRedis(ctx context.Context, username string, password string) bool {
-	pass, ok := cached.Get(ctx, "UserLog"+username)
+func isUserVerifiedInRedis(ctx context.Context, username string, password string) (bool, error) {
+	pass, ok, err := cached.Get(ctx, "UserLog"+username)
+
+	if err != nil {
+		return false, nil
+	}
+
 	if !ok {
-		return false
+		return false, nil
 	}
 
 	if checkPasswordHash(ctx, password, pass) {
-		return true
+		return true, nil
 	}
-	return false
+
+	return false, nil
 }
 
-func setUserInfoToRedis(ctx context.Context, username string, password string) {
-	if _, ok := cached.Get(ctx, "UserLog"+username); ok {
+func setUserInfoToRedis(ctx context.Context, username string, password string) error {
+	_, ok, err := cached.Get(ctx, "UserLog"+username)
+
+	if err != nil {
+		return err
+	}
+
+	if ok {
 		cached.TagDelete(ctx, "UserLog"+username)
 	}
 	cached.Write(ctx, "UserLog"+username, password, true)
+	return nil
 }
 
 func getAvatarByEmail(ctx context.Context, email string) string {

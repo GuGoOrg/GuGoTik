@@ -22,7 +22,15 @@ func (a UserServiceImpl) GetUserInfo(ctx context.Context, request *user.UserRequ
 
 	var userModel models.User
 	userModel.ID = request.UserId
-	ok := cached.ScanGet(ctx, "UserInfo", &userModel)
+	ok, err := cached.ScanGet(ctx, "UserInfo", &userModel)
+
+	if err != nil {
+		resp = &user.UserResponse{
+			StatusCode: strings.AuthServiceInnerErrorCode,
+			StatusMsg:  strings.AuthServiceInnerError,
+		}
+		return
+	}
 
 	if !ok {
 		resp = &user.UserResponse{
