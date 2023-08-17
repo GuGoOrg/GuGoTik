@@ -18,6 +18,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel/trace"
 	"strconv"
+	"sync"
 )
 
 var userClient user.UserServiceClient
@@ -177,45 +178,52 @@ func (c CommentServiceImpl) ListComment(ctx context.Context, request *comment.Li
 
 	// Get user info of each comment
 	rCommentList := make([]*comment.Comment, 0, result.RowsAffected)
-	userList := make(map[uint32]*user.User, result.RowsAffected)
-	getUserInfoError := false
+	userMap := make(map[uint32]*user.User)
 	for _, pComment := range pCommentList {
-		pComment := pComment
-		go func() {
-			curUser, ok := userList[pComment.UserId]
-			if !ok {
-				userResponse, getUserErr := userClient.GetUserInfo(ctx, &user.UserRequest{
-					UserId:  pComment.UserId,
-					ActorId: request.ActorId,
-				})
-				if err != nil || userResponse.StatusCode != strings.ServiceOKCode {
-					logger.WithFields(logrus.Fields{
-						"err":      getUserErr,
-						"pComment": pComment,
-					}).Errorf("Unable to get user info")
-					logging.SetSpanError(span, getUserErr)
-					getUserInfoError = true
-					err = getUserErr
-				}
-				curUser = userResponse.User
-				userList[pComment.UserId] = curUser
-			}
-
-			rCommentList = append(rCommentList, &comment.Comment{
-				Id:         pComment.ID,
-				User:       curUser,
-				Content:    pComment.Content,
-				CreateDate: pComment.CreatedAt.Format("01-02"),
-			})
-		}()
+		userMap[pComment.UserId] = &user.User{}
 	}
+	getUserInfoError := false
+	wg := sync.WaitGroup{}
+	wg.Add(len(userMap))
+	for userId := range userMap {
+		go func(userId uint32) {
+			userResponse, getUserErr := userClient.GetUserInfo(ctx, &user.UserRequest{
+				UserId:  userId,
+				ActorId: request.ActorId,
+			})
+			if err != nil || userResponse.StatusCode != strings.ServiceOKCode {
+				logger.WithFields(logrus.Fields{
+					"err":     getUserErr,
+					"user_id": userId,
+				}).Errorf("Unable to get user info")
+				logging.SetSpanError(span, getUserErr)
+				getUserInfoError = true
+				err = getUserErr
+			}
+			userMap[userId] = userResponse.User
+			wg.Done()
+		}(userId)
+	}
+	wg.Wait()
 
 	if getUserInfoError {
 		resp = &comment.ListCommentResponse{
 			StatusCode: strings.UnableToQueryUserErrorCode,
 			StatusMsg:  strings.UnableToQueryUserError,
 		}
-		return resp, err
+		return
+	}
+
+	// Create rCommentList
+	for _, pComment := range pCommentList {
+		curUser, _ := userMap[pComment.UserId]
+
+		rCommentList = append(rCommentList, &comment.Comment{
+			Id:         pComment.ID,
+			User:       curUser,
+			Content:    pComment.Content,
+			CreateDate: pComment.CreatedAt.Format("01-02"),
+		})
 	}
 
 	resp = &comment.ListCommentResponse{
