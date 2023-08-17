@@ -177,7 +177,6 @@ func Get(ctx context.Context, key string) (string, bool) {
 func GetWithFunc(ctx context.Context, key string, f func(ctx context.Context, key string) string) string {
 	ctx, span := tracing.Tracer.Start(ctx, "Cached-GetFromStringCacheWithFunc")
 	defer span.End()
-	key = config.EnvCfg.RedisPrefix + key
 
 	value, ok := Get(ctx, key)
 	if ok {
