@@ -26,6 +26,8 @@ const (
 	ActorIDNotMatchError           = "用户不匹配"
 	UnableToDeleteCommentErrorCode = 50008
 	UnableToDeleteCommentError     = "无法删除视频评论"
+	PublishServiceInnerErrorCode   = 50009
+	PublishServiceInnerError       = "发布服务出现内部错误，请稍后重试！"
 )
 
 // Expected Error

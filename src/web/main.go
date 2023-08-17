@@ -10,6 +10,7 @@ import (
 	comment2 "GuGoTik/src/web/comment"
 	feed2 "GuGoTik/src/web/feed"
 	"GuGoTik/src/web/middleware"
+	publish2 "GuGoTik/src/web/publish"
 	"context"
 	"github.com/gin-contrib/gzip"
 	"github.com/gin-gonic/gin"
@@ -67,6 +68,11 @@ func main() {
 		comment.POST("/action", comment2.ActionCommentHandler)
 		comment.GET("/list", comment2.ListCommentHandler)
 		comment.GET("/count", comment2.CountCommentHandler)
+	}
+	publish := rootPath.Group("/publish")
+	{
+		//publish.POST("/action", publish2.ActionPublishHandle)
+		publish.GET("/list", publish2.ListPublishHandle)
 	}
 	// Run Server
 	if err := g.Run(config.WebServiceAddr); err != nil {
