@@ -216,7 +216,7 @@ func (c CommentServiceImpl) ListComment(ctx context.Context, request *comment.Li
 
 	// Create rCommentList
 	for _, pComment := range pCommentList {
-		curUser, _ := userMap[pComment.UserId]
+		curUser := userMap[pComment.UserId]
 
 		rCommentList = append(rCommentList, &comment.Comment{
 			Id:         pComment.ID,
