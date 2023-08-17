@@ -175,38 +175,47 @@ func (c CommentServiceImpl) ListComment(ctx context.Context, request *comment.Li
 		return
 	}
 
+	// Get user info of each comment
 	rCommentList := make([]*comment.Comment, 0, result.RowsAffected)
 	userList := make(map[uint32]*user.User, result.RowsAffected)
+	getUserInfoError := false
 	for _, pComment := range pCommentList {
-		curUser, ok := userList[pComment.UserId]
-		if !ok {
-			userResponse, err := userClient.GetUserInfo(ctx, &user.UserRequest{
-				UserId:  pComment.UserId,
-				ActorId: request.ActorId,
-			})
-			if err != nil || userResponse.StatusCode != strings.ServiceOKCode {
-				logger.WithFields(logrus.Fields{
-					"err":      err,
-					"pComment": pComment,
-				}).Errorf("Unable to get user info")
-				logging.SetSpanError(span, err)
-
-				resp = &comment.ListCommentResponse{
-					StatusCode: strings.UnableToQueryUserErrorCode,
-					StatusMsg:  strings.UnableToQueryUserError,
+		pComment := pComment
+		go func() {
+			curUser, ok := userList[pComment.UserId]
+			if !ok {
+				userResponse, getUserErr := userClient.GetUserInfo(ctx, &user.UserRequest{
+					UserId:  pComment.UserId,
+					ActorId: request.ActorId,
+				})
+				if err != nil || userResponse.StatusCode != strings.ServiceOKCode {
+					logger.WithFields(logrus.Fields{
+						"err":      getUserErr,
+						"pComment": pComment,
+					}).Errorf("Unable to get user info")
+					logging.SetSpanError(span, getUserErr)
+					getUserInfoError = true
+					err = getUserErr
 				}
-				return resp, err
+				curUser = userResponse.User
+				userList[pComment.UserId] = curUser
 			}
-			curUser = userResponse.User
-			userList[pComment.UserId] = curUser
-		}
 
-		rCommentList = append(rCommentList, &comment.Comment{
-			Id:         pComment.ID,
-			User:       curUser,
-			Content:    pComment.Content,
-			CreateDate: pComment.CreatedAt.Format("01-02"),
-		})
+			rCommentList = append(rCommentList, &comment.Comment{
+				Id:         pComment.ID,
+				User:       curUser,
+				Content:    pComment.Content,
+				CreateDate: pComment.CreatedAt.Format("01-02"),
+			})
+		}()
+	}
+
+	if getUserInfoError {
+		resp = &comment.ListCommentResponse{
+			StatusCode: strings.UnableToQueryUserErrorCode,
+			StatusMsg:  strings.UnableToQueryUserError,
+		}
+		return resp, err
 	}
 
 	resp = &comment.ListCommentResponse{
