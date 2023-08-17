@@ -31,6 +31,11 @@ type envConfig struct {
 	PostgreSQLSchema      string `env:"POSTGRESQL_SCHEMA"`
 	RedisMaster           string `env:"REDIS_MASTER"`
 	ConsulAnonymityPrefix string `env:"CONSUL_ANONYMITY_NAME" envDefault:""`
+	RabbitMQUsername      string `env:"RABBITMQ_USERNAME" envDefault:"guest"`
+	RabbitMQPassword      string `env:"RABBITMQ_PASSWORD" envDefault:"guest"`
+	RabbitMQAddr          string `env:"RABBITMQ_ADDRESS" envDefault:"localhost"`
+	RabbitMQPort          string `env:"RABBITMQ_PORT" envDefault:"5672"`
+	RabbitMQVhostPrefix   string `env:"RABBITMQ_VHOST_PREFIX" envDefault:""`
 }
 
 func init() {
