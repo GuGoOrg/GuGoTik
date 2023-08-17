@@ -190,6 +190,12 @@ func (c CommentServiceImpl) ListComment(ctx context.Context, request *comment.Li
 					"pComment": pComment,
 				}).Errorf("Unable to get user info")
 				logging.SetSpanError(span, err)
+
+				resp = &comment.ListCommentResponse{
+					StatusCode: strings.UnableToQueryUserErrorCode,
+					StatusMsg:  strings.UnableToQueryUserError,
+				}
+				return
 			}
 			curUser = userResponse.User
 			userList[pComment.UserId] = curUser
