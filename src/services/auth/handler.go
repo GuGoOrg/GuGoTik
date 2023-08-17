@@ -264,7 +264,7 @@ func (a AuthServiceImpl) Login(ctx context.Context, request *auth.LoginRequest) 
 			return
 		}
 
-		if err := setUserInfoToRedis(ctx, user.UserName, hashed); err != nil {
+		if err = setUserInfoToRedis(ctx, user.UserName, hashed); err != nil {
 			resp = &auth.LoginResponse{
 				StatusCode: strings.AuthServiceInnerErrorCode,
 				StatusMsg:  strings.AuthServiceInnerError,
