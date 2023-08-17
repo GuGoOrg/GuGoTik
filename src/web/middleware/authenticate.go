@@ -60,7 +60,7 @@ func TokenAuthMiddleware() gin.HandlerFunc {
 
 func init() {
 	conn, err := grpc.Dial(
-		fmt.Sprintf("consul://%s/%s?wait=15s", config.EnvCfg.ConsulAddr, config.AuthRpcServerName),
+		fmt.Sprintf("consul://%s/%s?wait=15s", config.EnvCfg.ConsulAddr, config.EnvCfg.ConsulAnonymityPrefix+config.AuthRpcServerName),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithDefaultServiceConfig(`{"loadBalancingPolicy": "round_robin"}`),
 		grpc.WithUnaryInterceptor(otelgrpc.UnaryClientInterceptor()),
