@@ -30,7 +30,7 @@ type cachedItem interface {
 }
 
 // ScanGet 采用二级缓存(Memory-Redis)的模式读取结构体类型，并且填充到传入的结构体中，结构体需要实现IDGetter且确保ID可用。
-func ScanGet(ctx context.Context, key string, obj interface{}) bool {
+func ScanGet(ctx context.Context, key string, obj interface{}) (bool, error) {
 	ctx, span := tracing.Tracer.Start(ctx, "Cached-GetFromScanCache")
 	defer span.End()
 	logger := logging.LogService("Cached.GetFromScanCache").WithContext(ctx)
@@ -42,7 +42,7 @@ func ScanGet(ctx context.Context, key string, obj interface{}) bool {
 	if x, found := c.Get(key); found {
 		dstVal := reflect.ValueOf(obj)
 		dstVal.Elem().Set(x.(reflect.Value))
-		return true
+		return true, nil
 	}
 
 	//缓存没有命中，Fallback 到 Redis
@@ -56,6 +56,7 @@ func ScanGet(ctx context.Context, key string, obj interface{}) bool {
 			"key": key,
 		}).Errorf("Redis error when find struct")
 		logging.SetSpanError(span, err)
+		return false, err
 	}
 
 	// 如果 Redis 命中，那么就存到 localCached 然后返回
@@ -64,7 +65,7 @@ func ScanGet(ctx context.Context, key string, obj interface{}) bool {
 			"key": key,
 		}).Infof("Redis hit the key")
 		c.Set(key, reflect.ValueOf(obj).Elem(), cache.DefaultExpiration)
-		return true
+		return true, nil
 	}
 
 	//缓存没有命中，Fallback 到 DB
@@ -77,7 +78,7 @@ func ScanGet(ctx context.Context, key string, obj interface{}) bool {
 		logger.WithFields(logrus.Fields{
 			"key": key,
 		}).Warnf("Missed DB obj, seems wrong key")
-		return false
+		return false, result.Error
 	}
 
 	if err := redis.Client.HSet(ctx, key, obj); err != nil {
@@ -86,10 +87,11 @@ func ScanGet(ctx context.Context, key string, obj interface{}) bool {
 			"key": key,
 		}).Errorf("Redis error when set struct info")
 		logging.SetSpanError(span, err.Err())
+		return false, nil
 	}
 
 	c.Set(key, reflect.ValueOf(obj).Elem(), cache.DefaultExpiration)
-	return true
+	return true, nil
 }
 
 // ScanTagDelete 将缓存值标记为删除，下次从 cache 读取时会 FallBack 到数据库。
@@ -125,14 +127,15 @@ func ScanWriteCache(ctx context.Context, key string, obj interface{}, state bool
 				"key": key,
 			}).Errorf("Redis error when find struct info")
 			logging.SetSpanError(span, err)
+			return
 		}
 	}
 
 	return
 }
 
-// Get 读取字符串缓存
-func Get(ctx context.Context, key string) (string, bool) {
+// Get 读取字符串缓存, 其中找到了返回 True，没找到返回 False，异常也返回 False
+func Get(ctx context.Context, key string) (string, bool, error) {
 	ctx, span := tracing.Tracer.Start(ctx, "Cached-GetFromStringCache")
 	defer span.End()
 	logger := logging.LogService("Cached.GetFromStringCache").WithContext(ctx)
@@ -140,7 +143,7 @@ func Get(ctx context.Context, key string) (string, bool) {
 
 	c := getOrCreateCache("strings")
 	if x, found := c.Get(key); found {
-		return x.(string), true
+		return x.(string), true, nil
 	}
 
 	//缓存没有命中，Fallback 到 Redis
@@ -155,37 +158,50 @@ func Get(ctx context.Context, key string) (string, bool) {
 			"string": key,
 		}).Errorf("Redis error when find string")
 		logging.SetSpanError(span, result.Err())
+		return "", false, nil
 	}
 
 	value, err := result.Result()
+
 	switch {
 	case err == redis2.Nil:
-		return "", false
+		return "", false, nil
 	case err != nil:
 		logger.WithFields(logrus.Fields{
 			"err": err,
 		}).Errorf("Err when write Redis")
 		logging.SetSpanError(span, err)
-		return "", false
+		return "", false, err
 	default:
 		c.Set(key, value, cache.DefaultExpiration)
-		return value, true
+		return value, true, nil
 	}
 }
 
 // GetWithFunc 从缓存中获取字符串，如果不存在调用 Func 函数获取
-func GetWithFunc(ctx context.Context, key string, f func(ctx context.Context, key string) string) string {
+func GetWithFunc(ctx context.Context, key string, f func(ctx context.Context, key string) (string, error)) (string, error) {
 	ctx, span := tracing.Tracer.Start(ctx, "Cached-GetFromStringCacheWithFunc")
 	defer span.End()
 
-	value, ok := Get(ctx, key)
-	if ok {
-		return value
+	value, ok, err := Get(ctx, key)
+
+	if err != nil {
+		return "", err
 	}
-	// 如果不存在，那么就获取他
-	value = f(ctx, key)
+
+	if ok {
+		return value, nil
+	}
+
+	// 如果不存在，那么就获取它
+	value, err = f(ctx, key)
+
+	if err != nil {
+		return "", err
+	}
+
 	Write(ctx, key, value, true)
-	return value
+	return value, nil
 }
 
 // Write 写入字符串缓存，如果 state 为 false 则只写入 Local Memory
