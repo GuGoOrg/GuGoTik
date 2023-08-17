@@ -49,7 +49,7 @@ func FollowHandler(c *gin.Context) {
 		logger.WithFields(logrus.Fields{
 			"actor_id": req.ActorId,
 			"user_id":  req.UserId,
-		}).Warnf("Error when trying to connect with FollowService")
+		}).Warnf("FollowService returned an error response: %v", err)
 		c.JSON(http.StatusOK, res)
 		return
 	}
@@ -86,7 +86,7 @@ func UnfollowHandler(c *gin.Context) {
 		logger.WithFields(logrus.Fields{
 			"actor_id": req.ActorId,
 			"user_id":  req.UserId,
-		}).Warnf("Error when trying to connect with UnfollowService")
+		}).Warnf("UnFollowService returned an error response: %v", err)
 		c.JSON(http.StatusOK, res)
 		return
 	}
@@ -121,7 +121,7 @@ func GetFollowListHandler(c *gin.Context) {
 		logger.WithFields(logrus.Fields{
 			"actor_id": req.ActorId,
 			"user_id":  req.UserId,
-		}).Warnf("Error when trying to connect with GetFollowListService")
+		}).Warnf("GetFollowListService returned an error response: %v", err)
 		c.JSON(http.StatusOK, res)
 		return
 	}
@@ -155,7 +155,7 @@ func CountFollowHandler(c *gin.Context) {
 	if err != nil {
 		logger.WithFields(logrus.Fields{
 			"user_id": req.UserId,
-		}).Warnf("Error when trying to connect with CountFollowListService")
+		}).Warnf("CountFollowListService returned an error response: %v", err)
 		c.JSON(http.StatusOK, res)
 		return
 	}
@@ -189,7 +189,7 @@ func GetFollowerListHandler(c *gin.Context) {
 		logger.WithFields(logrus.Fields{
 			"actor_id": req.ActorId,
 			"user_id":  req.UserId,
-		}).Warnf("Error when trying to connect with GetFollowerListService")
+		}).Warnf("GetFollowerListService returned an error response: %v", err)
 		c.JSON(http.StatusOK, res)
 		return
 	}
@@ -223,7 +223,7 @@ func CountFollowerHandler(c *gin.Context) {
 	if err != nil {
 		logger.WithFields(logrus.Fields{
 			"user_id": req.UserId,
-		}).Warnf("Error when trying to connect with CountFollowerListService")
+		}).Warnf("CountFollowerListService returned an error response: %v", err)
 		c.JSON(http.StatusOK, res)
 		return
 	}
@@ -257,7 +257,7 @@ func GetFriendListHandler(c *gin.Context) {
 		logger.WithFields(logrus.Fields{
 			"actor_id": req.ActorId,
 			"user_id":  req.UserId,
-		}).Warnf("Error when trying to connect with GetFriendListService")
+		}).Warnf("GetFriendListService returned an error response: %v", err)
 		c.JSON(http.StatusOK, res)
 		return
 	}
@@ -293,7 +293,7 @@ func IsFollowHandler(c *gin.Context) {
 		logger.WithFields(logrus.Fields{
 			"actor_id": req.ActorId,
 			"user_id":  req.UserId,
-		}).Warnf("Error when trying to connect with IsFollowService")
+		}).Warnf("IsFollowService returned an error response: %v", err)
 		c.JSON(http.StatusOK, res)
 		return
 	}

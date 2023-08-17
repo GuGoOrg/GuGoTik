@@ -43,17 +43,18 @@ func (r RelationServiceImpl) Follow(ctx context.Context, request *relation.Relat
 		ActorId: request.ActorId,
 	})
 
-	if err != nil || userResponse.StatusCode != strings.ServiceOKCode || userResponse.User == nil {
+	if err != nil || userResponse.StatusCode != strings.ServiceOKCode {
 		logger.WithFields(logrus.Fields{
 			"err":     err,
 			"ActorId": request.ActorId,
 		}).Errorf("failed to get user info")
 		logging.SetSpanError(span, err)
 
-		return &relation.RelationActionResponse{
+		resp = &relation.RelationActionResponse{
 			StatusCode: strings.UnableToQueryUserErrorCode,
 			StatusMsg:  strings.UnableToQueryUserError,
-		}, nil
+		}
+		return
 	}
 
 	rRelation := &models.Relation{
@@ -96,17 +97,18 @@ func (r RelationServiceImpl) Unfollow(ctx context.Context, request *relation.Rel
 		ActorId: request.ActorId,
 	})
 
-	if err != nil || userResponse.StatusCode != strings.ServiceOKCode || userResponse.User == nil {
+	if err != nil || userResponse.StatusCode != strings.ServiceOKCode {
 		logger.WithFields(logrus.Fields{
 			"err":     err,
 			"ActorId": request.ActorId,
 		}).Errorf("failed to get user info")
 		logging.SetSpanError(span, err)
 
-		return &relation.RelationActionResponse{
+		resp = &relation.RelationActionResponse{
 			StatusCode: strings.UnableToQueryUserErrorCode,
 			StatusMsg:  strings.UnableToQueryUserError,
-		}, nil
+		}
+		return
 	}
 
 	rRelation := models.Relation{
@@ -177,7 +179,7 @@ func (r RelationServiceImpl) GetFollowList(ctx context.Context, request *relatio
 			UserId:  follow.UserId,
 			ActorId: request.ActorId,
 		})
-		if err != nil || userResponse.StatusCode != strings.ServiceOKCode || userResponse.User == nil {
+		if err != nil || userResponse.StatusCode != strings.ServiceOKCode {
 			logger.WithFields(logrus.Fields{
 				"err":    err,
 				"follow": follow,
@@ -369,7 +371,7 @@ func (r RelationServiceImpl) GetFriendList(ctx context.Context, request *relatio
 				UserId:  follower.ActorId,
 				ActorId: request.ActorId,
 			})
-			if err != nil || userResponse.StatusCode != strings.ServiceOKCode || userResponse.User == nil {
+			if err != nil || userResponse.StatusCode != strings.ServiceOKCode {
 				logger.WithFields(logrus.Fields{
 					"err":      err,
 					"follower": follower,
@@ -415,7 +417,8 @@ func (r RelationServiceImpl) IsFollow(ctx context.Context, request *relation.IsF
 		return
 	}
 
-	return &relation.IsFollowResponse{
+	resp = &relation.IsFollowResponse{
 		Result: count > 0,
-	}, nil
+	}
+	return
 }
