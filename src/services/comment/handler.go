@@ -187,6 +187,7 @@ func (c CommentServiceImpl) ListComment(ctx context.Context, request *comment.Li
 	wg.Add(len(userMap))
 	for userId := range userMap {
 		go func(userId uint32) {
+			defer wg.Done()
 			userResponse, getUserErr := userClient.GetUserInfo(ctx, &user.UserRequest{
 				UserId:  userId,
 				ActorId: request.ActorId,
@@ -201,7 +202,6 @@ func (c CommentServiceImpl) ListComment(ctx context.Context, request *comment.Li
 				err = getUserErr
 			}
 			userMap[userId] = userResponse.User
-			wg.Done()
 		}(userId)
 	}
 	wg.Wait()
