@@ -48,13 +48,14 @@ func main() {
 
 	var srv PublishServiceImpl
 	var probe healthImpl.ProbeImpl
-	publish.RegisterPublishServiceServer(s, &srv)
+	defer CloseMQConn()
+	publish.RegisterPublishServiceServer(s, srv)
 	health.RegisterHealthServer(s, &probe)
 	if err := consul.RegisterConsul(config.PublishRpcServerName, config.PublishRpcServerPort); err != nil {
-		log.Panicf("Rpc %s register consul hanpens error for: %v", config.PublishRpcServerPort, err)
+		log.Panicf("Rpc %s register consul happens error for: %v", config.PublishRpcServerName, err)
 	}
 	log.Infof("Rpc %s is running at %s now", config.PublishRpcServerName, config.PublishRpcServerPort)
 	if err := s.Serve(lis); err != nil {
-		log.Panicf("Rpc %s listen hanpens error for: %v", config.PublishRpcServerName, err)
+		log.Panicf("Rpc %s listen happens error for: %v", config.PublishRpcServerName, err)
 	}
 }

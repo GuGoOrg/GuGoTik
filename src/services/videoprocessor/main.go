@@ -5,12 +5,17 @@ import (
 	"GuGoTik/src/constant/strings"
 	"GuGoTik/src/extra/tracing"
 	"GuGoTik/src/models"
+	"GuGoTik/src/storage/database"
 	"GuGoTik/src/utils/logging"
+	"GuGoTik/src/utils/pathgen"
 	"GuGoTik/src/utils/rabbitmq"
 	"context"
 	"encoding/json"
+	"fmt"
 	"github.com/sirupsen/logrus"
 	"github.com/streadway/amqp"
+	"os"
+	"os/exec"
 	"sync"
 )
 
@@ -89,6 +94,23 @@ func Consume(channel *amqp.Channel) {
 			}).Errorf("Error when unmarshaling the prepare json body.")
 		}
 
+		// 截取封面
+		coverPath, err := ExtractVideoCover(ctx, raw)
+		if err != nil {
+			logger.WithFields(logrus.Fields{
+				"err":       err,
+				"coverPath": coverPath,
+			}).Errorf("Error when extracting video cover.")
+		}
+		// 添加水印逻辑
+		watermarkedVideo, err := addWatermarkToVideo(ctx, raw)
+		if err != nil {
+			logger.WithFields(logrus.Fields{
+				"err":              err,
+				"watermarkedVideo": watermarkedVideo,
+			}).Errorf("Error when adding watermark to video.")
+		}
+
 		span.End()
 		err = d.Ack(false)
 		if err != nil {
@@ -97,4 +119,61 @@ func Consume(channel *amqp.Channel) {
 			}).Errorf("Error when dealing with the video...")
 		}
 	}
+}
+
+func ExtractVideoCover(ctx context.Context, video models.RawVideo) (string, error) {
+	ctx, span := tracing.Tracer.Start(ctx, "PublishServiceImpl.CountVideo")
+	defer span.End()
+	logger := logging.LogService("VideoPicker.Picker").WithContext(ctx)
+	logger.Debug("Extracting video cover...")
+	cmdArgs := []string{
+		"-i", video.FilePath,
+		"-ss", "00:00:01",
+		"-vframes", "1",
+		video.CoverPath,
+	}
+	cmd := exec.Command("ffmpeg", cmdArgs...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err := cmd.Run()
+	coverPath := pathgen.GenerateRawVideoName(video.ActorId, video.Title)
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"err": err,
+		}).Warnf("failed to get video cover")
+		return coverPath, err
+	}
+	err = database.Client.Create(&video).Error
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"err": err,
+		}).Warnf("failed to save processed video to database")
+		return coverPath, err
+	}
+
+	return coverPath, nil
+}
+
+func addWatermarkToVideo(ctx context.Context, video models.RawVideo) (models.RawVideo, error) {
+	ctx, span := tracing.Tracer.Start(ctx, "PublishServiceImpl.CountVideo")
+	defer span.End()
+	logger := logging.LogService("VideoPicker.Picker").WithContext(ctx)
+	logger.Debug("Adding watermark to video...")
+
+	cmdArgs := []string{
+		"-i", video.FilePath,
+		"-vf", fmt.Sprintf("drawtext=text='%s':x=(w-text_w-10):y=10:fontsize=24:fontcolor=white", video.Title),
+		video.FilePath,
+	}
+	cmd := exec.Command("ffmpeg", cmdArgs...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err := cmd.Run()
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"err": err,
+		}).Warnf("failed to add video watermark")
+		return video, err
+	}
+	return video, nil
 }
