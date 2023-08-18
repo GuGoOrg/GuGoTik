@@ -28,7 +28,7 @@ func TestActionComment_Add(t *testing.T) {
 		ActorId:    1,
 		VideoId:    0,
 		ActionType: comment.ActionCommentType_ACTION_COMMENT_TYPE_ADD,
-		Action:     &comment.ActionCommentRequest_CommentText{CommentText: "Test comment"},
+		Action:     &comment.ActionCommentRequest_CommentText{CommentText: "你个大傻逼"},
 	})
 	assert.Empty(t, err)
 	assert.Equal(t, int32(0), res.StatusCode)

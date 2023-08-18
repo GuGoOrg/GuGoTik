@@ -161,6 +161,7 @@ func (c CommentServiceImpl) ListComment(ctx context.Context, request *comment.Li
 	var pCommentList []models.Comment
 	result := database.Client.WithContext(ctx).
 		Where("video_id = ?", request.VideoId).
+		Where("rate <= 3").
 		Order("created_at desc").
 		Find(&pCommentList)
 	if result.Error != nil {
@@ -307,6 +308,8 @@ func addComment(ctx context.Context, logger *logrus.Entry, span trace.Span, pUse
 		return
 	}
 
+	go rateComment(logger, span, pCommentText, rComment.ID)
+
 	resp = &comment.ActionCommentResponse{
 		StatusCode: strings.ServiceOKCode,
 		StatusMsg:  strings.ServiceOK,
@@ -370,6 +373,30 @@ func deleteComment(ctx context.Context, logger *logrus.Entry, span trace.Span, p
 	return
 }
 
+func rateComment(logger *logrus.Entry, span trace.Span, commentContent string, commentID uint32) {
+	rate, reason := RateCommentByGPT(commentContent, logger, span)
+
+	rComment := models.Comment{
+		ID:     commentID,
+		Rate:   rate,
+		Reason: reason,
+	}
+
+	result := database.Client.Updates(&rComment)
+	if result.Error != nil {
+		logger.WithFields(logrus.Fields{
+			"err":        result.Error,
+			"comment_id": commentID,
+		}).Errorf("CommentService failed to add comment rate to database")
+		logging.SetSpanError(span, result.Error)
+	}
+	logger.WithFields(logrus.Fields{
+		"comment_id": commentID,
+		"rate":       rate,
+		"reason":     reason,
+	}).Debugf("Add comment rate successfully.")
+}
+
 func count(ctx context.Context, videoId uint32) (count int64, err error) {
 	ctx, span := tracing.Tracer.Start(ctx, "CountComment")
 	defer span.End()
@@ -377,6 +404,7 @@ func count(ctx context.Context, videoId uint32) (count int64, err error) {
 
 	result := database.Client.Model(&models.Comment{}).WithContext(ctx).
 		Where("video_id = ?", videoId).
+		Where("rate <= 3").
 		Count(&count)
 
 	if result.Error != nil {
