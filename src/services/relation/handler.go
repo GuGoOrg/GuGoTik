@@ -12,6 +12,8 @@ import (
 	"GuGoTik/src/utils/logging"
 	"context"
 	"github.com/sirupsen/logrus"
+	"sync"
+	"time"
 )
 
 var UserClient user.UserServiceClient
@@ -174,20 +176,57 @@ func (r RelationServiceImpl) GetFollowList(ctx context.Context, request *relatio
 	}
 
 	rFollowList := make([]*user.User, 0, result.RowsAffected)
+
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	var wgErrors []error
+
+	maxRetries := 3
+	retryInterval := 1
+
 	for _, follow := range followList {
-		userResponse, err := UserClient.GetUserInfo(ctx, &user.UserRequest{
-			UserId:  follow.UserId,
-			ActorId: request.ActorId,
-		})
-		if err != nil || userResponse.StatusCode != strings.ServiceOKCode {
-			logger.WithFields(logrus.Fields{
-				"err":    err,
-				"follow": follow,
-			}).Errorf("Unable to get user info")
-			logging.SetSpanError(span, err)
-		} else {
-			rFollowList = append(rFollowList, userResponse.User)
+		wg.Add(1)
+		go func(follow models.Relation) {
+			defer wg.Done()
+
+			retryCount := 0
+			for retryCount < maxRetries {
+				userResponse, err := UserClient.GetUserInfo(ctx, &user.UserRequest{
+					UserId:  follow.UserId,
+					ActorId: request.ActorId,
+				})
+
+				if err != nil || userResponse.StatusCode != strings.ServiceOKCode {
+					logger.WithFields(logrus.Fields{
+						"err":    err,
+						"follow": follow,
+					}).Errorf("Unable to get user info")
+					logging.SetSpanError(span, err)
+
+					retryCount++
+					// 等待一段时间后进行重试
+					time.Sleep(time.Duration(retryInterval) * time.Second)
+					continue
+				} else {
+					mu.Lock()
+					defer mu.Unlock()
+					rFollowList = append(rFollowList, userResponse.User)
+					break
+				}
+			}
+		}(follow)
+	}
+
+	wg.Wait()
+
+	if len(wgErrors) > 0 {
+		logger.Errorf("%d user info queries failed while fetching follow list", len(wgErrors))
+		resp = &relation.FollowListResponse{
+			StatusCode: strings.UnableToGetFollowListErrorCode,
+			StatusMsg:  strings.UnableToGetFollowListError,
+			UserList:   nil,
 		}
+		return
 	}
 
 	resp = &relation.FollowListResponse{
@@ -257,23 +296,58 @@ func (r RelationServiceImpl) GetFollowerList(ctx context.Context, request *relat
 	}
 
 	rFollowerList := make([]*user.User, 0, result.RowsAffected)
-	for _, follower := range followerList {
-		userResponse, err := UserClient.GetUserInfo(ctx, &user.UserRequest{
-			UserId:  follower.UserId,
-			ActorId: request.ActorId,
-		})
-		if err != nil || userResponse.StatusCode != strings.ServiceOKCode || userResponse.User == nil {
-			logger.WithFields(logrus.Fields{
-				"err":      err,
-				"follower": follower,
-			}).Errorf("Unable to get user info")
-			logging.SetSpanError(span, err)
-		} else {
-			rFollowerList = append(rFollowerList, userResponse.User)
-		}
 
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	var wgErrors []error
+
+	maxRetries := 3
+	retryInterval := 1
+
+	for _, follower := range followerList {
+		wg.Add(1)
+		go func(follower models.Relation) {
+			defer wg.Done()
+
+			retryCount := 0
+			for retryCount < maxRetries {
+				userResponse, err := UserClient.GetUserInfo(ctx, &user.UserRequest{
+					UserId:  follower.UserId,
+					ActorId: request.ActorId,
+				})
+
+				if err != nil || userResponse.StatusCode != strings.ServiceOKCode {
+					logger.WithFields(logrus.Fields{
+						"err":      err,
+						"follower": follower,
+					}).Errorf("Unable to get user info")
+					logging.SetSpanError(span, err)
+
+					retryCount++
+					// 等待一段时间后进行重试
+					time.Sleep(time.Duration(retryInterval) * time.Second)
+					continue
+				} else {
+					mu.Lock()
+					defer mu.Unlock()
+					rFollowerList = append(rFollowerList, userResponse.User)
+					break
+				}
+			}
+		}(follower)
 	}
 
+	wg.Wait()
+
+	if len(wgErrors) > 0 {
+		logger.Errorf("%d user info queries failed while fetching follower list", len(wgErrors))
+		resp = &relation.FollowerListResponse{
+			StatusCode: strings.UnableToGetFollowerListErrorCode,
+			StatusMsg:  strings.UnableToGetFollowerListError,
+			UserList:   nil,
+		}
+		return
+	}
 	resp = &relation.FollowerListResponse{
 		StatusCode: strings.ServiceOKCode,
 		StatusMsg:  strings.ServiceOK,
