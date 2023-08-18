@@ -63,11 +63,11 @@ func (a PublishServiceImpl) ListVideo(ctx context.Context, req *publish.ListVide
 	logger := logging.LogService("PublishServiceImpl.ListVideo").WithContext(ctx)
 
 	var videos []models.Video
-	result := database.Client.WithContext(ctx).
+	err = database.Client.WithContext(ctx).
 		Where("user_id = ?", req.UserId).
 		Order("created_at DESC").
 		Find(&videos).Error
-	if result.Error != nil {
+	if err != nil {
 		logger.WithFields(logrus.Fields{
 			"err": err,
 		}).Warnf("failed to query video")
@@ -104,8 +104,8 @@ func (a PublishServiceImpl) CountVideo(ctx context.Context, req *publish.CountVi
 	defer span.End()
 	logger := logging.LogService("PublishServiceImpl.CountVideo").WithContext(ctx)
 	var count int64
-	result := database.Client.WithContext(ctx).Where("user_id = ?", req.UserId).Count(&count).Error
-	if result.Error != nil {
+	err = database.Client.WithContext(ctx).Where("user_id = ?", req.UserId).Count(&count).Error
+	if err != nil {
 		logger.WithFields(logrus.Fields{
 			"err": err,
 		}).Warnf("failed to count video")
