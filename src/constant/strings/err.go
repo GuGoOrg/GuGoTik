@@ -12,8 +12,8 @@ const (
 const (
 	AuthServiceInnerErrorCode      = 50001
 	AuthServiceInnerError          = "登录服务出现内部错误，请稍后重试！"
-	UserServiceInnerErrorCode      = 50002
-	UserServiceInnerError          = "用户信息服务出现内部错误，请稍后重试！"
+	VideoServiceInnerErrorCode     = 50002
+	VideoServiceInnerError         = "视频发布服务出现内部错误，请稍后重试！"
 	UnableToQueryUserErrorCode     = 50003
 	UnableToQueryUserError         = "无法查询到对应用户"
 	UnableToQueryCommentErrorCode  = 50004
@@ -40,4 +40,6 @@ const (
 	AuthUserNeeded               = "用户无权限操作，请登陆后重试！"
 	ActionCommentTypeInvalidCode = 10005
 	ActionCommentTypeInvalid     = "不合法的评论类型"
+	ActionCommentLimitedCode     = 10006
+	ActionCommentLimited         = "评论频繁，请稍后再试！"
 )

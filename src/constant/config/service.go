@@ -20,3 +20,5 @@ const PublishRpcServerPort = ":37005"
 
 const FavoriteRpcServerName = "GuGoTik-FavoriteService"
 const FavoriteRpcServerPort = ":37006"
+
+const VideoPicker = "GuGoTik-VideoPicker"
