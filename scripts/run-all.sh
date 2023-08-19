@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 echo "Please Run Me on the root dir, not in scripts dir."
 
