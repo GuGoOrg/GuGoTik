@@ -19,6 +19,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"strconv"
 	"sync"
+	"time"
 )
 
 var userClient user.UserServiceClient
@@ -26,6 +27,10 @@ var userClient user.UserServiceClient
 var actionCommentLimitKeyPrefix = config.EnvCfg.RedisPrefix + "comment_freq_limit"
 
 const actionCommentMaxQPS = 3 // Maximum ActionComment query amount of an actor per second
+
+var rateCommentLimitKey = config.EnvCfg.RedisPrefix + "rate_comment_freq_limit"
+
+const rateCommentMaxQPM = 3 // Maximum RateComment query amount
 
 // Return redis key to record the amount of ActionComment query of an actor, e.g., comment_freq_limit-1-1669524458
 func actionCommentLimitKey(userId uint32) string {
@@ -161,6 +166,8 @@ func (c CommentServiceImpl) ListComment(ctx context.Context, request *comment.Li
 	var pCommentList []models.Comment
 	result := database.Client.WithContext(ctx).
 		Where("video_id = ?", request.VideoId).
+		Where("rate <= 3").
+		//Where("moderation_flagged = false").
 		Order("created_at desc").
 		Find(&pCommentList)
 	if result.Error != nil {
@@ -307,6 +314,9 @@ func addComment(ctx context.Context, logger *logrus.Entry, span trace.Span, pUse
 		return
 	}
 
+	// Rate comment
+	go rateComment(logger, span, pCommentText, rComment.ID)
+
 	resp = &comment.ActionCommentResponse{
 		StatusCode: strings.ServiceOKCode,
 		StatusMsg:  strings.ServiceOK,
@@ -370,6 +380,70 @@ func deleteComment(ctx context.Context, logger *logrus.Entry, span trace.Span, p
 	return
 }
 
+func rateComment(logger *logrus.Entry, span trace.Span, commentContent string, commentID uint32) {
+	//moderationCommentRes := ModerationCommentByGPT(commentContent, logger, span)
+	//
+	//rComment := models.Comment{
+	//	ID:                        commentID,
+	//	ModerationFlagged:         moderationCommentRes.Flagged,
+	//	ModerationHate:            moderationCommentRes.Categories.Hate,
+	//	ModerationHateThreatening: moderationCommentRes.Categories.HateThreatening,
+	//	ModerationSelfHarm:        moderationCommentRes.Categories.SelfHarm,
+	//	ModerationSexual:          moderationCommentRes.Categories.Sexual,
+	//	ModerationSexualMinors:    moderationCommentRes.Categories.SexualMinors,
+	//	ModerationViolence:        moderationCommentRes.Categories.Violence,
+	//	ModerationViolenceGraphic: moderationCommentRes.Categories.ViolenceGraphic,
+	//}
+
+	rate := uint32(0)
+	reason := ""
+
+	limiter := redis_rate.NewLimiter(redis.Client)
+	limiterKey := rateCommentLimitKey
+	for {
+		limiterRes, err := limiter.Allow(context.Background(), limiterKey, redis_rate.PerMinute(rateCommentMaxQPM))
+		if err != nil {
+			logger.WithFields(logrus.Fields{
+				"err":             err,
+				"comment_id":      commentID,
+				"comment_content": commentContent,
+			}).Errorf("RateComment limiter error")
+			logging.SetSpanError(span, err)
+			break
+		}
+
+		if limiterRes.Allowed != 0 {
+			rate, reason, _ = RateCommentByGPT(commentContent, logger, span)
+			break
+		}
+		logger.WithFields(logrus.Fields{
+			"comment_id": commentID,
+		}).Debugf("Wait for ChatGPT API rate limit.")
+		time.Sleep(20 * time.Second)
+	}
+
+	rComment := models.Comment{
+		ID:     commentID,
+		Rate:   rate,
+		Reason: reason,
+	}
+
+	result := database.Client.Updates(&rComment)
+	if result.Error != nil {
+		logger.WithFields(logrus.Fields{
+			"err":        result.Error,
+			"comment_id": commentID,
+		}).Errorf("CommentService failed to add comment rate to database")
+		logging.SetSpanError(span, result.Error)
+	}
+	logger.WithFields(logrus.Fields{
+		"comment_id": commentID,
+		"rate":       rate,
+		"reason":     reason,
+		//"flagged":    rComment.ModerationFlagged,
+	}).Debugf("Add comment rate successfully.")
+}
+
 func count(ctx context.Context, videoId uint32) (count int64, err error) {
 	ctx, span := tracing.Tracer.Start(ctx, "CountComment")
 	defer span.End()
@@ -377,6 +451,8 @@ func count(ctx context.Context, videoId uint32) (count int64, err error) {
 
 	result := database.Client.Model(&models.Comment{}).WithContext(ctx).
 		Where("video_id = ?", videoId).
+		Where("rate <= 3").
+		//Where("moderation_flagged = false").
 		Count(&count)
 
 	if result.Error != nil {
