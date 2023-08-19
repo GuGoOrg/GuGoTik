@@ -28,7 +28,7 @@ func TestActionComment_Add(t *testing.T) {
 		ActorId:    1,
 		VideoId:    0,
 		ActionType: comment.ActionCommentType_ACTION_COMMENT_TYPE_ADD,
-		Action:     &comment.ActionCommentRequest_CommentText{CommentText: "Test comment"},
+		Action:     &comment.ActionCommentRequest_CommentText{CommentText: "I want to kill them all"},
 	})
 	assert.Empty(t, err)
 	assert.Equal(t, int32(0), res.StatusCode)
@@ -42,15 +42,15 @@ func TestActionComment_Limiter(t *testing.T) {
 			defer wg.Done()
 			_, _ = Client.ActionComment(context.Background(), &comment.ActionCommentRequest{
 				ActorId:    1,
-				VideoId:    0,
+				VideoId:    1,
 				ActionType: comment.ActionCommentType_ACTION_COMMENT_TYPE_ADD,
-				Action:     &comment.ActionCommentRequest_CommentText{CommentText: "Test comment for user 1"},
+				Action:     &comment.ActionCommentRequest_CommentText{CommentText: "富强民主文明和谐"},
 			})
 			_, _ = Client.ActionComment(context.Background(), &comment.ActionCommentRequest{
 				ActorId:    2,
-				VideoId:    0,
+				VideoId:    1,
 				ActionType: comment.ActionCommentType_ACTION_COMMENT_TYPE_ADD,
-				Action:     &comment.ActionCommentRequest_CommentText{CommentText: "Test comment for user 2"},
+				Action:     &comment.ActionCommentRequest_CommentText{CommentText: "自由平等公正法治"},
 			})
 		}()
 	}
