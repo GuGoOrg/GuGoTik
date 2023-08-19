@@ -14,7 +14,7 @@ import (
 
 var openaiClient = openai.NewClient(config.EnvCfg.ChatGPTAPIKEYS)
 
-func RateCommentByGPT(commentContent string, logger *logrus.Entry, span trace.Span) (rate uint32, reason string) {
+func RateCommentByGPT(commentContent string, logger *logrus.Entry, span trace.Span) (rate uint32, reason string, err error) {
 	logger.WithFields(logrus.Fields{
 		"comment_content": commentContent,
 	}).Debugf("Start RateCommentByGPT")
@@ -65,10 +65,44 @@ func RateCommentByGPT(commentContent string, logger *logrus.Entry, span trace.Sp
 		return
 	}
 
-	rateNum, _ := strconv.ParseUint(parts[0], 10, 32)
+	rateNum, err := strconv.ParseUint(parts[0], 10, 32)
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"resp": respContent,
+		}).Errorf("ChatGPT response does not match expected format")
+		logging.SetSpanError(span, errors.New("ChatGPT response does not match expected format"))
+
+		return
+	}
 
 	rate = uint32(rateNum)
 	reason = parts[1]
 
+	return
+}
+
+func ModerationCommentByGPT(commentContent string, logger *logrus.Entry, span trace.Span) (moderationRes openai.Result) {
+	logger.WithFields(logrus.Fields{
+		"comment_content": commentContent,
+	}).Debugf("Start ModerationCommentByGPT")
+
+	resp, err := openaiClient.Moderations(
+		context.Background(),
+		openai.ModerationRequest{
+			Model: openai.ModerationTextLatest,
+			Input: commentContent,
+		},
+	)
+
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"err": err,
+		}).Errorf("ChatGPT request error")
+		logging.SetSpanError(span, err)
+
+		return
+	}
+
+	moderationRes = resp.Results[0]
 	return
 }
