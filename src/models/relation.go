@@ -12,14 +12,6 @@ type Relation struct {
 	gorm.Model
 }
 
-func (r *Relation) IsDirty() bool {
-	return r.ActorId != 0
-}
-
-func (r *Relation) GetID() uint32 {
-	return r.ID
-}
-
 func init() {
 	if err := database.Client.AutoMigrate(&Relation{}); err != nil {
 		panic(err)
