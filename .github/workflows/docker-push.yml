@@ -27,4 +27,6 @@ jobs:
         uses: docker/build-push-action@v4
         with:
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/gugotik:latest
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/gugotik:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/gugotik:${{ github.sha }}
