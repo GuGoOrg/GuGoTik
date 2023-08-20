@@ -89,6 +89,18 @@ func Consume(channel *amqp.Channel) {
 			}).Errorf("Error when unmarshaling the prepare json body.")
 		}
 
+		wg := sync.WaitGroup{}
+		wg.Add(1)
+
+		// VideoPicker
+
+		// VideoSummary
+		logger.Infof("VideoSummaryService starting")
+		summaryRes := make(chan []string, 3) // text, summary, keywords
+		go SummaryVideo(ctx, raw, &wg, summaryRes)
+
+		wg.Wait()
+
 		span.End()
 		err = d.Ack(false)
 		if err != nil {

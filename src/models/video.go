@@ -11,6 +11,9 @@ type Video struct {
 	Title     string `json:"title" gorm:"not null;"`
 	FileName  string `json:"play_name" gorm:"not null;"`
 	CoverName string `json:"cover_name" gorm:"not null;"`
+	Text      string
+	Summary   string
+	keywords  string // e.g., "keywords1, keywords2"
 	gorm.Model
 }
 
