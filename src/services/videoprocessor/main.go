@@ -6,6 +6,7 @@ import (
 	"GuGoTik/src/extra/tracing"
 	"GuGoTik/src/models"
 	"GuGoTik/src/storage/database"
+	"GuGoTik/src/storage/file"
 	"GuGoTik/src/utils/logging"
 	"GuGoTik/src/utils/pathgen"
 	"GuGoTik/src/utils/rabbitmq"
@@ -95,21 +96,33 @@ func Consume(channel *amqp.Channel) {
 		}
 
 		// 截取封面
-		coverPath, err := ExtractVideoCover(ctx, raw)
+		err := ExtractVideoCover(ctx, &raw)
 		if err != nil {
 			logger.WithFields(logrus.Fields{
-				"err":       err,
-				"coverPath": coverPath,
+				"err": err,
 			}).Errorf("Error when extracting video cover.")
 		}
+
 		// 添加水印逻辑
-		watermarkedVideo, err := addWatermarkToVideo(ctx, raw)
+		err = addWatermarkToVideo(ctx, &raw)
 		if err != nil {
 			logger.WithFields(logrus.Fields{
-				"err":              err,
-				"watermarkedVideo": watermarkedVideo,
+				"err": err,
 			}).Errorf("Error when adding watermark to video.")
 		}
+
+		// 保存到数据库
+		err = database.Client.WithContext(ctx).Create(&raw).Error
+		if err != nil {
+			logger.WithFields(logrus.Fields{
+				"file_name":  raw.FileName,
+				"cover_name": raw.CoverName,
+				"err":        err,
+			}).Debug("failed to create db entry")
+		}
+		logger.WithFields(logrus.Fields{
+			"entry": raw,
+		}).Debug("saved db entry")
 
 		span.End()
 		err = d.Ack(false)
@@ -121,49 +134,47 @@ func Consume(channel *amqp.Channel) {
 	}
 }
 
-func ExtractVideoCover(ctx context.Context, video models.RawVideo) (string, error) {
+func ExtractVideoCover(ctx context.Context, video *models.RawVideo) error {
 	ctx, span := tracing.Tracer.Start(ctx, "PublishServiceImpl.CountVideo")
 	defer span.End()
 	logger := logging.LogService("VideoPicker.Picker").WithContext(ctx)
 	logger.Debug("Extracting video cover...")
+	RawFileName := video.FileName
+	CoverFileName := video.CoverName
+	RawFilePath := file.GetLocalPath(ctx, RawFileName)
+	CoverFilePath := file.GetLocalPath(ctx, CoverFileName)
 	cmdArgs := []string{
-		"-i", video.FilePath,
+		"-i", RawFilePath,
 		"-ss", "00:00:01",
 		"-vframes", "1",
-		video.CoverPath,
+		CoverFilePath,
 	}
 	cmd := exec.Command("ffmpeg", cmdArgs...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	err := cmd.Run()
-	coverPath := pathgen.GenerateRawVideoName(video.ActorId, video.Title)
 	if err != nil {
 		logger.WithFields(logrus.Fields{
 			"err": err,
 		}).Warnf("failed to get video cover")
-		return coverPath, err
+		return err
 	}
-	err = database.Client.Create(&video).Error
-	if err != nil {
-		logger.WithFields(logrus.Fields{
-			"err": err,
-		}).Warnf("failed to save processed video to database")
-		return coverPath, err
-	}
-
-	return coverPath, nil
+	return nil
 }
 
-func addWatermarkToVideo(ctx context.Context, video models.RawVideo) (models.RawVideo, error) {
+func addWatermarkToVideo(ctx context.Context, video *models.RawVideo) error {
 	ctx, span := tracing.Tracer.Start(ctx, "PublishServiceImpl.CountVideo")
 	defer span.End()
 	logger := logging.LogService("VideoPicker.Picker").WithContext(ctx)
 	logger.Debug("Adding watermark to video...")
-
+	RawFileName := video.FileName
+	FinalFileName := pathgen.GenerateFinalVideoName(video.ActorId, video.Title, video.VideoId)
+	RawFilePath := file.GetLocalPath(ctx, RawFileName)
+	FinalFilePath := file.GetLocalPath(ctx, FinalFileName)
 	cmdArgs := []string{
-		"-i", video.FilePath,
+		"-i", RawFilePath,
 		"-vf", fmt.Sprintf("drawtext=text='%s':x=(w-text_w-10):y=10:fontsize=24:fontcolor=white", video.Title),
-		video.FilePath,
+		FinalFilePath,
 	}
 	cmd := exec.Command("ffmpeg", cmdArgs...)
 	cmd.Stdout = os.Stdout
@@ -173,7 +184,8 @@ func addWatermarkToVideo(ctx context.Context, video models.RawVideo) (models.Raw
 		logger.WithFields(logrus.Fields{
 			"err": err,
 		}).Warnf("failed to add video watermark")
-		return video, err
+		return err
 	}
-	return video, nil
+	video.FileName = FinalFileName
+	return nil
 }

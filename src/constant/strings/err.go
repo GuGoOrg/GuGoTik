@@ -44,4 +44,6 @@ const (
 	ActionCommentTypeInvalid     = "不合法的评论类型"
 	ActionCommentLimitedCode     = 10006
 	ActionCommentLimited         = "评论频繁，请稍后再试！"
+	InvalidContentTypeCode       = 10007
+	InvalidContentType           = "不合法的内容类型"
 )
