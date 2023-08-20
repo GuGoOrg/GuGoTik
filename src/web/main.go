@@ -17,6 +17,7 @@ import (
 	"github.com/sirupsen/logrus"
 	ginprometheus "github.com/zsais/go-gin-prometheus"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
+	"time"
 )
 
 func main() {
@@ -45,6 +46,7 @@ func main() {
 	// Configure Tracing
 	g.Use(otelgin.Middleware(config.WebServiceName))
 	g.Use(middleware.TokenAuthMiddleware())
+	g.Use(middleware.RateLimiterMiddleWare(time.Second, 100, 100))
 
 	// Configure Pyroscope
 	profiling.InitPyroscope("GuGoTik.GateWay")
