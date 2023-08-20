@@ -81,20 +81,50 @@ func (r RelationServiceImpl) Follow(ctx context.Context, request *relation.Relat
 		UserId:  request.UserId,  // 被关注者的 ID
 	}
 
-	result := database.Client.WithContext(ctx).Create(&rRelation)
+	tx := database.Client.WithContext(ctx).Begin() // 开始事务
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+			return
+		}
+		tx.Commit()
+	}()
 
-	if result.Error != nil {
+	if err = tx.Create(&rRelation).Error; err != nil {
 		resp = &relation.RelationActionResponse{
-			StatusCode: strings.RelationAlreadyExistsErrorCode,
-			StatusMsg:  strings.RelationAlreadyExistsError,
+			StatusCode: strings.UnableToFollowErrorCode,
+			StatusMsg:  strings.UnableToFollowError,
 		}
 		return
 	}
 
-	updateFollowListCache(ctx, request.ActorId, rRelation, true)
-	updateFollowerListCache(ctx, request.UserId, rRelation, true)
-	updateFollowCountCache(ctx, request.ActorId, true)
-	updateFollowerCountCache(ctx, request.UserId, true)
+	if err = updateFollowListCache(ctx, request.ActorId, rRelation, true); err != nil {
+		logger.WithFields(logrus.Fields{
+			"err": err,
+		}).Errorf("failed to update follow list cache")
+		return
+	}
+
+	if err = updateFollowerListCache(ctx, request.UserId, rRelation, true); err != nil {
+		logger.WithFields(logrus.Fields{
+			"err": err,
+		}).Errorf("failed to update follower list cache")
+		return
+	}
+
+	if err = updateFollowCountCache(ctx, request.ActorId, true); err != nil {
+		logger.WithFields(logrus.Fields{
+			"err": err,
+		}).Errorf("failed to update follow count cache")
+		return
+	}
+
+	if err = updateFollowerCountCache(ctx, request.UserId, true); err != nil {
+		logger.WithFields(logrus.Fields{
+			"err": err,
+		}).Errorf("failed to update follower count cache")
+		return
+	}
 
 	resp = &relation.RelationActionResponse{
 		StatusCode: strings.ServiceOKCode,
@@ -154,11 +184,16 @@ func (r RelationServiceImpl) Unfollow(ctx context.Context, request *relation.Rel
 		return
 	}
 
-	result = database.Client.WithContext(ctx).
-		Where(&rRelation).
-		Delete(&rRelation)
+	tx := database.Client.WithContext(ctx).Begin()
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+			return
+		}
+		tx.Commit()
+	}()
 
-	if result.Error != nil {
+	if err = tx.Where(&rRelation).Delete(&rRelation).Error; err != nil {
 		resp = &relation.RelationActionResponse{
 			StatusCode: strings.UnableToUnFollowErrorCode,
 			StatusMsg:  strings.UnableToUnFollowError,
@@ -166,10 +201,33 @@ func (r RelationServiceImpl) Unfollow(ctx context.Context, request *relation.Rel
 		return
 	}
 
-	updateFollowListCache(ctx, request.ActorId, rRelation, false)
-	updateFollowerListCache(ctx, request.UserId, rRelation, false)
-	updateFollowCountCache(ctx, request.ActorId, false)
-	updateFollowerCountCache(ctx, request.UserId, false)
+	if err = updateFollowListCache(ctx, request.ActorId, rRelation, false); err != nil {
+		logger.WithFields(logrus.Fields{
+			"err": err,
+		}).Errorf("failed to update follow list cache")
+		return
+	}
+
+	if err = updateFollowerListCache(ctx, request.UserId, rRelation, false); err != nil {
+		logger.WithFields(logrus.Fields{
+			"err": err,
+		}).Errorf("failed to update follower list cache")
+		return
+	}
+
+	if err = updateFollowCountCache(ctx, request.ActorId, false); err != nil {
+		logger.WithFields(logrus.Fields{
+			"err": err,
+		}).Errorf("failed to update follow count cache")
+		return
+	}
+
+	if err = updateFollowerCountCache(ctx, request.UserId, false); err != nil {
+		logger.WithFields(logrus.Fields{
+			"err": err,
+		}).Errorf("failed to update follower count cache")
+		return
+	}
 
 	resp = &relation.RelationActionResponse{
 		StatusCode: strings.ServiceOKCode,
@@ -292,7 +350,7 @@ func (r RelationServiceImpl) GetFriendList(ctx context.Context, request *relatio
 	//followList
 	cacheKey := fmt.Sprintf("follow_list_%d", request.UserId)
 	followList := CacheRelationList{}
-	if ok, _ := cached.ScanGet(ctx, cacheKey, &followList); ok {
+	if ok, _ := cached.CacheAndRedisGet(ctx, cacheKey, &followList); ok {
 		logger.Infof("Cache hit for follow list for user %d", request.UserId)
 	} else {
 		followResult := database.Client.WithContext(ctx).
@@ -312,7 +370,13 @@ func (r RelationServiceImpl) GetFriendList(ctx context.Context, request *relatio
 			return
 		}
 	}
-	cached.ScanWriteCache(ctx, cacheKey, &followList, true)
+	err = cached.ScanWriteCache(ctx, cacheKey, &followList, true)
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"err": err,
+			"key": cacheKey,
+		}).Errorf("failed to write cache for follow list")
+	}
 
 	// 构建关注列表的用户 ID 映射
 	followingMap := make(map[uint32]bool)
@@ -323,7 +387,7 @@ func (r RelationServiceImpl) GetFriendList(ctx context.Context, request *relatio
 	//followerList
 	cacheKey = fmt.Sprintf("follower_list_%d", request.UserId)
 	followerList := CacheRelationList{}
-	if ok, _ := cached.ScanGet(ctx, cacheKey, &followerList); ok {
+	if ok, _ := cached.CacheAndRedisGet(ctx, cacheKey, &followerList); ok {
 		logger.Infof("Cache hit for follower list for user %d", request.UserId)
 	} else {
 		followerResult := database.Client.WithContext(ctx).
@@ -343,7 +407,14 @@ func (r RelationServiceImpl) GetFriendList(ctx context.Context, request *relatio
 			return
 		}
 	}
-	cached.ScanWriteCache(ctx, cacheKey, &followerList, true)
+	err = cached.ScanWriteCache(ctx, cacheKey, &followerList, true)
+
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"err": err,
+			"key": cacheKey,
+		}).Errorf("failed to write cache for follower list")
+	}
 
 	// 构建互相关注的用户列表（既关注了关注者又被关注者所关注的用户）
 	mutualFriends := make([]*user.User, 0)
@@ -413,7 +484,7 @@ func (r RelationServiceImpl) GetFollowList(ctx context.Context, request *relatio
 	cacheKey := fmt.Sprintf("follow_list_%d", request.UserId)
 	cachedFollowList := CacheRelationList{}
 
-	if ok, _ := cached.ScanGet(ctx, cacheKey, &cachedFollowList); ok {
+	if ok, _ := cached.CacheAndRedisGet(ctx, cacheKey, &cachedFollowList); ok {
 		logger.Infof("Cache hit, retrieving follow list for user %d", request.UserId)
 
 		rFollowList, err := r.fetchUserListInfo(ctx, cachedFollowList.rList, request.ActorId, logger, span)
@@ -454,7 +525,13 @@ func (r RelationServiceImpl) GetFollowList(ctx context.Context, request *relatio
 	}
 	cachedFollowList.rList = followList
 
-	cached.ScanWriteCache(ctx, cacheKey, &cachedFollowList, true)
+	err = cached.ScanWriteCache(ctx, cacheKey, &cachedFollowList, true)
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"err": err,
+			"key": cacheKey,
+		}).Errorf("failed to write cache for follow list")
+	}
 
 	rFollowList, err := r.fetchUserListInfo(ctx, followList, request.ActorId, logger, span)
 	if err != nil {
@@ -482,7 +559,7 @@ func (r RelationServiceImpl) GetFollowerList(ctx context.Context, request *relat
 	cacheKey := fmt.Sprintf("follower_list_%d", request.UserId)
 	cachedFollowerList := CacheRelationList{}
 
-	if ok, _ := cached.ScanGet(ctx, cacheKey, &cachedFollowerList); ok {
+	if ok, _ := cached.CacheAndRedisGet(ctx, cacheKey, &cachedFollowerList); ok {
 		logger.Infof("Cache hit, retrieving follower list for user %d", request.UserId)
 
 		rFollowerList, err := r.fetchUserListInfo(ctx, cachedFollowerList.rList, request.ActorId, logger, span)
@@ -523,7 +600,13 @@ func (r RelationServiceImpl) GetFollowerList(ctx context.Context, request *relat
 	}
 
 	cachedFollowerList.rList = followerList
-	cached.ScanWriteCache(ctx, cacheKey, &cachedFollowerList, true)
+	err = cached.ScanWriteCache(ctx, cacheKey, &cachedFollowerList, true)
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"err": err,
+			"key": cacheKey,
+		}).Errorf("failed to write cache for follower list")
+	}
 
 	rFollowerList, err := r.fetchUserListInfo(ctx, followerList, request.ActorId, logger, span)
 	if err != nil {
@@ -600,9 +683,15 @@ func (r RelationServiceImpl) fetchUserListInfo(ctx context.Context, userList []m
 func updateFollowListCache(ctx context.Context, actorID uint32, relation models.Relation, followOp bool) error {
 
 	cacheKey := fmt.Sprintf("follow_list_%d", actorID)
+	fmt.Println("Cache key: ", cacheKey)
 	cachedRelationList := CacheRelationList{}
 
-	if ok, _ := cached.ScanGet(ctx, cacheKey, &cachedRelationList); ok {
+	ok, err := cached.CacheAndRedisGet(ctx, cacheKey, &cachedRelationList)
+	if err != nil {
+		return err
+	}
+
+	if ok {
 		if followOp {
 			cachedRelationList.rList = append(cachedRelationList.rList, relation)
 		} else {
@@ -613,8 +702,12 @@ func updateFollowListCache(ctx context.Context, actorID uint32, relation models.
 				}
 			}
 		}
-		cached.ScanWriteCache(ctx, cacheKey, &cachedRelationList, true)
+		err = cached.ScanWriteCache(ctx, cacheKey, &cachedRelationList, true)
+		if err != nil {
+			return err
+		}
 	}
+
 	return nil
 }
 
@@ -622,7 +715,12 @@ func updateFollowerListCache(ctx context.Context, userID uint32, relation models
 	cacheKey := fmt.Sprintf("follower_list_%d", userID)
 	cachedRelationList := CacheRelationList{}
 
-	if ok, _ := cached.ScanGet(ctx, cacheKey, &cachedRelationList); ok {
+	ok, err := cached.CacheAndRedisGet(ctx, cacheKey, &cachedRelationList)
+	if err != nil {
+		return err
+	}
+
+	if ok {
 		if followOp {
 			cachedRelationList.rList = append(cachedRelationList.rList, relation)
 		} else {
@@ -633,7 +731,11 @@ func updateFollowerListCache(ctx context.Context, userID uint32, relation models
 				}
 			}
 		}
-		cached.ScanWriteCache(ctx, cacheKey, &cachedRelationList, true)
+		err = cached.ScanWriteCache(ctx, cacheKey, &cachedRelationList, true)
+		if err != nil {
+			return err
+		}
+
 	}
 	return nil
 }
@@ -685,7 +787,6 @@ func updateFollowerCountCache(ctx context.Context, userID uint32, followOp bool)
 	cacheKey := fmt.Sprintf("follower_count_%d", userID)
 	var count uint32
 
-	//cachedCount := uint32(0)
 	if cachedCountString, ok, _ := cached.Get(ctx, cacheKey); ok {
 
 		cachedCount64, err := strconv.ParseUint(cachedCountString, 10, 32)

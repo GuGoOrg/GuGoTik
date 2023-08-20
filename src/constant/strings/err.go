@@ -26,8 +26,8 @@ const (
 	ActorIDNotMatchError             = "用户不匹配"
 	UnableToDeleteCommentErrorCode   = 50008
 	UnableToDeleteCommentError       = "无法删除视频评论"
-	RelationAlreadyExistsErrorCode   = 50009
-	RelationAlreadyExistsError       = "无法关注该用户"
+	UnableToFollowErrorCode          = 50009
+	UnableToFollowError              = "关注该用户失败"
 	UnableToUnFollowErrorCode        = 50010
 	UnableToUnFollowError            = "取消关注失败"
 	UnableToGetFollowListErrorCode   = 50011
