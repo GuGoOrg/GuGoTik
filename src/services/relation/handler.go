@@ -184,7 +184,7 @@ func (r RelationServiceImpl) CountFollowList(ctx context.Context, request *relat
 	logger := logging.LogService("RelationService.CountFollowList").WithContext(ctx)
 
 	cacheKey := fmt.Sprintf("follow_list_count_%d", request.UserId)
-	if cachedCountString, ok := cached.Get(ctx, cacheKey); ok {
+	if cachedCountString, ok, _ := cached.Get(ctx, cacheKey); ok {
 
 		cachedCount64, err := strconv.ParseUint(cachedCountString, 10, 32)
 		if err != nil {
@@ -238,7 +238,7 @@ func (r RelationServiceImpl) CountFollowerList(ctx context.Context, request *rel
 
 	cacheKey := fmt.Sprintf("follower_count_%d", request.UserId)
 
-	if cachedCountString, ok := cached.Get(ctx, cacheKey); ok {
+	if cachedCountString, ok, _ := cached.Get(ctx, cacheKey); ok {
 
 		cachedCount64, err := strconv.ParseUint(cachedCountString, 10, 32)
 		if err != nil {
@@ -292,7 +292,7 @@ func (r RelationServiceImpl) GetFriendList(ctx context.Context, request *relatio
 	//followList
 	cacheKey := fmt.Sprintf("follow_list_%d", request.UserId)
 	followList := CacheRelationList{}
-	if cached.ScanGet(ctx, cacheKey, &followList) {
+	if ok, _ := cached.ScanGet(ctx, cacheKey, &followList); ok {
 		logger.Infof("Cache hit for follow list for user %d", request.UserId)
 	} else {
 		followResult := database.Client.WithContext(ctx).
@@ -323,7 +323,7 @@ func (r RelationServiceImpl) GetFriendList(ctx context.Context, request *relatio
 	//followerList
 	cacheKey = fmt.Sprintf("follower_list_%d", request.UserId)
 	followerList := CacheRelationList{}
-	if cached.ScanGet(ctx, cacheKey, &followerList) {
+	if ok, _ := cached.ScanGet(ctx, cacheKey, &followerList); ok {
 		logger.Infof("Cache hit for follower list for user %d", request.UserId)
 	} else {
 		followerResult := database.Client.WithContext(ctx).
@@ -413,7 +413,7 @@ func (r RelationServiceImpl) GetFollowList(ctx context.Context, request *relatio
 	cacheKey := fmt.Sprintf("follow_list_%d", request.UserId)
 	cachedFollowList := CacheRelationList{}
 
-	if cached.ScanGet(ctx, cacheKey, &cachedFollowList) {
+	if ok, _ := cached.ScanGet(ctx, cacheKey, &cachedFollowList); ok {
 		logger.Infof("Cache hit, retrieving follow list for user %d", request.UserId)
 
 		rFollowList, err := r.fetchUserListInfo(ctx, cachedFollowList.rList, request.ActorId, logger, span)
@@ -482,7 +482,7 @@ func (r RelationServiceImpl) GetFollowerList(ctx context.Context, request *relat
 	cacheKey := fmt.Sprintf("follower_list_%d", request.UserId)
 	cachedFollowerList := CacheRelationList{}
 
-	if cached.ScanGet(ctx, cacheKey, &cachedFollowerList) {
+	if ok, _ := cached.ScanGet(ctx, cacheKey, &cachedFollowerList); ok {
 		logger.Infof("Cache hit, retrieving follower list for user %d", request.UserId)
 
 		rFollowerList, err := r.fetchUserListInfo(ctx, cachedFollowerList.rList, request.ActorId, logger, span)
@@ -602,7 +602,7 @@ func updateFollowListCache(ctx context.Context, actorID uint32, relation models.
 	cacheKey := fmt.Sprintf("follow_list_%d", actorID)
 	cachedRelationList := CacheRelationList{}
 
-	if cached.ScanGet(ctx, cacheKey, &cachedRelationList) {
+	if ok, _ := cached.ScanGet(ctx, cacheKey, &cachedRelationList); ok {
 		if followOp {
 			cachedRelationList.rList = append(cachedRelationList.rList, relation)
 		} else {
@@ -622,7 +622,7 @@ func updateFollowerListCache(ctx context.Context, userID uint32, relation models
 	cacheKey := fmt.Sprintf("follower_list_%d", userID)
 	cachedRelationList := CacheRelationList{}
 
-	if cached.ScanGet(ctx, cacheKey, &cachedRelationList) {
+	if ok, _ := cached.ScanGet(ctx, cacheKey, &cachedRelationList); ok {
 		if followOp {
 			cachedRelationList.rList = append(cachedRelationList.rList, relation)
 		} else {
@@ -642,7 +642,7 @@ func updateFollowCountCache(ctx context.Context, actorID uint32, followOp bool) 
 	cacheKey := fmt.Sprintf("follow_count_%d", actorID)
 	var count uint32
 
-	if cachedCountString, ok := cached.Get(ctx, cacheKey); ok {
+	if cachedCountString, ok, _ := cached.Get(ctx, cacheKey); ok {
 
 		cachedCount64, err := strconv.ParseUint(cachedCountString, 10, 32)
 		if err != nil {
@@ -686,7 +686,7 @@ func updateFollowerCountCache(ctx context.Context, userID uint32, followOp bool)
 	var count uint32
 
 	//cachedCount := uint32(0)
-	if cachedCountString, ok := cached.Get(ctx, cacheKey); ok {
+	if cachedCountString, ok, _ := cached.Get(ctx, cacheKey); ok {
 
 		cachedCount64, err := strconv.ParseUint(cachedCountString, 10, 32)
 		if err != nil {
