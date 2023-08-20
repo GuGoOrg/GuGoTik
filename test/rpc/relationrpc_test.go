@@ -33,8 +33,8 @@ func TestFollow(t *testing.T) {
 func TestUnfollow(t *testing.T) {
 	var Client relation.RelationServiceClient
 	req := relation.RelationActionRequest{
-		UserId:  2,
-		ActorId: 0,
+		UserId:  4,
+		ActorId: 3,
 	}
 
 	conn, err := grpc.Dial(fmt.Sprintf("127.0.0.1%s", config.RelationRpcServerPort),

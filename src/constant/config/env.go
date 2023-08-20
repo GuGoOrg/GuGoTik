@@ -13,11 +13,11 @@ type envConfig struct {
 	LoggerLevel           string `env:"LOGGER_LEVEL" envDefault:"INFO"`
 	LoggerWithTraceState  string `env:"LOGGER_OUT_TRACING" envDefault:"disable"`
 	TiedLogging           string `env:"TIED" envDefault:"NONE"`
-	PostgreSQLHost        string `env:"POSTGRESQL_HOST"`
-	PostgreSQLPort        string `env:"POSTGRESQL_PORT"`
-	PostgreSQLUser        string `env:"POSTGRESQL_USER"`
-	PostgreSQLPassword    string `env:"POSTGRESQL_PASSWORD"`
-	PostgreSQLDataBase    string `env:"POSTGRESQL_DATABASE"`
+	PostgreSQLHost        string `env:"POSTGRESQL_HOST" envDefault:"127.0.0.1"`
+	PostgreSQLPort        string `env:"POSTGRESQL_PORT" envDefault:"5432"`
+	PostgreSQLUser        string `env:"POSTGRESQL_USER" envDefault:"postgres"`
+	PostgreSQLPassword    string `env:"POSTGRESQL_PASSWORD" envDefault:"1092"`
+	PostgreSQLDataBase    string `env:"POSTGRESQL_DATABASE" envDefault:"Gugo"`
 	StorageType           string `env:"STORAGE_TYPE" envDefault:"fs"`
 	FileSystemStartPath   string `env:"FS_PATH" envDefault:"/tmp"`
 	FileSystemBaseUrl     string `env:"FS_BASEURL" envDefault:"http://localhost/"`

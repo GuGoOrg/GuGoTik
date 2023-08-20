@@ -7,11 +7,15 @@ import (
 	"GuGoTik/src/models"
 	"GuGoTik/src/rpc/relation"
 	"GuGoTik/src/rpc/user"
+	"GuGoTik/src/storage/cached"
 	"GuGoTik/src/storage/database"
 	grpc2 "GuGoTik/src/utils/grpc"
 	"GuGoTik/src/utils/logging"
 	"context"
+	"fmt"
 	"github.com/sirupsen/logrus"
+	"go.opentelemetry.io/otel/trace"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -20,6 +24,19 @@ var UserClient user.UserServiceClient
 
 type RelationServiceImpl struct {
 	relation.RelationServiceServer
+}
+
+type CacheRelationList struct {
+	rList []models.Relation
+}
+
+func (c *CacheRelationList) IsDirty() bool {
+	return c.rList != nil
+}
+
+// GetID :   use userid as key for cache
+func (c *CacheRelationList) GetID() uint32 {
+	return 0
 }
 
 func init() {
@@ -59,7 +76,7 @@ func (r RelationServiceImpl) Follow(ctx context.Context, request *relation.Relat
 		return
 	}
 
-	rRelation := &models.Relation{
+	rRelation := models.Relation{
 		ActorId: request.ActorId, // 关注者的 ID
 		UserId:  request.UserId,  // 被关注者的 ID
 	}
@@ -73,6 +90,11 @@ func (r RelationServiceImpl) Follow(ctx context.Context, request *relation.Relat
 		}
 		return
 	}
+
+	updateFollowListCache(ctx, request.ActorId, rRelation, true)
+	updateFollowerListCache(ctx, request.UserId, rRelation, true)
+	updateFollowCountCache(ctx, request.ActorId, true)
+	updateFollowerCountCache(ctx, request.UserId, true)
 
 	resp = &relation.RelationActionResponse{
 		StatusCode: strings.ServiceOKCode,
@@ -144,95 +166,14 @@ func (r RelationServiceImpl) Unfollow(ctx context.Context, request *relation.Rel
 		return
 	}
 
+	updateFollowListCache(ctx, request.ActorId, rRelation, false)
+	updateFollowerListCache(ctx, request.UserId, rRelation, false)
+	updateFollowCountCache(ctx, request.ActorId, false)
+	updateFollowerCountCache(ctx, request.UserId, false)
+
 	resp = &relation.RelationActionResponse{
 		StatusCode: strings.ServiceOKCode,
 		StatusMsg:  strings.ServiceOK,
-	}
-	return
-}
-
-func (r RelationServiceImpl) GetFollowList(ctx context.Context, request *relation.FollowListRequest) (resp *relation.FollowListResponse, err error) {
-	ctx, span := tracing.Tracer.Start(ctx, "GetFollowListService")
-	defer span.End()
-	logger := logging.LogService("RelationService.GetFollowList").WithContext(ctx)
-
-	var followList []models.Relation
-	result := database.Client.WithContext(ctx).
-		Where("actor_id = ?", request.UserId).
-		Order("created_at desc").
-		Find(&followList)
-
-	if result.Error != nil {
-		logger.WithFields(logrus.Fields{
-			"err": result.Error,
-		}).Errorf("GetFollowListService failed to response when listing follows")
-		logging.SetSpanError(span, err)
-
-		resp = &relation.FollowListResponse{
-			StatusCode: strings.UnableToGetFollowListErrorCode,
-			StatusMsg:  strings.UnableToGetFollowListError,
-		}
-		return
-	}
-
-	rFollowList := make([]*user.User, 0, result.RowsAffected)
-
-	var wg sync.WaitGroup
-	var mu sync.Mutex
-	var wgErrors []error
-
-	maxRetries := 3
-	retryInterval := 1
-
-	for _, follow := range followList {
-		wg.Add(1)
-		go func(follow models.Relation) {
-			defer wg.Done()
-
-			retryCount := 0
-			for retryCount < maxRetries {
-				userResponse, err := UserClient.GetUserInfo(ctx, &user.UserRequest{
-					UserId:  follow.UserId,
-					ActorId: request.ActorId,
-				})
-
-				if err != nil || userResponse.StatusCode != strings.ServiceOKCode {
-					logger.WithFields(logrus.Fields{
-						"err":    err,
-						"follow": follow,
-					}).Errorf("Unable to get user info")
-					logging.SetSpanError(span, err)
-
-					retryCount++
-					// 等待一段时间后进行重试
-					time.Sleep(time.Duration(retryInterval) * time.Second)
-					continue
-				} else {
-					mu.Lock()
-					defer mu.Unlock()
-					rFollowList = append(rFollowList, userResponse.User)
-					break
-				}
-			}
-		}(follow)
-	}
-
-	wg.Wait()
-
-	if len(wgErrors) > 0 {
-		logger.Errorf("%d user info queries failed while fetching follow list", len(wgErrors))
-		resp = &relation.FollowListResponse{
-			StatusCode: strings.UnableToGetFollowListErrorCode,
-			StatusMsg:  strings.UnableToGetFollowListError,
-			UserList:   nil,
-		}
-		return
-	}
-
-	resp = &relation.FollowListResponse{
-		StatusCode: strings.ServiceOKCode,
-		StatusMsg:  strings.ServiceOK,
-		UserList:   rFollowList,
 	}
 	return
 }
@@ -241,6 +182,24 @@ func (r RelationServiceImpl) CountFollowList(ctx context.Context, request *relat
 	ctx, span := tracing.Tracer.Start(ctx, "CountFollowListService")
 	defer span.End()
 	logger := logging.LogService("RelationService.CountFollowList").WithContext(ctx)
+
+	cacheKey := fmt.Sprintf("follow_list_count_%d", request.UserId)
+	if cachedCountString, ok := cached.Get(ctx, cacheKey); ok {
+
+		cachedCount64, err := strconv.ParseUint(cachedCountString, 10, 32)
+		if err != nil {
+			return resp, err
+		}
+		cachedCount := uint32(cachedCount64)
+
+		logger.Infof("Cache hit for follow list count for user %d", request.UserId)
+		resp = &relation.CountFollowListResponse{
+			StatusCode: strings.ServiceOKCode,
+			StatusMsg:  strings.ServiceOK,
+			Count:      cachedCount,
+		}
+		return resp, err
+	}
 
 	var count int64
 	result := database.Client.WithContext(ctx).
@@ -266,93 +225,9 @@ func (r RelationServiceImpl) CountFollowList(ctx context.Context, request *relat
 		StatusMsg:  strings.ServiceOK,
 		Count:      uint32(count),
 	}
+	countString := strconv.Itoa(int(count))
+	cached.Write(ctx, cacheKey, countString, true)
 
-	return
-}
-
-func (r RelationServiceImpl) GetFollowerList(ctx context.Context, request *relation.FollowerListRequest) (resp *relation.FollowerListResponse, err error) {
-
-	ctx, span := tracing.Tracer.Start(ctx, "GetFollowerListService")
-	defer span.End()
-	logger := logging.LogService("RelationService.GetFollowerList").WithContext(ctx)
-
-	var followerList []models.Relation
-	result := database.Client.WithContext(ctx).
-		Where("user_id = ?", request.UserId).
-		Order("created_at desc").
-		Find(&followerList)
-
-	if result.Error != nil {
-		logger.WithFields(logrus.Fields{
-			"err": result.Error,
-		}).Errorf("GetFollowerListService failed to response when listing followers")
-		logging.SetSpanError(span, err)
-
-		resp = &relation.FollowerListResponse{
-			StatusCode: strings.UnableToGetFollowerListErrorCode,
-			StatusMsg:  strings.UnableToGetFollowerListError,
-		}
-		return
-	}
-
-	rFollowerList := make([]*user.User, 0, result.RowsAffected)
-
-	var wg sync.WaitGroup
-	var mu sync.Mutex
-	var wgErrors []error
-
-	maxRetries := 3
-	retryInterval := 1
-
-	for _, follower := range followerList {
-		wg.Add(1)
-		go func(follower models.Relation) {
-			defer wg.Done()
-
-			retryCount := 0
-			for retryCount < maxRetries {
-				userResponse, err := UserClient.GetUserInfo(ctx, &user.UserRequest{
-					UserId:  follower.UserId,
-					ActorId: request.ActorId,
-				})
-
-				if err != nil || userResponse.StatusCode != strings.ServiceOKCode {
-					logger.WithFields(logrus.Fields{
-						"err":      err,
-						"follower": follower,
-					}).Errorf("Unable to get user info")
-					logging.SetSpanError(span, err)
-
-					retryCount++
-					// 等待一段时间后进行重试
-					time.Sleep(time.Duration(retryInterval) * time.Second)
-					continue
-				} else {
-					mu.Lock()
-					defer mu.Unlock()
-					rFollowerList = append(rFollowerList, userResponse.User)
-					break
-				}
-			}
-		}(follower)
-	}
-
-	wg.Wait()
-
-	if len(wgErrors) > 0 {
-		logger.Errorf("%d user info queries failed while fetching follower list", len(wgErrors))
-		resp = &relation.FollowerListResponse{
-			StatusCode: strings.UnableToGetFollowerListErrorCode,
-			StatusMsg:  strings.UnableToGetFollowerListError,
-			UserList:   nil,
-		}
-		return
-	}
-	resp = &relation.FollowerListResponse{
-		StatusCode: strings.ServiceOKCode,
-		StatusMsg:  strings.ServiceOK,
-		UserList:   rFollowerList,
-	}
 	return
 }
 
@@ -360,6 +235,25 @@ func (r RelationServiceImpl) CountFollowerList(ctx context.Context, request *rel
 	ctx, span := tracing.Tracer.Start(ctx, "CountFollowerListService")
 	defer span.End()
 	logger := logging.LogService("RelationService.CountFollowerList").WithContext(ctx)
+
+	cacheKey := fmt.Sprintf("follower_count_%d", request.UserId)
+
+	if cachedCountString, ok := cached.Get(ctx, cacheKey); ok {
+
+		cachedCount64, err := strconv.ParseUint(cachedCountString, 10, 32)
+		if err != nil {
+			return resp, err
+		}
+		cachedCount := uint32(cachedCount64)
+
+		logger.Infof("Cache hit for follower count for user %d", request.UserId)
+		resp = &relation.CountFollowerListResponse{
+			StatusCode: strings.ServiceOKCode,
+			StatusMsg:  strings.ServiceOK,
+			Count:      cachedCount,
+		}
+		return resp, err
+	}
 
 	var count int64
 	result := database.Client.WithContext(ctx).
@@ -385,6 +279,8 @@ func (r RelationServiceImpl) CountFollowerList(ctx context.Context, request *rel
 		StatusMsg:  strings.ServiceOK,
 		Count:      uint32(count),
 	}
+	countString := strconv.Itoa(int(count))
+	cached.Write(ctx, cacheKey, countString, true)
 	return
 }
 
@@ -393,53 +289,65 @@ func (r RelationServiceImpl) GetFriendList(ctx context.Context, request *relatio
 	defer span.End()
 	logger := logging.LogService("RelationService.GetFriendList").WithContext(ctx)
 
-	// 查询关注列表，找出关注的用户
-	var followList []models.Relation
-	followResult := database.Client.WithContext(ctx).
-		Where("actor_id = ?", request.UserId).
-		Find(&followList)
+	//followList
+	cacheKey := fmt.Sprintf("follow_list_%d", request.UserId)
+	followList := CacheRelationList{}
+	if cached.ScanGet(ctx, cacheKey, &followList) {
+		logger.Infof("Cache hit for follow list for user %d", request.UserId)
+	} else {
+		followResult := database.Client.WithContext(ctx).
+			Where("actor_id = ?", request.UserId).
+			Find(&followList.rList)
 
-	if followResult.Error != nil {
-		logger.WithFields(logrus.Fields{
-			"err": followResult.Error,
-		}).Errorf("GetFriendListService failed with error")
-		logging.SetSpanError(span, followResult.Error)
+		if followResult.Error != nil {
+			logger.WithFields(logrus.Fields{
+				"err": followResult.Error,
+			}).Errorf("GetFriendListService failed with error")
+			logging.SetSpanError(span, followResult.Error)
 
-		resp = &relation.FriendListResponse{
-			StatusCode: strings.UnableToGetFollowListErrorCode,
-			StatusMsg:  strings.UnableToGetFollowListError,
+			resp = &relation.FriendListResponse{
+				StatusCode: strings.UnableToGetFollowListErrorCode,
+				StatusMsg:  strings.UnableToGetFollowListError,
+			}
+			return
 		}
-		return
 	}
+	cached.ScanWriteCache(ctx, cacheKey, &followList, true)
 
 	// 构建关注列表的用户 ID 映射
 	followingMap := make(map[uint32]bool)
-	for _, follow := range followList {
+	for _, follow := range followList.rList {
 		followingMap[follow.UserId] = true
 	}
 
-	// 查询粉丝列表，找出关注者的粉丝
-	var followerList []models.Relation
-	followerResult := database.Client.WithContext(ctx).
-		Where("user_id = ?", request.UserId).
-		Find(&followerList)
+	//followerList
+	cacheKey = fmt.Sprintf("follower_list_%d", request.UserId)
+	followerList := CacheRelationList{}
+	if cached.ScanGet(ctx, cacheKey, &followerList) {
+		logger.Infof("Cache hit for follower list for user %d", request.UserId)
+	} else {
+		followerResult := database.Client.WithContext(ctx).
+			Where("user_id = ?", request.UserId).
+			Find(&followerList.rList)
 
-	if followerResult.Error != nil {
-		logger.WithFields(logrus.Fields{
-			"err": followerResult.Error,
-		}).Errorf("GetFriendListService failed with error")
-		logging.SetSpanError(span, followerResult.Error)
+		if followerResult.Error != nil {
+			logger.WithFields(logrus.Fields{
+				"err": followerResult.Error,
+			}).Errorf("GetFriendListService failed with error")
+			logging.SetSpanError(span, followerResult.Error)
 
-		resp = &relation.FriendListResponse{
-			StatusCode: strings.UnableToGetFollowerListErrorCode,
-			StatusMsg:  strings.UnableToGetFollowerListError,
+			resp = &relation.FriendListResponse{
+				StatusCode: strings.UnableToGetFollowerListErrorCode,
+				StatusMsg:  strings.UnableToGetFollowerListError,
+			}
+			return
 		}
-		return
 	}
+	cached.ScanWriteCache(ctx, cacheKey, &followerList, true)
 
 	// 构建互相关注的用户列表（既关注了关注者又被关注者所关注的用户）
 	mutualFriends := make([]*user.User, 0)
-	for _, follower := range followerList {
+	for _, follower := range followerList.rList {
 		if followingMap[follower.ActorId] {
 			userResponse, err := UserClient.GetUserInfo(ctx, &user.UserRequest{
 				UserId:  follower.ActorId,
@@ -449,7 +357,7 @@ func (r RelationServiceImpl) GetFriendList(ctx context.Context, request *relatio
 				logger.WithFields(logrus.Fields{
 					"err":      err,
 					"follower": follower,
-				}).Errorf("无法获取互相关注的用户信息")
+				}).Errorf("Unable to get information about users who follow each other")
 				logging.SetSpanError(span, err)
 			} else {
 				mutualFriends = append(mutualFriends, userResponse.User)
@@ -495,4 +403,322 @@ func (r RelationServiceImpl) IsFollow(ctx context.Context, request *relation.IsF
 		Result: count > 0,
 	}
 	return
+}
+
+func (r RelationServiceImpl) GetFollowList(ctx context.Context, request *relation.FollowListRequest) (resp *relation.FollowListResponse, err error) {
+	ctx, span := tracing.Tracer.Start(ctx, "GetFollowListService")
+	defer span.End()
+	logger := logging.LogService("RelationService.GetFollowList").WithContext(ctx)
+
+	cacheKey := fmt.Sprintf("follow_list_%d", request.UserId)
+	cachedFollowList := CacheRelationList{}
+
+	if cached.ScanGet(ctx, cacheKey, &cachedFollowList) {
+		logger.Infof("Cache hit, retrieving follow list for user %d", request.UserId)
+
+		rFollowList, err := r.fetchUserListInfo(ctx, cachedFollowList.rList, request.ActorId, logger, span)
+		if err != nil {
+			resp = &relation.FollowListResponse{
+				StatusCode: strings.UnableToGetFollowListErrorCode,
+				StatusMsg:  strings.UnableToGetFollowListError,
+				UserList:   nil,
+			}
+			return resp, err
+		}
+
+		resp = &relation.FollowListResponse{
+			StatusCode: strings.ServiceOKCode,
+			StatusMsg:  strings.ServiceOK,
+			UserList:   rFollowList,
+		}
+		return resp, nil
+	}
+
+	var followList []models.Relation
+	result := database.Client.WithContext(ctx).
+		Where("actor_id = ?", request.UserId).
+		Order("created_at desc").
+		Find(&followList)
+
+	if result.Error != nil {
+		logger.WithFields(logrus.Fields{
+			"err": result.Error,
+		}).Errorf("Failed to retrieve follow list")
+		logging.SetSpanError(span, err)
+
+		resp = &relation.FollowListResponse{
+			StatusCode: strings.UnableToGetFollowListErrorCode,
+			StatusMsg:  strings.UnableToGetFollowListError,
+		}
+		return
+	}
+	cachedFollowList.rList = followList
+
+	cached.ScanWriteCache(ctx, cacheKey, &cachedFollowList, true)
+
+	rFollowList, err := r.fetchUserListInfo(ctx, followList, request.ActorId, logger, span)
+	if err != nil {
+		resp = &relation.FollowListResponse{
+			StatusCode: strings.UnableToGetFollowListErrorCode,
+			StatusMsg:  strings.UnableToGetFollowListError,
+		}
+		return resp, nil
+	}
+
+	resp = &relation.FollowListResponse{
+		StatusCode: strings.ServiceOKCode,
+		StatusMsg:  strings.ServiceOK,
+		UserList:   rFollowList,
+	}
+
+	return resp, nil
+}
+
+func (r RelationServiceImpl) GetFollowerList(ctx context.Context, request *relation.FollowerListRequest) (resp *relation.FollowerListResponse, err error) {
+	ctx, span := tracing.Tracer.Start(ctx, "GetFollowerListService")
+	defer span.End()
+	logger := logging.LogService("RelationService.GetFollowerList").WithContext(ctx)
+
+	cacheKey := fmt.Sprintf("follower_list_%d", request.UserId)
+	cachedFollowerList := CacheRelationList{}
+
+	if cached.ScanGet(ctx, cacheKey, &cachedFollowerList) {
+		logger.Infof("Cache hit, retrieving follower list for user %d", request.UserId)
+
+		rFollowerList, err := r.fetchUserListInfo(ctx, cachedFollowerList.rList, request.ActorId, logger, span)
+		if err != nil {
+			resp = &relation.FollowerListResponse{
+				StatusCode: strings.UnableToGetFollowerListErrorCode,
+				StatusMsg:  strings.UnableToGetFollowerListError,
+				UserList:   nil,
+			}
+			return resp, err
+		}
+
+		resp = &relation.FollowerListResponse{
+			StatusCode: strings.ServiceOKCode,
+			StatusMsg:  strings.ServiceOK,
+			UserList:   rFollowerList,
+		}
+		return resp, err
+	}
+
+	var followerList []models.Relation
+	result := database.Client.WithContext(ctx).
+		Where("user_id = ?", request.UserId).
+		Order("created_at desc").
+		Find(&followerList)
+
+	if result.Error != nil {
+		logger.WithFields(logrus.Fields{
+			"err": result.Error,
+		}).Errorf("Failed to retrieve follower list")
+		logging.SetSpanError(span, err)
+
+		resp = &relation.FollowerListResponse{
+			StatusCode: strings.UnableToGetFollowerListErrorCode,
+			StatusMsg:  strings.UnableToGetFollowerListError,
+		}
+		return
+	}
+
+	cachedFollowerList.rList = followerList
+	cached.ScanWriteCache(ctx, cacheKey, &cachedFollowerList, true)
+
+	rFollowerList, err := r.fetchUserListInfo(ctx, followerList, request.ActorId, logger, span)
+	if err != nil {
+		resp = &relation.FollowerListResponse{
+			StatusCode: strings.UnableToGetFollowerListErrorCode,
+			StatusMsg:  strings.UnableToGetFollowerListError,
+		}
+		return
+	}
+
+	resp = &relation.FollowerListResponse{
+		StatusCode: strings.ServiceOKCode,
+		StatusMsg:  strings.ServiceOK,
+		UserList:   rFollowerList,
+	}
+
+	return
+}
+
+func (r RelationServiceImpl) fetchUserListInfo(ctx context.Context, userList []models.Relation, actorID uint32, logger *logrus.Entry, span trace.Span) ([]*user.User, error) {
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	var wgErrors []error
+
+	maxRetries := 3
+	retryInterval := 1
+
+	rUserList := make([]*user.User, 0, len(userList))
+
+	for _, r := range userList {
+		wg.Add(1)
+		go func(relation models.Relation) {
+			defer wg.Done()
+
+			retryCount := 0
+			for retryCount < maxRetries {
+				userResponse, err := UserClient.GetUserInfo(ctx, &user.UserRequest{
+					UserId:  relation.UserId,
+					ActorId: actorID,
+				})
+
+				if err != nil || userResponse.StatusCode != strings.ServiceOKCode {
+					logger.WithFields(logrus.Fields{
+						"err":      err,
+						"relation": relation,
+					}).Errorf("Unable to get user information")
+					logging.SetSpanError(span, err)
+
+					retryCount++
+					time.Sleep(time.Duration(retryInterval) * time.Second)
+					continue
+				} else {
+					mu.Lock()
+					rUserList = append(rUserList, userResponse.User)
+					mu.Unlock()
+					break
+				}
+			}
+		}(r)
+	}
+
+	wg.Wait()
+
+	if len(wgErrors) > 0 {
+		logger.Errorf("%d user information fails to be queried. ", len(wgErrors))
+		return nil, fmt.Errorf("%d user information fails to be queried", len(wgErrors))
+	}
+
+	return rUserList, nil
+}
+
+// followOp = true  ->  follow
+// followOp = false ->  unfollow
+func updateFollowListCache(ctx context.Context, actorID uint32, relation models.Relation, followOp bool) error {
+
+	cacheKey := fmt.Sprintf("follow_list_%d", actorID)
+	cachedRelationList := CacheRelationList{}
+
+	if cached.ScanGet(ctx, cacheKey, &cachedRelationList) {
+		if followOp {
+			cachedRelationList.rList = append(cachedRelationList.rList, relation)
+		} else {
+			for i, r := range cachedRelationList.rList {
+				if r.UserId == relation.UserId {
+					cachedRelationList.rList = append(cachedRelationList.rList[:i], cachedRelationList.rList[i+1:]...)
+					break
+				}
+			}
+		}
+		cached.ScanWriteCache(ctx, cacheKey, &cachedRelationList, true)
+	}
+	return nil
+}
+
+func updateFollowerListCache(ctx context.Context, userID uint32, relation models.Relation, followOp bool) error {
+	cacheKey := fmt.Sprintf("follower_list_%d", userID)
+	cachedRelationList := CacheRelationList{}
+
+	if cached.ScanGet(ctx, cacheKey, &cachedRelationList) {
+		if followOp {
+			cachedRelationList.rList = append(cachedRelationList.rList, relation)
+		} else {
+			for i, r := range cachedRelationList.rList {
+				if r.ActorId == relation.ActorId {
+					cachedRelationList.rList = append(cachedRelationList.rList[:i], cachedRelationList.rList[i+1:]...)
+					break
+				}
+			}
+		}
+		cached.ScanWriteCache(ctx, cacheKey, &cachedRelationList, true)
+	}
+	return nil
+}
+
+func updateFollowCountCache(ctx context.Context, actorID uint32, followOp bool) error {
+	cacheKey := fmt.Sprintf("follow_count_%d", actorID)
+	var count uint32
+
+	if cachedCountString, ok := cached.Get(ctx, cacheKey); ok {
+
+		cachedCount64, err := strconv.ParseUint(cachedCountString, 10, 32)
+		if err != nil {
+			return err
+		}
+		cachedCount := uint32(cachedCount64)
+		if !followOp {
+			// unfollow
+			if cachedCount > 0 {
+				count = cachedCount - 1
+			} else {
+				count = 0
+			}
+		} else {
+			// follow
+			count = cachedCount + 1
+		}
+	} else {
+		// not hit in cache
+		var dbCount int64
+		result := database.Client.WithContext(ctx).
+			Model(&models.Relation{}).
+			Where("actor_id = ?", actorID).
+			Count(&dbCount)
+
+		if result.Error != nil {
+			return result.Error
+		}
+
+		count = uint32(dbCount)
+	}
+
+	countString := strconv.Itoa(int(count))
+	cached.Write(ctx, cacheKey, countString, true)
+
+	return nil
+}
+
+func updateFollowerCountCache(ctx context.Context, userID uint32, followOp bool) error {
+	cacheKey := fmt.Sprintf("follower_count_%d", userID)
+	var count uint32
+
+	//cachedCount := uint32(0)
+	if cachedCountString, ok := cached.Get(ctx, cacheKey); ok {
+
+		cachedCount64, err := strconv.ParseUint(cachedCountString, 10, 32)
+		if err != nil {
+			return err
+		}
+		cachedCount := uint32(cachedCount64)
+		if !followOp {
+			// unfollow
+			if cachedCount > 0 {
+				count = cachedCount - 1
+			} else {
+				count = 0
+			}
+		} else {
+			// follow
+			count = cachedCount + 1
+		}
+	} else {
+		// not hit in cache
+		var dbCount int64
+		result := database.Client.WithContext(ctx).
+			Model(&models.Relation{}).
+			Where("user_id = ?", userID).
+			Count(&dbCount)
+
+		if result.Error != nil {
+			return result.Error
+		}
+
+		count = uint32(dbCount)
+	}
+	countString := strconv.Itoa(int(count))
+	cached.Write(ctx, cacheKey, countString, true)
+	return nil
 }
