@@ -12,14 +12,14 @@ import (
 	message2 "GuGoTik/src/web/message"
 	"GuGoTik/src/web/middleware"
 	"context"
-	"fmt"
+
+	"time"
 
 	"github.com/gin-contrib/gzip"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 	ginprometheus "github.com/zsais/go-gin-prometheus"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
-	"time"
 )
 
 func main() {
@@ -78,7 +78,6 @@ func main() {
 	{
 		message.GET("/chat", message2.ListMessageHandler)
 		message.POST("/action", message2.ActionMessageHandler)
-		fmt.Println(message)
 	}
 
 	// Run Server

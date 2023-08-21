@@ -187,22 +187,10 @@ func (c CommentServiceImpl) ListComment(ctx context.Context, request *comment.Li
 	rCommentList := make([]*comment.Comment, 0, result.RowsAffected)
 	userMap := make(map[uint32]*user.User)
 	for _, pComment := range pCommentList {
-<<<<<<< HEAD
-		userResponse, err := UserClient.GetUserInfo(ctx, &user.UserRequest{
-			UserId:  pComment.UserId,
-			ActorId: request.ActorId,
-		})
-		if err != nil || userResponse.StatusCode != strings.ServiceOKCode {
-			logger.WithFields(logrus.Fields{
-				"err":      err,
-				"pComment": pComment,
-			}).Errorf("Unable to get user info")
-			logging.SetSpanError(span, err)
-
-=======
 		userMap[pComment.UserId] = &user.User{}
 	}
 	getUserInfoError := false
+
 	wg := sync.WaitGroup{}
 	wg.Add(len(userMap))
 	for userId := range userMap {
@@ -230,7 +218,6 @@ func (c CommentServiceImpl) ListComment(ctx context.Context, request *comment.Li
 		resp = &comment.ListCommentResponse{
 			StatusCode: strings.UnableToQueryUserErrorCode,
 			StatusMsg:  strings.UnableToQueryUserError,
->>>>>>> tmp
 		}
 		return
 	}

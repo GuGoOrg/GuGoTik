@@ -7,11 +7,14 @@ import (
 )
 
 type Message struct {
-	ID           uint32 `gorm:"not null;primarykey;autoIncrement"`
-	To_user_id   uint32 `gorm:"not null"`
-	From_user_id uint32 `gorm:"not null"`
-	Content      string `gorm:"not null"`
+	ID             uint32 `gorm:"not null;primarykey;autoIncrement"`
+	ToUserId       uint32 `gorm:"not null" `
+	FromUserId     uint32 `gorm:"not null"`
+	ConversationId string `gorm:"not null" index:"conversationid"`
+	Content        string `gorm:"not null"`
+
 	// Create_time  time.Time `gorm:"not null"`
+	//Updatetime deleteTime
 	gorm.Model
 }
 

@@ -19,7 +19,7 @@ func TestActionMessage_Add(t *testing.T) {
 	method := "POST"
 	req, err := http.NewRequest(method, url, nil)
 	q := req.URL.Query()
-	q.Add("token", "2f54104f-96d1-4ba3-94af-ee2e6b72dc5f")
+	q.Add("token", "1ae83f2a-7b82-4901-9e66-50d49dba00d5")
 	q.Add("actor_id", "1")
 	q.Add("user_id", "1")
 	q.Add("action_type", "1")
@@ -51,7 +51,7 @@ func TestChat(t *testing.T) {
 	req, err := http.NewRequest(method, url, nil)
 
 	q := req.URL.Query()
-	q.Add("token", "1206dfe1-5f2a-44fa-a121-ef27b0fe5f8d")
+	q.Add("token", "1ae83f2a-7b82-4901-9e66-50d49dba00d5")
 	q.Add("actor_id", "1")
 	q.Add("user_id", "1")
 	q.Add("perMsgTime", "0")

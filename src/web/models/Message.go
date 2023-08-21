@@ -6,9 +6,8 @@ import (
 
 // 这个是发数据的数据结构
 type SMessageReq struct {
-	Token       string `form:"token" binding:"required"`
 	ActorId     int    `form:"actor_id"`
-	User_id     int    `form:"user_id"`
+	UserId      int    `form:"user_id"`
 	Content     string `form:"content"`
 	Action_type int    `form:"action_type"` // send message
 	//Create_time string //time maybe have some question
@@ -18,15 +17,13 @@ type SMessageReq struct {
 // statuc code 状态码 0- 成功  其他值 -失败
 // status_msg  返回状态描述
 type SMessageRes struct {
-	Status_code int    `json:"status_code"`
-	Status_msg  string `json:"status_msg"`
+	StatusCode int    `json:"status_code"`
+	Status_msg string `json:"status_msg"`
 }
 
 type ListMessageReq struct {
-	Token   string `form:"token" binding:"required"`
-	ActorId uint32 `form:"actor_id"`
-	UserId  uint32 `from:"user_id"`
-
+	ActorId    uint32 `form:"actor_id"`
+	UserId     uint32 `from:"user_id"`
 	PreMsgTime uint32 `from:"preMsgTime"`
 }
 
