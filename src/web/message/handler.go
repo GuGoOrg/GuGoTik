@@ -31,7 +31,7 @@ func ActionMessageHandler(c *gin.Context) {
 	if err := c.ShouldBindQuery(&req); err != nil {
 		logger.WithFields(logrus.Fields{
 			//"CreateTime": req.Create_time,
-			"user_id": req.ActorId,
+			"ActorId": req.ActorId,
 			"from_id": req.UserId,
 			"err":     err,
 		}).Errorf("Error when trying to bind query")
@@ -55,16 +55,16 @@ func ActionMessageHandler(c *gin.Context) {
 
 	if err != nil {
 		logger.WithFields(logrus.Fields{
-			"actor_id": req.ActorId,
-			"content":  req.Content,
+			"ActorId": req.ActorId,
+			"content": req.Content,
 		}).Error("Error when trying to connect with ActionMessageHandler")
 
 		c.JSON(http.StatusBadRequest, res)
 		return
 	}
 	logger.WithFields(logrus.Fields{
-		"actor_id": req.ActorId,
-		"content":  req.Content,
+		"ActorId": req.ActorId,
+		"content": req.Content,
 	}).Infof("Action send message success")
 
 	c.JSON(http.StatusOK, res)
@@ -92,16 +92,16 @@ func ListMessageHandler(c *gin.Context) {
 
 	if err != nil {
 		logger.WithFields(logrus.Fields{
-			"actor_id": req.ActorId,
-			"user_id":  req.UserId,
+			"ActorId": req.ActorId,
+			"user_id": req.UserId,
 		}).Error("Error when trying to connect with ListMessageHandler")
 		c.JSON(http.StatusOK, res)
 		return
 	}
 
 	logger.WithFields(logrus.Fields{
-		"actor_id": req.ActorId,
-		"user_id":  req.UserId,
+		"ActorId": req.ActorId,
+		"user_id": req.UserId,
 	}).Infof("List comment success")
 
 	c.JSON(http.StatusOK, res)

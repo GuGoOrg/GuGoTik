@@ -34,7 +34,7 @@ func (c MessageServiceImpl) ChatAction(ctx context.Context, request *chat.Action
 	logger := logging.LogService("ChatService.ActionMessage").WithContext(ctx)
 
 	logger.WithFields(logrus.Fields{
-		"actor_id":     request.ActorId,
+		"ActorId":      request.ActorId,
 		"user_id":      request.UserId,
 		"action_type":  request.ActionType,
 		"content_text": request.Content,
@@ -61,8 +61,8 @@ func (c MessageServiceImpl) ChatAction(ctx context.Context, request *chat.Action
 	res, err = addMessage(ctx, logger, span, request.ActorId, request.UserId, request.Content)
 	if err != nil {
 		logger.WithFields(logrus.Fields{
-			"err":      err,
-			"Actor_id": request.ActorId,
+			"err":     err,
+			"ActorId": request.ActorId,
 		}).Errorf("User service error")
 		logging.SetSpanError(span, err)
 		return res, err
@@ -82,7 +82,7 @@ func (c MessageServiceImpl) Chat(ctx context.Context, request *chat.ChatRequest)
 	logger := logging.LogService("ChatService.chat").WithContext(ctx)
 	logger.WithFields(logrus.Fields{
 		"user_id": request.UserId,
-		"from_id": request.ActorId,
+		"ActorId": request.ActorId,
 	}).Debugf("Process start")
 	toUserId := request.UserId
 	fromUserId := request.ActorId
@@ -146,7 +146,7 @@ func addMessage(ctx context.Context, logger *logrus.Entry, span trace.Span, from
 		logger.WithFields(logrus.Fields{
 			"err":     result.Error,
 			"id":      message.ID,
-			"from_id": message.FromUserId,
+			"ActorId": message.FromUserId,
 			"to_id":   message.ToUserId,
 		}).Errorf("send message failed when insert to database")
 
