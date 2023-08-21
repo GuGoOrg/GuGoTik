@@ -62,8 +62,8 @@ func init() {
 	}
 }
 
-func (a PublishServiceImpl) ListVideoService(ctx context.Context, req *publish.ListVideoRequest) (resp *publish.ListVideoResponse, err error) {
-	ctx, span := tracing.Tracer.Start(ctx, "PublishServiceImpl.ListVideo")
+func (a PublishServiceImpl) ListVideo(ctx context.Context, req *publish.ListVideoRequest) (resp *publish.ListVideoResponse, err error) {
+	ctx, span := tracing.Tracer.Start(ctx, "ListVideoService")
 	defer span.End()
 	logger := logging.LogService("PublishServiceImpl.ListVideo").WithContext(ctx)
 
@@ -83,7 +83,7 @@ func (a PublishServiceImpl) ListVideoService(ctx context.Context, req *publish.L
 		}
 		return
 	}
-
+	// todo: 使用协程完成，开 go func
 	videoIds := make([]uint32, 0, len(videos))
 	for _, video := range videos {
 		videoIds = append(videoIds, video.ID)
@@ -105,7 +105,7 @@ func (a PublishServiceImpl) ListVideoService(ctx context.Context, req *publish.L
 }
 
 func (a PublishServiceImpl) CountVideo(ctx context.Context, req *publish.CountVideoRequest) (resp *publish.CountVideoResponse, err error) {
-	ctx, span := tracing.Tracer.Start(ctx, "PublishServiceImpl.CountVideo")
+	ctx, span := tracing.Tracer.Start(ctx, "CountVideoService")
 	defer span.End()
 	logger := logging.LogService("PublishServiceImpl.CountVideo").WithContext(ctx)
 	var count int64

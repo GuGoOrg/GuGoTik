@@ -96,11 +96,12 @@ func Consume(channel *amqp.Channel) {
 		}
 
 		// 截取封面
-		err := ExtractVideoCover(ctx, &raw)
+		err := extractVideoCover(ctx, &raw)
 		if err != nil {
 			logger.WithFields(logrus.Fields{
 				"err": err,
 			}).Errorf("Error when extracting video cover.")
+			logging.SetSpanError(span, err)
 		}
 
 		// 添加水印逻辑
@@ -109,7 +110,9 @@ func Consume(channel *amqp.Channel) {
 			logger.WithFields(logrus.Fields{
 				"err": err,
 			}).Errorf("Error when adding watermark to video.")
+			logging.SetSpanError(span, err)
 		}
+		//todo: update封面
 
 		// 保存到数据库
 		err = database.Client.WithContext(ctx).Create(&raw).Error
@@ -134,8 +137,8 @@ func Consume(channel *amqp.Channel) {
 	}
 }
 
-func ExtractVideoCover(ctx context.Context, video *models.RawVideo) error {
-	ctx, span := tracing.Tracer.Start(ctx, "PublishServiceImpl.CountVideo")
+func extractVideoCover(ctx context.Context, video *models.RawVideo) error {
+	ctx, span := tracing.Tracer.Start(ctx, "ExtractVideoCoverService")
 	defer span.End()
 	logger := logging.LogService("VideoPicker.Picker").WithContext(ctx)
 	logger.Debug("Extracting video cover...")
@@ -157,13 +160,14 @@ func ExtractVideoCover(ctx context.Context, video *models.RawVideo) error {
 		logger.WithFields(logrus.Fields{
 			"err": err,
 		}).Warnf("failed to get video cover")
+		logging.SetSpanError(span, err)
 		return err
 	}
 	return nil
 }
 
 func addWatermarkToVideo(ctx context.Context, video *models.RawVideo) error {
-	ctx, span := tracing.Tracer.Start(ctx, "PublishServiceImpl.CountVideo")
+	ctx, span := tracing.Tracer.Start(ctx, "AddWatermarkToVideoService")
 	defer span.End()
 	logger := logging.LogService("VideoPicker.Picker").WithContext(ctx)
 	logger.Debug("Adding watermark to video...")
@@ -184,6 +188,7 @@ func addWatermarkToVideo(ctx context.Context, video *models.RawVideo) error {
 		logger.WithFields(logrus.Fields{
 			"err": err,
 		}).Warnf("failed to add video watermark")
+		logging.SetSpanError(span, err)
 		return err
 	}
 	video.FileName = FinalFileName
