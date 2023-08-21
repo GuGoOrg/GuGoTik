@@ -11,6 +11,7 @@ import (
 	feed2 "GuGoTik/src/web/feed"
 	message2 "GuGoTik/src/web/message"
 	"GuGoTik/src/web/middleware"
+	publish2 "GuGoTik/src/web/publish"
 	"context"
 
 	"time"
@@ -72,6 +73,11 @@ func main() {
 		comment.POST("/action", comment2.ActionCommentHandler)
 		comment.GET("/list", comment2.ListCommentHandler)
 		comment.GET("/count", comment2.CountCommentHandler)
+	}
+	publish := rootPath.Group("/publish")
+	{
+		//publish.POST("/action", publish2.ActionPublishHandle)
+		publish.GET("/list", publish2.ListPublishHandle)
 	}
 	//todo
 	message := rootPath.Group("/message")
