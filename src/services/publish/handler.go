@@ -5,13 +5,18 @@ import (
 	"GuGoTik/src/extra/tracing"
 	"GuGoTik/src/models"
 	"GuGoTik/src/rpc/publish"
+	"GuGoTik/src/storage/file"
 	"GuGoTik/src/utils/logging"
 	"GuGoTik/src/utils/pathgen"
 	"GuGoTik/src/utils/rabbitmq"
+	"bytes"
 	"context"
 	"encoding/json"
 	"github.com/sirupsen/logrus"
 	"github.com/streadway/amqp"
+	"math/rand"
+	"net/http"
+	"time"
 )
 
 type PublishServiceImpl struct {
@@ -22,22 +27,33 @@ var conn *amqp.Connection
 
 var channel *amqp.Channel
 
-var queue amqp.Queue
+func exitOnError(err error) {
+	if err != nil {
+		panic(err)
+	}
+}
 
 func init() {
 	var err error
-	conn, err = amqp.Dial(rabbitmq.BuildMQConnAddr())
 
-	if err != nil {
-		panic(err)
-	}
+	conn, err = amqp.Dial(rabbitmq.BuildMQConnAddr())
+	exitOnError(err)
 
 	channel, err = conn.Channel()
+	exitOnError(err)
 
-	if err != nil {
-		panic(err)
-	}
-	queue, err = channel.QueueDeclare(
+	err = channel.ExchangeDeclare(
+		strings.VideoExchange,
+		"fanout",
+		true,
+		false,
+		false,
+		false,
+		nil,
+	)
+	exitOnError(err)
+
+	_, err = channel.QueueDeclare(
 		strings.VideoPicker, //视频信息采集(封面/水印)
 		true,
 		false,
@@ -45,10 +61,35 @@ func init() {
 		false,
 		nil,
 	)
+	exitOnError(err)
 
-	if err != nil {
-		panic(err)
-	}
+	_, err = channel.QueueDeclare(
+		strings.VideoSummary,
+		true,
+		false,
+		false,
+		false,
+		nil,
+	)
+	exitOnError(err)
+
+	err = channel.QueueBind(
+		strings.VideoPicker,
+		"",
+		strings.VideoExchange,
+		false,
+		nil,
+	)
+	exitOnError(err)
+
+	err = channel.QueueBind(
+		strings.VideoSummary,
+		"",
+		strings.VideoExchange,
+		false,
+		nil,
+	)
+	exitOnError(err)
 }
 
 func CloseMQConn() {
@@ -70,15 +111,52 @@ func (a PublishServiceImpl) CreateVideo(ctx context.Context, request *publish.Cr
 		"ActorId": request.ActorId,
 		"Title":   request.Title,
 	}).Infof("Create video requested.")
+	// 检测视频格式
+	detectedContentType := http.DetectContentType(request.Data)
+	if detectedContentType != "video/mp4" {
+		logger.WithFields(logrus.Fields{
+			"content_type": detectedContentType,
+		}).Debug("invalid content type")
+		resp = &publish.CreateVideoResponse{
+			StatusCode: strings.InvalidContentTypeCode,
+			StatusMsg:  strings.InvalidContentType,
+		}
+		return
+	}
+	// byte[] -> reader
+	reader := bytes.NewReader(request.Data)
+
+	// 创建一个新的随机数生成器
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	videoId := r.Uint32()
+	fileName := pathgen.GenerateRawVideoName(request.ActorId, request.Title, videoId)
+	coverName := pathgen.GenerateCoverName(request.ActorId, request.Title, videoId)
+	// 上传视频
+	_, err = file.Upload(ctx, fileName, reader)
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"file_name": fileName,
+			"err":       err,
+		}).Debug("failed to upload video")
+		resp = &publish.CreateVideoResponse{
+			StatusCode: strings.VideoServiceInnerErrorCode,
+			StatusMsg:  strings.VideoServiceInnerError,
+		}
+		return
+	}
+	logger.WithFields(logrus.Fields{
+		"file_name": fileName,
+	}).Debug("uploaded video")
 
 	raw := &models.RawVideo{
-		ActorId:  request.ActorId,
-		Title:    request.Title,
-		FilePath: pathgen.GenerateRawVideoName(request.ActorId, request.Title),
+		ActorId:   request.ActorId,
+		VideoId:   videoId,
+		Title:     request.Title,
+		FileName:  fileName,
+		CoverName: coverName,
 	}
 
 	bytes, err := json.Marshal(raw)
-
 	if err != nil {
 		resp = &publish.CreateVideoResponse{
 			StatusCode: strings.VideoServiceInnerErrorCode,
@@ -90,7 +168,7 @@ func (a PublishServiceImpl) CreateVideo(ctx context.Context, request *publish.Cr
 	// Context 注入到 RabbitMQ 中
 	headers := rabbitmq.InjectAMQPHeaders(ctx)
 
-	err = channel.Publish("", queue.Name, false, false,
+	err = channel.Publish(strings.VideoExchange, "", false, false,
 		amqp.Publishing{
 			DeliveryMode: amqp.Persistent,
 			ContentType:  "text/plain",

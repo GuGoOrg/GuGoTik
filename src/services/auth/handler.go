@@ -189,7 +189,7 @@ func (a AuthServiceImpl) Register(ctx context.Context, request *auth.RegisterReq
 		"username": request.Username,
 	}).Infof("User register success!")
 
-	resp.UserId = uint32(user.ID)
+	resp.UserId = user.ID
 	resp.StatusCode = strings.ServiceOKCode
 	resp.StatusMsg = strings.ServiceOK
 	return

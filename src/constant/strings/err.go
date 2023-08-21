@@ -26,19 +26,25 @@ const (
 	ActorIDNotMatchError             = "用户不匹配"
 	UnableToDeleteCommentErrorCode   = 50008
 	UnableToDeleteCommentError       = "无法删除视频评论"
-	UnableToFollowErrorCode          = 50009
+  	UnableToAddMessageErrorCode    = 50009
+	UnableToAddMessageRrror        = "发送消息出错"
+	UnableToQueryMessageErrorCode  = 50010
+	UnableToQueryMessageError      = "查消息出错"
+	PublishServiceInnerErrorCode   = 50011
+	PublishServiceInnerError       = "发布服务出现内部错误，请稍后重试！"
+	UnableToFollowErrorCode          = 50012
 	UnableToFollowError              = "关注该用户失败"
-	UnableToUnFollowErrorCode        = 50010
+	UnableToUnFollowErrorCode        = 50013
 	UnableToUnFollowError            = "取消关注失败"
-	UnableToGetFollowListErrorCode   = 50011
+	UnableToGetFollowListErrorCode   = 50014
 	UnableToGetFollowListError       = "无法查询到关注列表"
-	UnableToGetFollowerListErrorCode = 50012
+	UnableToGetFollowerListErrorCode = 50015
 	UnableToGetFollowerListError     = "无法查询到粉丝列表"
-	UnableToRelateYourselfErrorCode  = 50013
+	UnableToRelateYourselfErrorCode  = 50016
 	UnableToRelateYourselfError      = "无法关注自己"
-	RelationNotFoundErrorCode        = 50014
+	RelationNotFoundErrorCode        = 50017
 	RelationNotFoundError            = "未关注该用户"
-	StringToIntErrorCode             = 50014
+	StringToIntErrorCode             = 50018
 	StringToIntError                 = "字符串转数字失败"
 )
 
@@ -56,4 +62,6 @@ const (
 	ActionCommentTypeInvalid     = "不合法的评论类型"
 	ActionCommentLimitedCode     = 10006
 	ActionCommentLimited         = "评论频繁，请稍后再试！"
+	InvalidContentTypeCode       = 10007
+	InvalidContentType           = "不合法的内容类型"
 )
