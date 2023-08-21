@@ -158,13 +158,13 @@ func Consume(channel *amqp.Channel) {
 			}).Errorf("Error when adding watermark to video.")
 			logging.SetSpanError(span, err)
 		}
-
 		// 保存到数据库
+		finalFileName := pathgen.GenerateFinalVideoName(raw.ActorId, raw.Title, raw.VideoId)
 		video := &models.Video{
 			ID:        raw.VideoId,
 			UserId:    raw.ActorId,
 			Title:     raw.Title,
-			FileName:  raw.FileName,
+			FileName:  finalFileName,
 			CoverName: raw.CoverName,
 		}
 		result := database.Client.Clauses(clause.OnConflict{
@@ -270,6 +270,5 @@ func addWatermarkToVideo(ctx context.Context, video *models.RawVideo) error {
 		logging.SetSpanError(span, err)
 		return err
 	}
-	video.FileName = FinalFileName
 	return nil
 }
