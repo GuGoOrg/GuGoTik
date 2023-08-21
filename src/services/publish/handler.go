@@ -83,25 +83,36 @@ func (a PublishServiceImpl) ListVideo(ctx context.Context, req *publish.ListVide
 		}
 		return
 	}
-	// todo: 使用协程完成，开 go func
 	videoIds := make([]uint32, 0, len(videos))
 	for _, video := range videos {
 		videoIds = append(videoIds, video.ID)
 	}
-
+	//todo: go func
 	queryVideoResp, err := FeedClient.QueryVideos(ctx, &feed.QueryVideosRequest{
 		ActorId:  req.ActorId,
 		VideoIds: videoIds,
 	})
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"err": err,
+		}).Warnf("queryVideoResp failed to obtain")
+		logging.SetSpanError(span, err)
+		resp = &publish.ListVideoResponse{
+			StatusCode: strings.FeedServiceInnerErrorCode,
+			StatusMsg:  strings.FeedServiceInnerError,
+		}
+		return
+	}
 
 	logger.WithFields(logrus.Fields{
 		"response": resp,
 	}).Debug("all process done, ready to launch response")
-	return &publish.ListVideoResponse{
+	resp = &publish.ListVideoResponse{
 		StatusCode: strings.ServiceOKCode,
 		StatusMsg:  strings.ServiceOK,
 		VideoList:  queryVideoResp.VideoList,
-	}, nil
+	}
+	return
 }
 
 func (a PublishServiceImpl) CountVideo(ctx context.Context, req *publish.CountVideoRequest) (resp *publish.CountVideoResponse, err error) {
