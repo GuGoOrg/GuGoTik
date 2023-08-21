@@ -9,15 +9,18 @@ import (
 	"GuGoTik/src/web/auth"
 	comment2 "GuGoTik/src/web/comment"
 	feed2 "GuGoTik/src/web/feed"
+	message2 "GuGoTik/src/web/message"
 	"GuGoTik/src/web/middleware"
 	publish2 "GuGoTik/src/web/publish"
 	"context"
+
+	"time"
+
 	"github.com/gin-contrib/gzip"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 	ginprometheus "github.com/zsais/go-gin-prometheus"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
-	"time"
 )
 
 func main() {
@@ -76,6 +79,13 @@ func main() {
 		//publish.POST("/action", publish2.ActionPublishHandle)
 		publish.GET("/list", publish2.ListPublishHandle)
 	}
+	//todo
+	message := rootPath.Group("/message")
+	{
+		message.GET("/chat", message2.ListMessageHandler)
+		message.POST("/action", message2.ActionMessageHandler)
+	}
+
 	// Run Server
 	if err := g.Run(config.WebServiceAddr); err != nil {
 		panic("Can not run GuGoTik Gateway, binding port: " + config.WebServiceAddr)

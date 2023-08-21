@@ -26,8 +26,11 @@ const (
 	ActorIDNotMatchError           = "用户不匹配"
 	UnableToDeleteCommentErrorCode = 50008
 	UnableToDeleteCommentError     = "无法删除视频评论"
-	PublishServiceInnerErrorCode   = 50009
-	PublishServiceInnerError       = "发布服务出现内部错误，请稍后重试！"
+
+	UnableToAddMessageErrorCode   = 50009
+	UnableToAddMessageRrror       = "发送消息出错"
+	UnableToQueryMessageErrorCode = 50010
+	UnableToQueryMessageError     = "查消息出错"
 )
 
 // Expected Error
@@ -44,6 +47,4 @@ const (
 	ActionCommentTypeInvalid     = "不合法的评论类型"
 	ActionCommentLimitedCode     = 10006
 	ActionCommentLimited         = "评论频繁，请稍后再试！"
-	InvalidContentTypeCode       = 10007
-	InvalidContentType           = "不合法的内容类型"
 )
