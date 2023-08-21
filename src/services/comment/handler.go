@@ -142,6 +142,7 @@ func (c CommentServiceImpl) ListComment(ctx context.Context, request *comment.Li
 				"pComment": pComment,
 			}).Errorf("Unable to get user info")
 			logging.SetSpanError(span, err)
+
 		}
 
 		rCommentList = append(rCommentList, &comment.Comment{
