@@ -87,7 +87,7 @@ func (a PublishServiceImpl) ListVideo(ctx context.Context, req *publish.ListVide
 	for _, video := range videos {
 		videoIds = append(videoIds, video.ID)
 	}
-	//todo: go func
+
 	queryVideoResp, err := FeedClient.QueryVideos(ctx, &feed.QueryVideosRequest{
 		ActorId:  req.ActorId,
 		VideoIds: videoIds,
