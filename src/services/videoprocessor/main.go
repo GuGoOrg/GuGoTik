@@ -15,6 +15,7 @@ import (
 	"encoding/json"
 	"github.com/sirupsen/logrus"
 	"github.com/streadway/amqp"
+	"gorm.io/gorm/clause"
 	"os/exec"
 	"sync"
 )
@@ -159,16 +160,30 @@ func Consume(channel *amqp.Channel) {
 		}
 
 		// 保存到数据库
-		err = database.Client.WithContext(ctx).Create(&raw).Error
-		if err != nil {
+		video := &models.Video{
+			ID:        raw.VideoId,
+			UserId:    raw.ActorId,
+			Title:     raw.Title,
+			FileName:  raw.FileName,
+			CoverName: raw.CoverName,
+		}
+		result := database.Client.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "id"}},
+			DoUpdates: clause.AssignmentColumns([]string{"user_id", "title", "file_name", "cover_name"}),
+		}).Create(&video)
+		if result.Error != nil {
 			logger.WithFields(logrus.Fields{
 				"file_name":  raw.FileName,
 				"cover_name": raw.CoverName,
 				"err":        err,
-			}).Debug("failed to create db entry")
+			}).Errorf("Error when updating file information to database")
+			logging.SetSpanError(span, result.Error)
+			errorHandler(d, true, logger, &span)
+			span.End()
+			continue
 		}
 		logger.WithFields(logrus.Fields{
-			"entry": raw,
+			"entry": video,
 		}).Debug("saved db entry")
 
 		span.End()

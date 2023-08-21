@@ -156,7 +156,7 @@ func (a PublishServiceImpl) CreateVideo(ctx context.Context, request *publish.Cr
 		CoverName: coverName,
 	}
 
-	bytes, err := json.Marshal(raw)
+	marshal, err := json.Marshal(raw)
 	if err != nil {
 		resp = &publish.CreateVideoResponse{
 			StatusCode: strings.VideoServiceInnerErrorCode,
@@ -172,7 +172,7 @@ func (a PublishServiceImpl) CreateVideo(ctx context.Context, request *publish.Cr
 		amqp.Publishing{
 			DeliveryMode: amqp.Persistent,
 			ContentType:  "text/plain",
-			Body:         bytes,
+			Body:         marshal,
 			Headers:      headers,
 		})
 
