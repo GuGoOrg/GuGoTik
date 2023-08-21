@@ -26,6 +26,11 @@ const (
 	ActorIDNotMatchError           = "用户不匹配"
 	UnableToDeleteCommentErrorCode = 50008
 	UnableToDeleteCommentError     = "无法删除视频评论"
+
+	UnableToAddMessageErrorCode   = 50009
+	UnableToAddMessageRrror       = "发送消息出错"
+	UnableToQueryMessageErrorCode = 50010
+	UnableToQueryMessageError     = "查消息出错"
 )
 
 // Expected Error
