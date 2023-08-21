@@ -260,15 +260,19 @@ func (r RelationServiceImpl) CountFollowList(ctx context.Context, request *relat
 		logging.SetSpanError(span, err)
 	}
 
+	var cachedCount64 uint64
 	if ok {
-
-		cachedCount64, err := strconv.ParseUint(cachedCountString, 10, 32)
+		cachedCount64, err = strconv.ParseUint(cachedCountString, 10, 32)
 		if err != nil {
 			logger.WithFields(logrus.Fields{
 				"error": err,
 			}).Errorf("fail to convert string to int when countFollow")
 			logging.SetSpanError(span, err)
-			return nil, err
+			resp = &relation.CountFollowListResponse{
+				StatusCode: strings.StringToIntErrorCode,
+				StatusMsg:  strings.StringToIntError,
+			}
+			return
 		}
 		cachedCount := uint32(cachedCount64)
 
@@ -280,7 +284,7 @@ func (r RelationServiceImpl) CountFollowList(ctx context.Context, request *relat
 			StatusMsg:  strings.ServiceOK,
 			Count:      cachedCount,
 		}
-		return resp, nil
+		return
 	}
 
 	var count int64
@@ -329,14 +333,19 @@ func (r RelationServiceImpl) CountFollowerList(ctx context.Context, request *rel
 		logging.SetSpanError(span, err)
 	}
 
+	var cachedCount64 uint64
 	if ok {
-		cachedCount64, err := strconv.ParseUint(cachedCountString, 10, 32)
+		cachedCount64, err = strconv.ParseUint(cachedCountString, 10, 32)
 		if err != nil {
 			logger.WithFields(logrus.Fields{
 				"error": err,
 			}).Errorf("fail to convert string to int when countFollower")
 			logging.SetSpanError(span, err)
-			return nil, err
+			resp = &relation.CountFollowerListResponse{
+				StatusCode: strings.StringToIntErrorCode,
+				StatusMsg:  strings.StringToIntError,
+			}
+			return
 		}
 		cachedCount := uint32(cachedCount64)
 
@@ -346,7 +355,7 @@ func (r RelationServiceImpl) CountFollowerList(ctx context.Context, request *rel
 			StatusMsg:  strings.ServiceOK,
 			Count:      cachedCount,
 		}
-		return resp, nil
+		return
 	}
 
 	var count int64
@@ -562,10 +571,11 @@ func (r RelationServiceImpl) GetFollowList(ctx context.Context, request *relatio
 		logging.SetSpanError(span, err)
 	}
 
+	var rFollowList []*user.User
 	if ok {
 		logger.Infof("Cache hit, retrieving follow list for user %d", request.UserId)
 
-		rFollowList, err := r.fetchUserListInfo(ctx, cachedFollowList.rList, request.ActorId, logger, span)
+		rFollowList, err = r.fetchUserListInfo(ctx, cachedFollowList.rList, request.ActorId, logger, span)
 		if err != nil {
 			resp = &relation.FollowListResponse{
 				StatusCode: strings.UnableToGetFollowListErrorCode,
@@ -576,7 +586,7 @@ func (r RelationServiceImpl) GetFollowList(ctx context.Context, request *relatio
 				"err": err,
 			}).Errorf("failed to convert relation to user")
 			logging.SetSpanError(span, err)
-			return nil, err
+			return
 		}
 
 		resp = &relation.FollowListResponse{
@@ -584,7 +594,7 @@ func (r RelationServiceImpl) GetFollowList(ctx context.Context, request *relatio
 			StatusMsg:  strings.ServiceOK,
 			UserList:   rFollowList,
 		}
-		return resp, nil
+		return
 	}
 
 	//database
@@ -617,7 +627,7 @@ func (r RelationServiceImpl) GetFollowList(ctx context.Context, request *relatio
 		logging.SetSpanError(span, err)
 	}
 
-	rFollowList, err := r.fetchUserListInfo(ctx, followList, request.ActorId, logger, span)
+	rFollowList, err = r.fetchUserListInfo(ctx, followList, request.ActorId, logger, span)
 	if err != nil {
 		resp = &relation.FollowListResponse{
 			StatusCode: strings.UnableToGetFollowListErrorCode,
@@ -655,10 +665,11 @@ func (r RelationServiceImpl) GetFollowerList(ctx context.Context, request *relat
 		logging.SetSpanError(span, err)
 	}
 
+	var rFollowerList []*user.User
 	if ok {
 		logger.Infof("Cache hit, retrieving follower list for user %d", request.UserId)
 
-		rFollowerList, err := r.fetchUserListInfo(ctx, cachedFollowerList.rList, request.ActorId, logger, span)
+		rFollowerList, err = r.fetchUserListInfo(ctx, cachedFollowerList.rList, request.ActorId, logger, span)
 		if err != nil {
 			resp = &relation.FollowerListResponse{
 				StatusCode: strings.UnableToGetFollowerListErrorCode,
@@ -669,7 +680,7 @@ func (r RelationServiceImpl) GetFollowerList(ctx context.Context, request *relat
 				"err": err,
 			}).Errorf("failed to convert relation to user")
 			logging.SetSpanError(span, err)
-			return nil, err
+			return
 		}
 
 		resp = &relation.FollowerListResponse{
@@ -677,7 +688,7 @@ func (r RelationServiceImpl) GetFollowerList(ctx context.Context, request *relat
 			StatusMsg:  strings.ServiceOK,
 			UserList:   rFollowerList,
 		}
-		return resp, nil
+		return
 	}
 
 	var followerList []models.Relation
@@ -709,7 +720,7 @@ func (r RelationServiceImpl) GetFollowerList(ctx context.Context, request *relat
 		logging.SetSpanError(span, err)
 	}
 
-	rFollowerList, err := r.fetchUserListInfo(ctx, followerList, request.ActorId, logger, span)
+	rFollowerList, err = r.fetchUserListInfo(ctx, followerList, request.ActorId, logger, span)
 	if err != nil {
 		resp = &relation.FollowerListResponse{
 			StatusCode: strings.UnableToGetFollowerListErrorCode,

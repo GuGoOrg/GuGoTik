@@ -38,6 +38,8 @@ const (
 	UnableToRelateYourselfError      = "无法关注自己"
 	RelationNotFoundErrorCode        = 50014
 	RelationNotFoundError            = "未关注该用户"
+	StringToIntErrorCode             = 50014
+	StringToIntError                 = "字符串转数字失败"
 )
 
 // Expected Error
