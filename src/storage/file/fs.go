@@ -15,6 +15,12 @@ import (
 type FSStorage struct {
 }
 
+func (f FSStorage) GetLocalPath(ctx context.Context, fileName string) string {
+	_, span := tracing.Tracer.Start(ctx, "FSStorage-GetLocalPath")
+	defer span.End()
+	return path.Join(config.EnvCfg.FileSystemStartPath, fileName)
+}
+
 func (f FSStorage) Upload(ctx context.Context, fileName string, content io.Reader) (output *PutObjectOutput, err error) {
 	ctx, span := tracing.Tracer.Start(ctx, "FSStorage-Upload")
 	defer span.End()
@@ -34,8 +40,10 @@ func (f FSStorage) Upload(ctx context.Context, fileName string, content io.Reade
 	}
 
 	filePath := path.Join(config.EnvCfg.FileSystemStartPath, fileName)
+
 	dir := path.Dir(filePath)
 	err = os.MkdirAll(dir, os.FileMode(0755))
+
 	if err != nil {
 		logger.WithFields(logrus.Fields{
 			"err": err,
@@ -44,6 +52,7 @@ func (f FSStorage) Upload(ctx context.Context, fileName string, content io.Reade
 	}
 
 	err = os.WriteFile(filePath, all, os.FileMode(0755))
+
 	if err != nil {
 		logger.WithFields(logrus.Fields{
 			"err": err,

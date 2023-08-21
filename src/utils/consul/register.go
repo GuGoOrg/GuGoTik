@@ -70,7 +70,6 @@ func ResolveService(serviceName string) (*capi.CatalogService, error) {
 }
 
 func getServiceInstances(serviceName string) ([]*capi.CatalogService, error) {
-	serviceName = config.EnvCfg.ConsulAnonymityPrefix + serviceName
 
 	services, _, err := consulClient.Catalog().Service(serviceName, "", nil)
 	if err != nil {

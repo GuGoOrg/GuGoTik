@@ -21,5 +21,9 @@ const PublishRpcServerPort = ":37005"
 const FavoriteRpcServerName = "GuGoTik-FavoriteService"
 const FavoriteRpcServerPort = ":37006"
 
+<<<<<<< HEAD
 const MessageRpcServerName = "GuGoTik-MessageService"
 const MessageRpcServerPort = ":37010"
+=======
+const VideoPicker = "GuGoTik-VideoPicker"
+>>>>>>> tmp
