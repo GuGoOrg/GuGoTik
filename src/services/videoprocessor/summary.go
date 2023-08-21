@@ -113,6 +113,10 @@ func SummaryConsume(channel *amqp.Channel) {
 			}).Errorf("Failed to get summary of an audio from ChatGPT")
 			logging.SetSpanError(span, err)
 			summary = ""
+
+			errorHandler(d, true, logger, &span)
+			span.End()
+			continue
 		}
 
 		select {
@@ -124,6 +128,10 @@ func SummaryConsume(channel *amqp.Channel) {
 			}).Errorf("Failed to get keywords of an audio from ChatGPT")
 			logging.SetSpanError(span, err)
 			keywords = ""
+
+			errorHandler(d, true, logger, &span)
+			span.End()
+			continue
 		}
 
 		// Update summary information to database
