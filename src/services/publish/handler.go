@@ -158,7 +158,7 @@ func (a PublishServiceImpl) CountVideo(ctx context.Context, req *publish.CountVi
 	defer span.End()
 	logger := logging.LogService("PublishServiceImpl.CountVideo").WithContext(ctx)
 	var count int64
-	err = database.Client.WithContext(ctx).Where("user_id = ?", req.UserId).Count(&count).Error
+	err = database.Client.WithContext(ctx).Model(&models.Video{}).Where("user_id = ?", req.UserId).Count(&count).Error
 	if err != nil {
 		logger.WithFields(logrus.Fields{
 			"err": err,
