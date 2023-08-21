@@ -245,3 +245,49 @@ func getOrCreateCache(name string) *cache.Cache {
 	}
 	return cc
 }
+
+// CacheAndRedisGet 从内存缓存和 Redis 缓存中读取数据
+func CacheAndRedisGet(ctx context.Context, key string, obj interface{}) (bool, error) {
+	ctx, span := tracing.Tracer.Start(ctx, "CacheAndRedisGet")
+	defer span.End()
+	logger := logging.LogService("CacheAndRedisGet").WithContext(ctx)
+	key = config.EnvCfg.RedisPrefix + key
+
+	c := getOrCreateCache(key)
+	wrappedObj := obj.(cachedItem)
+	key = key + strconv.FormatUint(uint64(wrappedObj.GetID()), 10)
+	if x, found := c.Get(key); found {
+		dstVal := reflect.ValueOf(obj)
+		dstVal.Elem().Set(x.(reflect.Value))
+		return true, nil
+	}
+
+	// 缓存没有命中，Fallback 到 Redis
+	logger.WithFields(logrus.Fields{
+		"key": key,
+	}).Infof("Missed local memory cached")
+
+	if err := redis.Client.HGetAll(ctx, key).Scan(obj); err != nil {
+		logger.WithFields(logrus.Fields{
+			"err": err,
+			"key": key,
+		}).Errorf("Redis error when find struct")
+		logging.SetSpanError(span, err)
+		return false, err
+	}
+
+	// 如果 Redis 命中，那么就存到 localCached 然后返回
+	if wrappedObj.IsDirty() {
+		logger.WithFields(logrus.Fields{
+			"key": key,
+		}).Infof("Redis hit the key")
+		c.Set(key, reflect.ValueOf(obj).Elem(), cache.DefaultExpiration)
+		return true, nil
+	}
+
+	logger.WithFields(logrus.Fields{
+		"key": key,
+	}).Warnf("Missed Redis Cached")
+
+	return false, nil
+}
