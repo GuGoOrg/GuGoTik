@@ -242,6 +242,15 @@ func (a PublishServiceImpl) CreateVideo(ctx context.Context, request *publish.Cr
 		FileName:  fileName,
 		CoverName: coverName,
 	}
+	result := database.Client.Create(&raw)
+	if result.Error != nil {
+		logger.WithFields(logrus.Fields{
+			"file_name":  raw.FileName,
+			"cover_name": raw.CoverName,
+			"err":        err,
+		}).Errorf("Error when updating rawVideo information to database")
+		logging.SetSpanError(span, result.Error)
+	}
 
 	marshal, err := json.Marshal(raw)
 	if err != nil {
