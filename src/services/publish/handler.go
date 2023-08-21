@@ -22,22 +22,33 @@ var conn *amqp.Connection
 
 var channel *amqp.Channel
 
-var queue amqp.Queue
+func exitOnError(err error) {
+	if err != nil {
+		panic(err)
+	}
+}
 
 func init() {
 	var err error
-	conn, err = amqp.Dial(rabbitmq.BuildMQConnAddr())
 
-	if err != nil {
-		panic(err)
-	}
+	conn, err = amqp.Dial(rabbitmq.BuildMQConnAddr())
+	exitOnError(err)
 
 	channel, err = conn.Channel()
+	exitOnError(err)
 
-	if err != nil {
-		panic(err)
-	}
-	queue, err = channel.QueueDeclare(
+	err = channel.ExchangeDeclare(
+		strings.VideoExchange,
+		"fanout",
+		true,
+		false,
+		false,
+		false,
+		nil,
+	)
+	exitOnError(err)
+
+	_, err = channel.QueueDeclare(
 		strings.VideoPicker, //视频信息采集(封面/水印)
 		true,
 		false,
@@ -45,10 +56,35 @@ func init() {
 		false,
 		nil,
 	)
+	exitOnError(err)
 
-	if err != nil {
-		panic(err)
-	}
+	_, err = channel.QueueDeclare(
+		strings.VideoSummary,
+		true,
+		false,
+		false,
+		false,
+		nil,
+	)
+	exitOnError(err)
+
+	err = channel.QueueBind(
+		strings.VideoPicker,
+		"",
+		strings.VideoExchange,
+		false,
+		nil,
+	)
+	exitOnError(err)
+
+	err = channel.QueueBind(
+		strings.VideoSummary,
+		"",
+		strings.VideoExchange,
+		false,
+		nil,
+	)
+	exitOnError(err)
 }
 
 func CloseMQConn() {
@@ -74,7 +110,7 @@ func (a PublishServiceImpl) CreateVideo(ctx context.Context, request *publish.Cr
 	raw := &models.RawVideo{
 		ActorId:  request.ActorId,
 		Title:    request.Title,
-		FilePath: pathgen.GenerateRawVideoName(request.ActorId, request.Title),
+		FileName: pathgen.GenerateRawVideoName(request.ActorId, request.Title),
 	}
 
 	bytes, err := json.Marshal(raw)
@@ -90,7 +126,7 @@ func (a PublishServiceImpl) CreateVideo(ctx context.Context, request *publish.Cr
 	// Context 注入到 RabbitMQ 中
 	headers := rabbitmq.InjectAMQPHeaders(ctx)
 
-	err = channel.Publish("", queue.Name, false, false,
+	err = channel.Publish(strings.VideoExchange, "", false, false,
 		amqp.Publishing{
 			DeliveryMode: amqp.Persistent,
 			ContentType:  "text/plain",

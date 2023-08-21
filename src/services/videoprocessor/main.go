@@ -14,17 +14,19 @@ import (
 	"sync"
 )
 
-func main() {
-	conn, err := amqp.Dial(rabbitmq.BuildMQConnAddr())
+func exitOnError(err error) {
 	if err != nil {
 		panic(err)
 	}
+}
+
+func main() {
+	conn, err := amqp.Dial(rabbitmq.BuildMQConnAddr())
+	exitOnError(err)
 
 	defer func(conn *amqp.Connection) {
 		err := conn.Close()
-		if err != nil {
-			panic(err)
-		}
+		exitOnError(err)
 	}(conn)
 
 	tp, err := tracing.SetTraceProvider(config.VideoPicker)
@@ -42,28 +44,72 @@ func main() {
 	}()
 
 	ch, err := conn.Channel()
-	if err != nil {
-		panic(err)
-	}
+	exitOnError(err)
 
 	defer func(ch *amqp.Channel) {
 		err := ch.Close()
-		if err != nil {
-			panic(err)
-		}
+		exitOnError(err)
 	}(ch)
 
-	if _, err = ch.QueueDeclare(strings.VideoPicker, true, false, false, false, nil); err != nil {
-		panic(err)
-	}
+	err = ch.ExchangeDeclare(
+		strings.VideoExchange,
+		"fanout",
+		true,
+		false,
+		false,
+		false,
+		nil,
+	)
+	exitOnError(err)
 
-	if err = ch.Qos(1, 0, false); err != nil {
-		panic(err)
-	}
+	_, err = ch.QueueDeclare(
+		strings.VideoPicker, //视频信息采集(封面/水印)
+		true,
+		false,
+		false,
+		false,
+		nil,
+	)
+	exitOnError(err)
+
+	_, err = ch.QueueDeclare(
+		strings.VideoSummary,
+		true,
+		false,
+		false,
+		false,
+		nil,
+	)
+	exitOnError(err)
+
+	err = ch.QueueBind(
+		strings.VideoPicker,
+		"",
+		strings.VideoExchange,
+		false,
+		nil,
+	)
+	exitOnError(err)
+
+	err = ch.QueueBind(
+		strings.VideoSummary,
+		"",
+		strings.VideoExchange,
+		false,
+		nil,
+	)
+	exitOnError(err)
+
+	err = ch.Qos(1, 0, false)
+	exitOnError(err)
 
 	go Consume(ch)
 	logger := logging.LogService("VideoPicker")
-	logger.Infof(strings.VideoPicker + "is running now")
+	logger.Infof(strings.VideoPicker + " is running now")
+
+	go SummaryConsume(ch)
+	logger = logging.LogService("VideoSummary")
+	logger.Infof(strings.VideoSummary + " is running now")
 
 	wg := sync.WaitGroup{}
 	wg.Add(1)
@@ -88,18 +134,6 @@ func Consume(channel *amqp.Channel) {
 				"err": err,
 			}).Errorf("Error when unmarshaling the prepare json body.")
 		}
-
-		wg := sync.WaitGroup{}
-		wg.Add(1)
-
-		// VideoPicker
-
-		// VideoSummary
-		logger.Infof("VideoSummaryService starting")
-		summaryRes := make(chan []string, 3) // text, summary, keywords
-		go SummaryVideo(ctx, raw, &wg, summaryRes)
-
-		wg.Wait()
 
 		span.End()
 		err = d.Ack(false)
