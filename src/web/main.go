@@ -9,14 +9,19 @@ import (
 	"GuGoTik/src/web/auth"
 	comment2 "GuGoTik/src/web/comment"
 	feed2 "GuGoTik/src/web/feed"
+	message2 "GuGoTik/src/web/message"
 	"GuGoTik/src/web/middleware"
+	relation2 "GuGoTik/src/web/relation"
+	publish2 "GuGoTik/src/web/publish"
 	"context"
+
+	"time"
+
 	"github.com/gin-contrib/gzip"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 	ginprometheus "github.com/zsais/go-gin-prometheus"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
-	"time"
 )
 
 func main() {
@@ -69,6 +74,31 @@ func main() {
 		comment.POST("/action", comment2.ActionCommentHandler)
 		comment.GET("/list", comment2.ListCommentHandler)
 		comment.GET("/count", comment2.CountCommentHandler)
+	}
+	relation := rootPath.Group("/relation")
+	{
+		//todo: frontend
+		//relation.POST("/action", relation2.ActionHandler)
+		relation.POST("/follow", relation2.FollowHandler)
+		relation.POST("/unfollow", relation2.UnfollowHandler)
+		relation.GET("/follow/list", relation2.GetFollowListHandler)
+		relation.GET("/follower/list", relation2.GetFollowerListHandler)
+		relation.GET("/friend/list", relation2.GetFriendListHandler)
+		relation.GET("/follow/count", relation2.CountFollowHandler)
+		relation.GET("/follower/count", relation2.CountFollowerHandler)
+		relation.GET("/isFollow", relation2.IsFollowHandler)
+	}
+  
+	publish := rootPath.Group("/publish")
+	{
+		publish.POST("/action", publish2.ActionPublishHandle)
+		publish.GET("/list", publish2.ListPublishHandle)
+	}
+	//todo
+	message := rootPath.Group("/message")
+	{
+		message.GET("/chat", message2.ListMessageHandler)
+		message.POST("/action", message2.ActionMessageHandler)
 	}
 	// Run Server
 	if err := g.Run(config.WebServiceAddr); err != nil {

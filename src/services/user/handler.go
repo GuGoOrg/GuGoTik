@@ -8,6 +8,7 @@ import (
 	"GuGoTik/src/storage/cached"
 	"GuGoTik/src/utils/logging"
 	"context"
+
 	"github.com/sirupsen/logrus"
 )
 
@@ -25,6 +26,7 @@ func (a UserServiceImpl) GetUserInfo(ctx context.Context, request *user.UserRequ
 	ok, err := cached.ScanGet(ctx, "UserInfo", &userModel)
 
 	if err != nil {
+
 		resp = &user.UserResponse{
 			StatusCode: strings.AuthServiceInnerErrorCode,
 			StatusMsg:  strings.AuthServiceInnerError,

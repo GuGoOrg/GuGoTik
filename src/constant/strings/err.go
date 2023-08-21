@@ -10,22 +10,42 @@ const (
 
 // Server Inner Error
 const (
-	AuthServiceInnerErrorCode      = 50001
-	AuthServiceInnerError          = "登录服务出现内部错误，请稍后重试！"
-	VideoServiceInnerErrorCode     = 50002
-	VideoServiceInnerError         = "视频发布服务出现内部错误，请稍后重试！"
-	UnableToQueryUserErrorCode     = 50003
-	UnableToQueryUserError         = "无法查询到对应用户"
-	UnableToQueryCommentErrorCode  = 50004
-	UnableToQueryCommentError      = "无法查询到视频评论"
-	UnableToCreateCommentErrorCode = 50005
-	UnableToCreateCommentError     = "无法创建评论"
-	FeedServiceInnerErrorCode      = 50006
-	FeedServiceInnerError          = "视频服务出现内部错误，请稍后重试！"
-	ActorIDNotMatchErrorCode       = 50007
-	ActorIDNotMatchError           = "用户不匹配"
-	UnableToDeleteCommentErrorCode = 50008
-	UnableToDeleteCommentError     = "无法删除视频评论"
+	AuthServiceInnerErrorCode        = 50001
+	AuthServiceInnerError            = "登录服务出现内部错误，请稍后重试！"
+	VideoServiceInnerErrorCode       = 50002
+	VideoServiceInnerError           = "视频发布服务出现内部错误，请稍后重试！"
+	UnableToQueryUserErrorCode       = 50003
+	UnableToQueryUserError           = "无法查询到对应用户"
+	UnableToQueryCommentErrorCode    = 50004
+	UnableToQueryCommentError        = "无法查询到视频评论"
+	UnableToCreateCommentErrorCode   = 50005
+	UnableToCreateCommentError       = "无法创建评论"
+	FeedServiceInnerErrorCode        = 50006
+	FeedServiceInnerError            = "视频服务出现内部错误，请稍后重试！"
+	ActorIDNotMatchErrorCode         = 50007
+	ActorIDNotMatchError             = "用户不匹配"
+	UnableToDeleteCommentErrorCode   = 50008
+	UnableToDeleteCommentError       = "无法删除视频评论"
+  	UnableToAddMessageErrorCode    = 50009
+	UnableToAddMessageRrror        = "发送消息出错"
+	UnableToQueryMessageErrorCode  = 50010
+	UnableToQueryMessageError      = "查消息出错"
+	PublishServiceInnerErrorCode   = 50011
+	PublishServiceInnerError       = "发布服务出现内部错误，请稍后重试！"
+	UnableToFollowErrorCode          = 50012
+	UnableToFollowError              = "关注该用户失败"
+	UnableToUnFollowErrorCode        = 50013
+	UnableToUnFollowError            = "取消关注失败"
+	UnableToGetFollowListErrorCode   = 50014
+	UnableToGetFollowListError       = "无法查询到关注列表"
+	UnableToGetFollowerListErrorCode = 50015
+	UnableToGetFollowerListError     = "无法查询到粉丝列表"
+	UnableToRelateYourselfErrorCode  = 50016
+	UnableToRelateYourselfError      = "无法关注自己"
+	RelationNotFoundErrorCode        = 50017
+	RelationNotFoundError            = "未关注该用户"
+	StringToIntErrorCode             = 50018
+	StringToIntError                 = "字符串转数字失败"
 )
 
 // Expected Error
@@ -42,4 +62,6 @@ const (
 	ActionCommentTypeInvalid     = "不合法的评论类型"
 	ActionCommentLimitedCode     = 10006
 	ActionCommentLimited         = "评论频繁，请稍后再试！"
+	InvalidContentTypeCode       = 10007
+	InvalidContentType           = "不合法的内容类型"
 )

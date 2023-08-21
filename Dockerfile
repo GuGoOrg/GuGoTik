@@ -17,17 +17,14 @@ RUN apk update --no-cache \
     && go mod download \
     && bash ./scripts/build-all.sh
 
-FROM alpine as prod
+FROM docker.io/epicmo/gugotik-basic:1.0 as prod
 
 ENV TZ Asia/Shanghai
 
 WORKDIR /work
 
 RUN apk update --no-cache \
-    && apk upgrade \
-    && apk add yasm \
-    && apk add ffmpeg \
-    && rm -rf /var/cache/apk/*
+    && apk upgrade
 
 COPY --from=builder /usr/share/zoneinfo/Asia/Shanghai /usr/share/zoneinfo/Asia/Shanghai
 COPY --from=builder /build/output .
