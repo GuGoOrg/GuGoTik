@@ -190,6 +190,7 @@ func (c CommentServiceImpl) ListComment(ctx context.Context, request *comment.Li
 		userMap[pComment.UserId] = &user.User{}
 	}
 	getUserInfoError := false
+
 	wg := sync.WaitGroup{}
 	wg.Add(len(userMap))
 	for userId := range userMap {
