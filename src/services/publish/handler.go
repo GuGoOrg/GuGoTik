@@ -1,11 +1,15 @@
 package main
 
 import (
+	"GuGoTik/src/constant/config"
 	"GuGoTik/src/constant/strings"
 	"GuGoTik/src/extra/tracing"
 	"GuGoTik/src/models"
+	"GuGoTik/src/rpc/feed"
 	"GuGoTik/src/rpc/publish"
+	"GuGoTik/src/storage/database"
 	"GuGoTik/src/storage/file"
+	grpc2 "GuGoTik/src/utils/grpc"
 	"GuGoTik/src/utils/logging"
 	"GuGoTik/src/utils/pathgen"
 	"GuGoTik/src/utils/rabbitmq"
@@ -27,6 +31,8 @@ var conn *amqp.Connection
 
 var channel *amqp.Channel
 
+var FeedClient feed.FeedServiceClient
+
 func exitOnError(err error) {
 	if err != nil {
 		panic(err)
@@ -34,6 +40,8 @@ func exitOnError(err error) {
 }
 
 func init() {
+	FeedRpcConn := grpc2.Connect(config.FeedRpcServerName)
+	FeedClient = feed.NewFeedServiceClient(FeedRpcConn)
 	var err error
 
 	conn, err = amqp.Dial(rabbitmq.BuildMQConnAddr())
@@ -90,6 +98,85 @@ func init() {
 		nil,
 	)
 	exitOnError(err)
+}
+
+func (a PublishServiceImpl) ListVideo(ctx context.Context, req *publish.ListVideoRequest) (resp *publish.ListVideoResponse, err error) {
+	ctx, span := tracing.Tracer.Start(ctx, "ListVideoService")
+	defer span.End()
+	logger := logging.LogService("PublishServiceImpl.ListVideo").WithContext(ctx)
+
+	var videos []models.Video
+	err = database.Client.WithContext(ctx).
+		Where("user_id = ?", req.UserId).
+		Order("created_at DESC").
+		Find(&videos).Error
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"err": err,
+		}).Warnf("failed to query video")
+		logging.SetSpanError(span, err)
+		resp = &publish.ListVideoResponse{
+			StatusCode: strings.PublishServiceInnerErrorCode,
+			StatusMsg:  strings.PublishServiceInnerError,
+		}
+		return
+	}
+	videoIds := make([]uint32, 0, len(videos))
+	for _, video := range videos {
+		videoIds = append(videoIds, video.ID)
+	}
+
+	queryVideoResp, err := FeedClient.QueryVideos(ctx, &feed.QueryVideosRequest{
+		ActorId:  req.ActorId,
+		VideoIds: videoIds,
+	})
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"err": err,
+		}).Warnf("queryVideoResp failed to obtain")
+		logging.SetSpanError(span, err)
+		resp = &publish.ListVideoResponse{
+			StatusCode: strings.FeedServiceInnerErrorCode,
+			StatusMsg:  strings.FeedServiceInnerError,
+		}
+		return
+	}
+
+	logger.WithFields(logrus.Fields{
+		"response": resp,
+	}).Debug("all process done, ready to launch response")
+	resp = &publish.ListVideoResponse{
+		StatusCode: strings.ServiceOKCode,
+		StatusMsg:  strings.ServiceOK,
+		VideoList:  queryVideoResp.VideoList,
+	}
+	return
+}
+
+func (a PublishServiceImpl) CountVideo(ctx context.Context, req *publish.CountVideoRequest) (resp *publish.CountVideoResponse, err error) {
+	ctx, span := tracing.Tracer.Start(ctx, "CountVideoService")
+	defer span.End()
+	logger := logging.LogService("PublishServiceImpl.CountVideo").WithContext(ctx)
+	var count int64
+	err = database.Client.WithContext(ctx).Where("user_id = ?", req.UserId).Count(&count).Error
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"err": err,
+		}).Warnf("failed to count video")
+		resp = &publish.CountVideoResponse{
+			StatusCode: strings.PublishServiceInnerErrorCode,
+			StatusMsg:  strings.PublishServiceInnerError,
+		}
+		logging.SetSpanError(span, err)
+		return
+	}
+
+	resp = &publish.CountVideoResponse{
+		StatusCode: strings.ServiceOKCode,
+		StatusMsg:  strings.ServiceOK,
+		Count:      uint32(count),
+	}
+	return
 }
 
 func CloseMQConn() {
@@ -155,8 +242,17 @@ func (a PublishServiceImpl) CreateVideo(ctx context.Context, request *publish.Cr
 		FileName:  fileName,
 		CoverName: coverName,
 	}
+	result := database.Client.Create(&raw)
+	if result.Error != nil {
+		logger.WithFields(logrus.Fields{
+			"file_name":  raw.FileName,
+			"cover_name": raw.CoverName,
+			"err":        err,
+		}).Errorf("Error when updating rawVideo information to database")
+		logging.SetSpanError(span, result.Error)
+	}
 
-	bytes, err := json.Marshal(raw)
+	marshal, err := json.Marshal(raw)
 	if err != nil {
 		resp = &publish.CreateVideoResponse{
 			StatusCode: strings.VideoServiceInnerErrorCode,
@@ -172,7 +268,7 @@ func (a PublishServiceImpl) CreateVideo(ctx context.Context, request *publish.Cr
 		amqp.Publishing{
 			DeliveryMode: amqp.Persistent,
 			ContentType:  "text/plain",
-			Body:         bytes,
+			Body:         marshal,
 			Headers:      headers,
 		})
 

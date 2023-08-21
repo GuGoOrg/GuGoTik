@@ -177,20 +177,20 @@ func queryDetailed(
 		respVideoList[i] = &feed.Video{
 			Id:     v.ID,
 			Title:  v.Title,
-			Author: &user.User{Id: v.ID},
+			Author: &user.User{Id: v.UserId},
 		}
 		wg.Add(6)
 		// fill author
 		go func(i int, v *models.Video) {
 			defer wg.Done()
 			userResponse, localErr := UserClient.GetUserInfo(ctx, &user.UserRequest{
-				UserId:  v.ID,
+				UserId:  v.UserId,
 				ActorId: actorId,
 			})
 			if localErr != nil || userResponse.StatusCode != strings.ServiceOKCode {
 				logger.WithFields(logrus.Fields{
 					"video_id": v.ID,
-					"user_id":  v.ID,
+					"user_id":  v.UserId,
 					"cause":    localErr,
 				}).Warning("failed to get user info")
 				logging.SetSpanError(span, localErr)
@@ -202,7 +202,7 @@ func queryDetailed(
 		// fill play url
 		go func(i int, v *models.Video) {
 			defer wg.Done()
-			playUrl, localErr := file.GetLink(ctx, v.FileName)
+			playUrl, localErr := file.GetLink(ctx, v.FileName, v.UserId)
 			if localErr != nil {
 				logger.WithFields(logrus.Fields{
 					"video_id":  v.ID,
@@ -218,7 +218,7 @@ func queryDetailed(
 		// fill cover url
 		go func(i int, v *models.Video) {
 			defer wg.Done()
-			coverUrl, localErr := file.GetLink(ctx, v.CoverName)
+			coverUrl, localErr := file.GetLink(ctx, v.CoverName, v.UserId)
 			if localErr != nil {
 				logger.WithFields(logrus.Fields{
 					"video_id":   v.ID,

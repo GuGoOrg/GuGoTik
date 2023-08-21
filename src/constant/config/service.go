@@ -24,4 +24,8 @@ const FavoriteRpcServerPort = ":37006"
 const MessageRpcServerName = "GuGoTik-MessageService"
 const MessageRpcServerPort = ":37007"
 
+const RelationRpcServerName = "GuGoTik-RelationService"
+const RelationRpcServerPort = ":37008"
+
+
 const VideoPicker = "GuGoTik-VideoPicker"

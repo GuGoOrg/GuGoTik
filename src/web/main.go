@@ -11,6 +11,7 @@ import (
 	feed2 "GuGoTik/src/web/feed"
 	message2 "GuGoTik/src/web/message"
 	"GuGoTik/src/web/middleware"
+	relation2 "GuGoTik/src/web/relation"
 	publish2 "GuGoTik/src/web/publish"
 	"context"
 
@@ -74,9 +75,23 @@ func main() {
 		comment.GET("/list", comment2.ListCommentHandler)
 		comment.GET("/count", comment2.CountCommentHandler)
 	}
+	relation := rootPath.Group("/relation")
+	{
+		//todo: frontend
+		//relation.POST("/action", relation2.ActionHandler)
+		relation.POST("/follow", relation2.FollowHandler)
+		relation.POST("/unfollow", relation2.UnfollowHandler)
+		relation.GET("/follow/list", relation2.GetFollowListHandler)
+		relation.GET("/follower/list", relation2.GetFollowerListHandler)
+		relation.GET("/friend/list", relation2.GetFriendListHandler)
+		relation.GET("/follow/count", relation2.CountFollowHandler)
+		relation.GET("/follower/count", relation2.CountFollowerHandler)
+		relation.GET("/isFollow", relation2.IsFollowHandler)
+	}
+  
 	publish := rootPath.Group("/publish")
 	{
-		//publish.POST("/action", publish2.ActionPublishHandle)
+		publish.POST("/action", publish2.ActionPublishHandle)
 		publish.GET("/list", publish2.ListPublishHandle)
 	}
 	//todo
@@ -85,7 +100,6 @@ func main() {
 		message.GET("/chat", message2.ListMessageHandler)
 		message.POST("/action", message2.ActionMessageHandler)
 	}
-
 	// Run Server
 	if err := g.Run(config.WebServiceAddr); err != nil {
 		panic("Can not run GuGoTik Gateway, binding port: " + config.WebServiceAddr)
