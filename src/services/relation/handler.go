@@ -95,6 +95,7 @@ func (r RelationServiceImpl) Follow(ctx context.Context, request *relation.Relat
 			StatusCode: strings.UnableToFollowErrorCode,
 			StatusMsg:  strings.UnableToFollowError,
 		}
+		logging.SetSpanError(span, err)
 		return
 	}
 
@@ -102,6 +103,7 @@ func (r RelationServiceImpl) Follow(ctx context.Context, request *relation.Relat
 		logger.WithFields(logrus.Fields{
 			"err": err,
 		}).Errorf("failed to update follow list cache")
+		logging.SetSpanError(span, err)
 		return
 	}
 
@@ -109,6 +111,7 @@ func (r RelationServiceImpl) Follow(ctx context.Context, request *relation.Relat
 		logger.WithFields(logrus.Fields{
 			"err": err,
 		}).Errorf("failed to update follower list cache")
+		logging.SetSpanError(span, err)
 		return
 	}
 
@@ -116,6 +119,7 @@ func (r RelationServiceImpl) Follow(ctx context.Context, request *relation.Relat
 		logger.WithFields(logrus.Fields{
 			"err": err,
 		}).Errorf("failed to update follow count cache")
+		logging.SetSpanError(span, err)
 		return
 	}
 
@@ -123,6 +127,7 @@ func (r RelationServiceImpl) Follow(ctx context.Context, request *relation.Relat
 		logger.WithFields(logrus.Fields{
 			"err": err,
 		}).Errorf("failed to update follower count cache")
+		logging.SetSpanError(span, err)
 		return
 	}
 	resp = &relation.RelationActionResponse{
@@ -197,6 +202,7 @@ func (r RelationServiceImpl) Unfollow(ctx context.Context, request *relation.Rel
 			StatusCode: strings.UnableToUnFollowErrorCode,
 			StatusMsg:  strings.UnableToUnFollowError,
 		}
+		logging.SetSpanError(span, err)
 		return
 	}
 
@@ -204,6 +210,7 @@ func (r RelationServiceImpl) Unfollow(ctx context.Context, request *relation.Rel
 		logger.WithFields(logrus.Fields{
 			"err": err,
 		}).Errorf("failed to update follow list cache")
+		logging.SetSpanError(span, err)
 		return
 	}
 
@@ -211,6 +218,7 @@ func (r RelationServiceImpl) Unfollow(ctx context.Context, request *relation.Rel
 		logger.WithFields(logrus.Fields{
 			"err": err,
 		}).Errorf("failed to update follower list cache")
+		logging.SetSpanError(span, err)
 		return
 	}
 
@@ -218,6 +226,7 @@ func (r RelationServiceImpl) Unfollow(ctx context.Context, request *relation.Rel
 		logger.WithFields(logrus.Fields{
 			"err": err,
 		}).Errorf("failed to update follow count cache")
+		logging.SetSpanError(span, err)
 		return
 	}
 
@@ -225,6 +234,7 @@ func (r RelationServiceImpl) Unfollow(ctx context.Context, request *relation.Rel
 		logger.WithFields(logrus.Fields{
 			"err": err,
 		}).Errorf("failed to update follower count cache")
+		logging.SetSpanError(span, err)
 		return
 	}
 
