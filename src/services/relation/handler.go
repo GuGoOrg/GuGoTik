@@ -543,13 +543,17 @@ func (r RelationServiceImpl) IsFollow(ctx context.Context, request *relation.IsF
 		logging.SetSpanError(span, err)
 
 		resp = &relation.IsFollowResponse{
-			Result: false,
+			StatusCode: strings.RelationServiceIntErrorCode,
+			StatusMsg:  strings.RelationServiceIntError,
+			Result:     false,
 		}
 		return
 	}
 
 	resp = &relation.IsFollowResponse{
-		Result: count > 0,
+		StatusCode: strings.ServiceOKCode,
+		StatusMsg:  strings.ServiceOK,
+		Result:     count > 0,
 	}
 	return
 }
