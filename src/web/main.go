@@ -78,7 +78,7 @@ func main() {
 	relation := rootPath.Group("/relation")
 	{
 		//todo: frontend
-		//relation.POST("/action", relation2.ActionHandler)
+		relation.POST("/action", relation2.ActionRelationHandler)
 		relation.POST("/follow", relation2.FollowHandler)
 		relation.POST("/unfollow", relation2.UnfollowHandler)
 		relation.GET("/follow/list", relation2.GetFollowListHandler)
