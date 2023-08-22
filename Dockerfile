@@ -21,7 +21,7 @@ FROM docker.io/epicmo/gugotik-basic:1.0 as prod
 
 ENV TZ Asia/Shanghai
 
-WORKDIR /work
+WORKDIR /data/apps/gugotik-service-bundle
 
 RUN apk update --no-cache \
     && apk upgrade
