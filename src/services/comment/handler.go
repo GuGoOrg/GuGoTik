@@ -41,7 +41,7 @@ type CommentServiceImpl struct {
 	comment.CommentServiceServer
 }
 
-func init() {
+func (c CommentServiceImpl) New() {
 	userRpcConn := grpc2.Connect(config.UserRpcServerName)
 	userClient = user.NewUserServiceClient(userRpcConn)
 }

@@ -5,15 +5,13 @@ import (
 	"GuGoTik/src/constant/strings"
 	"GuGoTik/src/extra/tracing"
 	"GuGoTik/src/rpc/auth"
+	grpc2 "GuGoTik/src/utils/grpc"
 	"GuGoTik/src/utils/logging"
-	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
-	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.opentelemetry.io/otel/attribute"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 	"net/http"
+	"strconv"
 )
 
 var client auth.AuthServiceClient
@@ -30,7 +28,6 @@ func TokenAuthMiddleware() gin.HandlerFunc {
 		defer span.End()
 		span.SetAttributes(attribute.String("token", token))
 		logger := logging.LogService("GateWay.AuthMiddleWare").WithContext(ctx)
-
 		// Verify User Token
 		authenticate, err := client.Authenticate(c.Request.Context(), &auth.AuthenticateRequest{Token: token})
 		if err != nil {
@@ -54,22 +51,12 @@ func TokenAuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
+		c.Request.URL.RawQuery += "&actor_id=" + strconv.FormatUint(uint64(authenticate.UserId), 10)
 		c.Next()
 	}
 }
 
 func init() {
-	conn, err := grpc.Dial(
-		fmt.Sprintf("consul://%s/%s?wait=15s", config.EnvCfg.ConsulAddr, config.EnvCfg.ConsulAnonymityPrefix+config.AuthRpcServerName),
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithDefaultServiceConfig(`{"loadBalancingPolicy": "round_robin"}`),
-		grpc.WithUnaryInterceptor(otelgrpc.UnaryClientInterceptor()),
-	)
-
-	if err != nil {
-		logging.Logger.WithFields(logrus.Fields{
-			"err": err,
-		}).Errorf("Build AuthService Cient meet trouble")
-	}
-	client = auth.NewAuthServiceClient(conn)
+	authConn := grpc2.Connect(config.AuthRpcServerName)
+	client = auth.NewAuthServiceClient(authConn)
 }

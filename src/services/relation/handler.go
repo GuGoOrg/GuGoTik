@@ -39,7 +39,7 @@ func (c *CacheRelationList) GetID() uint32 {
 	return 0
 }
 
-func init() {
+func (r RelationServiceImpl) New() {
 	userRPCConn := grpc2.Connect(config.UserRpcServerName)
 	userClient = user.NewUserServiceClient(userRPCConn)
 }

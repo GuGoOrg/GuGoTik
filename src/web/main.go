@@ -11,8 +11,9 @@ import (
 	feed2 "GuGoTik/src/web/feed"
 	message2 "GuGoTik/src/web/message"
 	"GuGoTik/src/web/middleware"
-	relation2 "GuGoTik/src/web/relation"
 	publish2 "GuGoTik/src/web/publish"
+	relation2 "GuGoTik/src/web/relation"
+	user2 "GuGoTik/src/web/user"
 	"context"
 
 	"time"
@@ -62,6 +63,7 @@ func main() {
 	rootPath := g.Group("/douyin")
 	user := rootPath.Group("/user")
 	{
+		user.POST("/", user2.UserHandler)
 		user.POST("/login", auth.LoginHandle)
 		user.POST("/register", auth.RegisterHandle)
 	}
@@ -88,7 +90,7 @@ func main() {
 		relation.GET("/follower/count", relation2.CountFollowerHandler)
 		relation.GET("/isFollow", relation2.IsFollowHandler)
 	}
-  
+
 	publish := rootPath.Group("/publish")
 	{
 		publish.POST("/action", publish2.ActionPublishHandle)
