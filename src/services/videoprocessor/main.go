@@ -22,6 +22,7 @@ import (
 	"image/png"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"sync"
 
 	"github.com/golang/freetype"
@@ -262,7 +263,7 @@ func textWatermark(ctx context.Context, video *models.RawVideo) (string, error) 
 	defer span.End()
 	logger := logging.LogService("VideoPicker.Picker").WithContext(ctx)
 	// 加载字体文件
-	fontName := file.GetLocalPath(ctx, "font.ttf")
+	fontName := file.GetLocalPath(ctx, filepath.Join("..", "..", "static", "font.ttf"))
 	fontBytes, err := os.ReadFile(fontName)
 	if err != nil {
 		logger.WithFields(logrus.Fields{

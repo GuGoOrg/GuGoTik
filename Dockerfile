@@ -17,7 +17,7 @@ RUN apk update --no-cache \
     && go mod download \
     && bash ./scripts/build-all.sh
 
-FROM docker.io/epicmo/gugotik-basic:1.0 as prod
+FROM docker.io/epicmo/gugotik-basic:1.2 as prod
 
 ENV TZ Asia/Shanghai
 
