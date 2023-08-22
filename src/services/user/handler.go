@@ -25,7 +25,7 @@ var relationClient relation.RelationServiceClient
 
 var publishClient publish.PublishServiceClient
 
-func init() {
+func (a UserServiceImpl) New() {
 	relationConn := grpc2.Connect(config.RelationRpcServerName)
 	relationClient = relation.NewRelationServiceClient(relationConn)
 
@@ -191,6 +191,5 @@ func (a UserServiceImpl) GetUserInfo(ctx context.Context, request *user.UserRequ
 		return
 	}
 
-	//TODO 等待其他服务写完后接入
 	return
 }

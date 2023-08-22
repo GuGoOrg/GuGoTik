@@ -39,7 +39,7 @@ func exitOnError(err error) {
 	}
 }
 
-func init() {
+func (a PublishServiceImpl) New() {
 	FeedRpcConn := grpc2.Connect(config.FeedRpcServerName)
 	FeedClient = feed.NewFeedServiceClient(FeedRpcConn)
 	var err error

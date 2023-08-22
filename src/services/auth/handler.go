@@ -28,6 +28,10 @@ type AuthServiceImpl struct {
 	auth.AuthServiceServer
 }
 
+func (a AuthServiceImpl) New() {
+
+}
+
 func (a AuthServiceImpl) Authenticate(ctx context.Context, request *auth.AuthenticateRequest) (resp *auth.AuthenticateResponse, err error) {
 	ctx, span := tracing.Tracer.Start(ctx, "AuthenticateService")
 	defer span.End()

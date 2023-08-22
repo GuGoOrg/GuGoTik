@@ -53,6 +53,7 @@ func main() {
 	if err := consul.RegisterConsul(config.FeedRpcServerName, config.FeedRpcServerPort); err != nil {
 		log.Panicf("Rpc %s register consul hanpens error for: %v", config.FeedRpcServerName, err)
 	}
+	srv.New()
 	log.Infof("Rpc %s is running at %s now", config.FeedRpcServerName, config.FeedRpcServerPort)
 	if err := s.Serve(lis); err != nil {
 		log.Panicf("Rpc %s listen hanpens error for: %v", config.FeedRpcServerName, err)
