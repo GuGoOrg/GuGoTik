@@ -13,6 +13,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"github.com/sashabaranov/go-openai"
 	"github.com/sirupsen/logrus"
 	"github.com/streadway/amqp"
@@ -23,14 +24,69 @@ import (
 )
 
 var openaiClient = openai.NewClient(config.EnvCfg.ChatGPTAPIKEYS)
+var delayTime = int32(2 * 60 * 1000) //2 minutes
+var maxRetries = int32(3)
 
-func errorHandler(d amqp.Delivery, requeue bool, logger *logrus.Entry, span *trace.Span) {
-	err := d.Nack(false, requeue)
-	if err != nil {
-		logger.WithFields(logrus.Fields{
-			"err": err,
-		}).Errorf("Error when resending the video to queue...")
-		logging.SetSpanError(*span, err)
+// errorHandler If `requeue` is false, it will just `Nack` it. If `requeue` is true, it will try to re-publish it.
+func errorHandler(channel *amqp.Channel, d amqp.Delivery, requeue bool, logger *logrus.Entry, span *trace.Span) {
+	if !requeue { // Nack the message
+		err := d.Nack(false, false)
+		if err != nil {
+			logger.WithFields(logrus.Fields{
+				"err": err,
+			}).Errorf("Error when nacking the video...")
+			logging.SetSpanError(*span, err)
+		}
+	} else { // Re-publish the message
+		curRetry, ok := d.Headers["x-retry"].(int32)
+		if !ok {
+			curRetry = 0
+		}
+		if curRetry >= maxRetries {
+			logger.WithFields(logrus.Fields{
+				"body": d.Body,
+			}).Errorf("Maximum retries reached for message.")
+			logging.SetSpanError(*span, errors.New("maximum retries reached for message"))
+			err := d.Ack(false)
+			if err != nil {
+				logger.WithFields(logrus.Fields{
+					"err": err,
+				}).Errorf("Error when dealing with the video...")
+			}
+		} else {
+			curRetry++
+			headers := d.Headers
+			headers["x-delay"] = delayTime
+			headers["x-retry"] = curRetry
+
+			err := d.Ack(false)
+			if err != nil {
+				logger.WithFields(logrus.Fields{
+					"err": err,
+				}).Errorf("Error when dealing with the video...")
+			}
+
+			logger.Debugf("Retrying %d times", curRetry)
+
+			err = channel.Publish(
+				strings2.VideoExchange,
+				strings2.VideoSummary,
+				false,
+				false,
+				amqp.Publishing{
+					DeliveryMode: amqp.Persistent,
+					ContentType:  "text/plain",
+					Body:         d.Body,
+					Headers:      headers,
+				},
+			)
+			if err != nil {
+				logger.WithFields(logrus.Fields{
+					"err": err,
+				}).Errorf("Error when re-publishing the video to queue...")
+				logging.SetSpanError(*span, err)
+			}
+		}
 	}
 }
 
@@ -47,46 +103,68 @@ func SummaryConsume(channel *amqp.Channel) {
 		logger := logging.LogService("VideoSummary").WithContext(ctx)
 
 		var raw models.RawVideo
-		logger.WithFields(logrus.Fields{
-			"body": d.Body,
-		}).Debugf("Message body")
 		if err := json.Unmarshal(d.Body, &raw); err != nil {
 			logger.WithFields(logrus.Fields{
 				"err": err,
 			}).Errorf("Error when unmarshaling the prepare json body.")
 			logging.SetSpanError(span, err)
 
-			errorHandler(d, false, logger, &span)
+			errorHandler(channel, d, false, logger, &span)
 			span.End()
 			continue
 		}
+		logger.WithFields(logrus.Fields{
+			"RawVideo": raw.VideoId,
+		}).Debugf("Receive message of video %d", raw.VideoId)
 
 		// Video -> Audio
-		audioFileName, err := video2Audio(ctx, raw.FileName)
-		if err != nil {
-			logger.WithFields(logrus.Fields{
-				"err":             err,
-				"video_file_name": raw.FileName,
-			}).Errorf("Failed to transform video to audio")
-			logging.SetSpanError(span, err)
+		audioFileName := pathgen.GenerateAudioName(raw.FileName)
+		isAudioFileExist, _ := file.IsFileExist(ctx, audioFileName)
+		if !isAudioFileExist {
+			audioFileName, err = video2Audio(ctx, raw.FileName)
+			if err != nil {
+				logger.WithFields(logrus.Fields{
+					"err":             err,
+					"video_file_name": raw.FileName,
+				}).Errorf("Failed to transform video to audio")
+				logging.SetSpanError(span, err)
 
-			errorHandler(d, false, logger, &span)
-			span.End()
-			continue
+				errorHandler(channel, d, false, logger, &span)
+				span.End()
+				continue
+			}
+		} else {
+			logger.WithFields(logrus.Fields{
+				"VideoId": raw.VideoId,
+			}).Debugf("Video %d already exists audio", raw.VideoId)
 		}
 
 		// Audio -> Transcript
-		transcript, err := speech2Text(ctx, audioFileName)
+		transcriptExist, transcript, err := isTranscriptExist(raw.VideoId)
 		if err != nil {
-			logger.WithFields(logrus.Fields{
-				"err":             err,
-				"audio_file_name": audioFileName,
-			}).Errorf("Failed to get transcript of an audio from ChatGPT")
-			logging.SetSpanError(span, err)
+			logger.WithFields(
+				logrus.Fields{
+					"err":     err,
+					"VideoId": raw.VideoId,
+				}).Errorf("Faild to get transcript of video %d from database", raw.VideoId)
+		}
+		if !transcriptExist {
+			transcript, err = speech2Text(ctx, audioFileName)
+			if err != nil {
+				logger.WithFields(logrus.Fields{
+					"err":             err,
+					"audio_file_name": audioFileName,
+				}).Errorf("Failed to get transcript of an audio from ChatGPT")
+				logging.SetSpanError(span, err)
 
-			errorHandler(d, true, logger, &span)
-			span.End()
-			continue
+				errorHandler(channel, d, true, logger, &span)
+				span.End()
+				continue
+			}
+		} else {
+			logger.WithFields(logrus.Fields{
+				"VideoId": raw.VideoId,
+			}).Debugf("Video %d already exists transcript", raw.VideoId)
 		}
 
 		var (
@@ -97,41 +175,69 @@ func SummaryConsume(channel *amqp.Channel) {
 		// Transcript -> Summary
 		summaryChannel := make(chan string)
 		summaryErrChannel := make(chan error)
-		go text2Summary(ctx, transcript, &summaryChannel, &summaryErrChannel)
+		summaryExist, summary, err := isSummaryExist(raw.VideoId)
+		if err != nil {
+			logger.WithFields(
+				logrus.Fields{
+					"err":     err,
+					"VideoId": raw.VideoId,
+				}).Errorf("Faild to get summary of video %d from database", raw.VideoId)
+		}
+		if !summaryExist {
+			go text2Summary(ctx, transcript, &summaryChannel, &summaryErrChannel)
+		} else {
+			logger.WithFields(logrus.Fields{
+				"VideoId": raw.VideoId,
+			}).Debugf("Video %d already exists summary", raw.VideoId)
+		}
 
 		// Transcript -> Keywords
 		keywordsChannel := make(chan string)
 		keywordsErrChannel := make(chan error)
-		go text2Keywords(ctx, transcript, &keywordsChannel, &keywordsErrChannel)
-
-		select {
-		case summary = <-summaryChannel:
-		case err = <-summaryErrChannel:
+		keywordsExist, keywords, err := isKeywordsExist(raw.VideoId)
+		if err != nil {
+			logger.WithFields(
+				logrus.Fields{
+					"err":     err,
+					"VideoId": raw.VideoId,
+				}).Errorf("Faild to get keywords of video %d from database", raw.VideoId)
+		}
+		if !keywordsExist {
+			go text2Keywords(ctx, transcript, &keywordsChannel, &keywordsErrChannel)
+		} else {
 			logger.WithFields(logrus.Fields{
-				"err":             err,
-				"audio_file_name": audioFileName,
-			}).Errorf("Failed to get summary of an audio from ChatGPT")
-			logging.SetSpanError(span, err)
-			summary = ""
-
-			errorHandler(d, true, logger, &span)
-			span.End()
-			continue
+				"VideoId": raw.VideoId,
+			}).Debugf("Video %d already exists keywords", raw.VideoId)
 		}
 
-		select {
-		case keywords = <-keywordsChannel:
-		case err = <-keywordsErrChannel:
-			logger.WithFields(logrus.Fields{
-				"err":             err,
-				"audio_file_name": audioFileName,
-			}).Errorf("Failed to get keywords of an audio from ChatGPT")
-			logging.SetSpanError(span, err)
-			keywords = ""
+		summaryOrKeywordsErr := false
 
-			errorHandler(d, true, logger, &span)
-			span.End()
-			continue
+		if !summaryExist {
+			select {
+			case summary = <-summaryChannel:
+			case err = <-summaryErrChannel:
+				logger.WithFields(logrus.Fields{
+					"err":             err,
+					"audio_file_name": audioFileName,
+				}).Errorf("Failed to get summary of an audio from ChatGPT")
+				logging.SetSpanError(span, err)
+				summary = ""
+				summaryOrKeywordsErr = true
+			}
+		}
+
+		if !keywordsExist {
+			select {
+			case keywords = <-keywordsChannel:
+			case err = <-keywordsErrChannel:
+				logger.WithFields(logrus.Fields{
+					"err":             err,
+					"audio_file_name": audioFileName,
+				}).Errorf("Failed to get keywords of an audio from ChatGPT")
+				logging.SetSpanError(span, err)
+				keywords = ""
+				summaryOrKeywordsErr = true
+			}
 		}
 
 		// Update summary information to database
@@ -156,7 +262,14 @@ func SummaryConsume(channel *amqp.Channel) {
 				"Keywords":      keywords,
 			}).Errorf("Error when updating summary information to database")
 			logging.SetSpanError(span, result.Error)
-			errorHandler(d, true, logger, &span)
+			errorHandler(channel, d, true, logger, &span)
+			span.End()
+			continue
+		}
+
+		// Cannot get summary or keywords from ChatGPT: resend to mq
+		if summaryOrKeywordsErr {
+			errorHandler(channel, d, true, logger, &span)
 			span.End()
 			continue
 		}
@@ -227,8 +340,8 @@ func speech2Text(ctx context.Context, audioFileName string) (transcript string, 
 	resp, err := openaiClient.CreateTranscription(ctx, req)
 	if err != nil {
 		logger.WithFields(logrus.Fields{
+			"Err":           err,
 			"AudioFileName": audioFileName,
-			"err":           err,
 		}).Errorf("Failed to get transcript from ChatGPT")
 		logging.SetSpanError(span, err)
 		return
@@ -267,6 +380,7 @@ func text2Summary(ctx context.Context, transcript string, summaryChannel *chan s
 	resp, err := openaiClient.CreateChatCompletion(ctx, req)
 	if err != nil {
 		logger.WithFields(logrus.Fields{
+			"Err":        err,
 			"Transcript": transcript,
 		}).Errorf("Failed to get summary from ChatGPT")
 		logging.SetSpanError(span, err)
@@ -308,6 +422,7 @@ func text2Keywords(ctx context.Context, transcript string, keywordsChannel *chan
 	resp, err := openaiClient.CreateChatCompletion(ctx, req)
 	if err != nil {
 		logger.WithFields(logrus.Fields{
+			"Err":        err,
 			"Transcript": transcript,
 		}).Errorf("Failed to get keywords from ChatGPT")
 		logging.SetSpanError(span, err)
@@ -322,4 +437,43 @@ func text2Keywords(ctx context.Context, transcript string, keywordsChannel *chan
 	logger.WithFields(logrus.Fields{
 		"Keywords": keywords,
 	}).Debugf("Successful to get keywords from ChatGPT")
+}
+
+func isTranscriptExist(videoId uint32) (res bool, transcript string, err error) {
+	video := &models.Video{}
+	result := database.Client.Select("transcript").Where("id = ?", videoId).Find(video)
+	err = result.Error
+	if result.Error != nil {
+		res = false
+	} else {
+		res = video.Transcript != ""
+		transcript = video.Transcript
+	}
+	return
+}
+
+func isSummaryExist(videoId uint32) (res bool, summary string, err error) {
+	video := &models.Video{}
+	result := database.Client.Select("summary").Where("id = ?", videoId).Find(video)
+	err = result.Error
+	if result.Error != nil {
+		res = false
+	} else {
+		res = video.Summary != ""
+		summary = video.Summary
+	}
+	return
+}
+
+func isKeywordsExist(videoId uint32) (res bool, keywords string, err error) {
+	video := &models.Video{}
+	result := database.Client.Select("keywords").Where("id = ?", videoId).Find(video)
+	err = result.Error
+	if result.Error != nil {
+		res = false
+	} else {
+		res = video.Keywords != ""
+		keywords = video.Keywords
+	}
+	return
 }
