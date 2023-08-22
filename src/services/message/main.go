@@ -58,6 +58,7 @@ func main() {
 	if err := consul.RegisterConsul(config.MessageRpcServerName, config.MessageRpcServerPort); err != nil {
 		log.Panicf("Rpc %s register consul happens error for: %v", config.MessageRpcServerName, err)
 	}
+	srv.New()
 	log.Infof("Rpc %s is running at %s now", config.MessageRpcServerName, config.MessageRpcServerPort)
 	if err := s.Serve(lis); err != nil {
 		log.Panicf("Rpc %s listen happens error for: %v", config.MessageRpcServerName, err)

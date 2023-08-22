@@ -14,7 +14,6 @@ import (
 	"fmt"
 
 	"github.com/sirupsen/logrus"
-	"go.opentelemetry.io/otel/trace"
 )
 
 var UserClient user.UserServiceClient
@@ -23,7 +22,7 @@ type MessageServiceImpl struct {
 	chat.ChatServiceServer
 }
 
-func init() {
+func (c MessageServiceImpl) New() {
 	userRpcConn := grpc2.Connect(config.UserRpcServerName)
 	UserClient = user.NewUserServiceClient(userRpcConn)
 }
@@ -47,8 +46,11 @@ func (c MessageServiceImpl) ChatAction(ctx context.Context, request *chat.Action
 
 	if err != nil || userResponse.StatusCode != strings.ServiceOKCode {
 		logger.WithFields(logrus.Fields{
-			"err":      err,
-			"cctor_id": request.ActorId,
+			"err":          err,
+			"ActorId":      request.ActorId,
+			"user_id":      request.UserId,
+			"action_type":  request.ActionType,
+			"content_text": request.Content,
 		}).Errorf("User service error")
 		logging.SetSpanError(span, err)
 
@@ -58,12 +60,15 @@ func (c MessageServiceImpl) ChatAction(ctx context.Context, request *chat.Action
 		}, err
 	}
 
-	res, err = addMessage(ctx, logger, span, request.ActorId, request.UserId, request.Content)
+	res, err = addMessage(ctx, request.ActorId, request.UserId, request.Content)
 	if err != nil {
 		logger.WithFields(logrus.Fields{
-			"err":     err,
-			"ActorId": request.ActorId,
-		}).Errorf("User service error")
+			"err":          err,
+			"ActorId":      request.ActorId,
+			"user_id":      request.UserId,
+			"action_type":  request.ActionType,
+			"content_text": request.Content,
+		}).Errorf("database  error")
 		logging.SetSpanError(span, err)
 		return res, err
 	}
@@ -125,7 +130,7 @@ func (c MessageServiceImpl) Chat(ctx context.Context, request *chat.ChatRequest)
 	return
 }
 
-func addMessage(ctx context.Context, logger *logrus.Entry, span trace.Span, fromUserId uint32, toUserId uint32, Context string) (resp *chat.ActionResponse, err error) {
+func addMessage(ctx context.Context, fromUserId uint32, toUserId uint32, Context string) (resp *chat.ActionResponse, err error) {
 	conversationId := fmt.Sprintf("%d_%d", toUserId, fromUserId)
 
 	if toUserId > fromUserId {
@@ -142,13 +147,6 @@ func addMessage(ctx context.Context, logger *logrus.Entry, span trace.Span, from
 	result := database.Client.WithContext(ctx).Create(&message)
 
 	if result.Error != nil {
-		//TO_DO 错误 替换
-		logger.WithFields(logrus.Fields{
-			"err":     result.Error,
-			"id":      message.ID,
-			"ActorId": message.FromUserId,
-			"to_id":   message.ToUserId,
-		}).Errorf("send message failed when insert to database")
 
 		resp = &chat.ActionResponse{
 			StatusCode: strings.UnableToAddMessageErrorCode,
