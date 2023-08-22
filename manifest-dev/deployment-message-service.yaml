@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    sidecar.jaegertracing.io/inject: 'true'
+  labels:
+    app: gugotik-message-service
+  name: gugotik-message-service
+  namespace: gugotik-service-bundle
+spec:
+  selector:
+    matchLabels:
+      name: gugotik-message-service
+  template:
+    metadata:
+      labels:
+        app: gugotik-message-service
+        branch: master
+        version: ${BUILD_NUMBER}-${CI_COMMIT_ID}
+        name: gugotik-message-service
+        dream-app: gugotik-message-service
+        dream-unit: gugotik-message-service
+    spec:
+      imagePullSecrets:
+        -   name: reg-cred
+      containers:
+        -   image: ${IMAGE}
+            imagePullPolicy: IfNotPresent
+            name: gugotik-message-service
+            command:
+              - ./services/MessageService
+            envFrom:
+              -   configMapRef:
+                    name: env-config
+            ports:
+              - name: grpc-37007
+                containerPort: 37007
+                protocol: TCP
+            resources:
+              limits:
+                cpu: 500m
+                memory: 256Mi
+              requests:
+                cpu: 100m
+                memory: 8Mi
+      terminationGracePeriodSeconds: 30

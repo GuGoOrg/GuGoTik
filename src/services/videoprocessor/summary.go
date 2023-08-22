@@ -113,6 +113,10 @@ func SummaryConsume(channel *amqp.Channel) {
 			}).Errorf("Failed to get summary of an audio from ChatGPT")
 			logging.SetSpanError(span, err)
 			summary = ""
+
+			errorHandler(d, true, logger, &span)
+			span.End()
+			continue
 		}
 
 		select {
@@ -124,6 +128,10 @@ func SummaryConsume(channel *amqp.Channel) {
 			}).Errorf("Failed to get keywords of an audio from ChatGPT")
 			logging.SetSpanError(span, err)
 			keywords = ""
+
+			errorHandler(d, true, logger, &span)
+			span.End()
+			continue
 		}
 
 		// Update summary information to database
@@ -220,6 +228,7 @@ func speech2Text(ctx context.Context, audioFileName string) (transcript string, 
 	if err != nil {
 		logger.WithFields(logrus.Fields{
 			"AudioFileName": audioFileName,
+			"err":           err,
 		}).Errorf("Failed to get transcript from ChatGPT")
 		logging.SetSpanError(span, err)
 		return

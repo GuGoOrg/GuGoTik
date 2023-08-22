@@ -157,8 +157,9 @@ func (a PublishServiceImpl) CountVideo(ctx context.Context, req *publish.CountVi
 	ctx, span := tracing.Tracer.Start(ctx, "CountVideoService")
 	defer span.End()
 	logger := logging.LogService("PublishServiceImpl.CountVideo").WithContext(ctx)
+
 	var count int64
-	err = database.Client.WithContext(ctx).Where("user_id = ?", req.UserId).Count(&count).Error
+	err = database.Client.WithContext(ctx).Model(&models.Video{}).Where("user_id = ?", req.UserId).Count(&count).Error
 	if err != nil {
 		logger.WithFields(logrus.Fields{
 			"err": err,
@@ -271,6 +272,14 @@ func (a PublishServiceImpl) CreateVideo(ctx context.Context, request *publish.Cr
 			Body:         marshal,
 			Headers:      headers,
 		})
+
+	if err != nil {
+		resp = &publish.CreateVideoResponse{
+			StatusCode: strings.VideoServiceInnerErrorCode,
+			StatusMsg:  strings.VideoServiceInnerError,
+		}
+		return
+	}
 
 	resp = &publish.CreateVideoResponse{
 		StatusCode: strings.ServiceOKCode,

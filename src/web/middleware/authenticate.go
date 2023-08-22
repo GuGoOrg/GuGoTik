@@ -14,6 +14,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"net/http"
+	"strconv"
 )
 
 var client auth.AuthServiceClient
@@ -30,7 +31,6 @@ func TokenAuthMiddleware() gin.HandlerFunc {
 		defer span.End()
 		span.SetAttributes(attribute.String("token", token))
 		logger := logging.LogService("GateWay.AuthMiddleWare").WithContext(ctx)
-
 		// Verify User Token
 		authenticate, err := client.Authenticate(c.Request.Context(), &auth.AuthenticateRequest{Token: token})
 		if err != nil {
@@ -54,6 +54,7 @@ func TokenAuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
+		c.Request.URL.RawQuery += "&actor_id=" + strconv.FormatUint(uint64(authenticate.UserId), 10)
 		c.Next()
 	}
 }
