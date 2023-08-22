@@ -13,6 +13,7 @@ type storageProvider interface {
 	Upload(ctx context.Context, fileName string, content io.Reader) (*PutObjectOutput, error)
 	GetLink(ctx context.Context, fileName string) (string, error)
 	GetLocalPath(ctx context.Context, fileName string) string
+	IsFileExist(ctx context.Context, fileName string) (bool, error)
 }
 
 type PutObjectOutput struct{}
@@ -36,4 +37,8 @@ func GetLink(ctx context.Context, fileName string, userId uint32) (link string, 
 	originLink, err := client.GetLink(ctx, fileName)
 	link = fmt.Sprintf("%s?user_id=%d", originLink, userId)
 	return
+}
+
+func IsFileExist(ctx context.Context, fileName string) (bool, error) {
+	return client.IsFileExist(ctx, fileName)
 }

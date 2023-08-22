@@ -57,14 +57,17 @@ func main() {
 		exitOnError(err)
 	}(ch)
 
+	exchangeArgs := amqp.Table{
+		"x-delayed-type": "topic",
+	}
 	err = ch.ExchangeDeclare(
 		strings.VideoExchange,
-		"fanout",
+		"x-delayed-message", //"topic",
 		true,
 		false,
 		false,
 		false,
-		nil,
+		exchangeArgs,
 	)
 	exitOnError(err)
 
@@ -90,7 +93,7 @@ func main() {
 
 	err = ch.QueueBind(
 		strings.VideoPicker,
-		"",
+		strings.VideoPicker,
 		strings.VideoExchange,
 		false,
 		nil,
@@ -99,7 +102,7 @@ func main() {
 
 	err = ch.QueueBind(
 		strings.VideoSummary,
-		"",
+		strings.VideoSummary,
 		strings.VideoExchange,
 		false,
 		nil,
@@ -178,7 +181,13 @@ func Consume(channel *amqp.Channel) {
 				"err":        err,
 			}).Errorf("Error when updating file information to database")
 			logging.SetSpanError(span, result.Error)
-			errorHandler(d, true, logger, &span)
+			err = d.Nack(false, true)
+			if err != nil {
+				logger.WithFields(logrus.Fields{
+					"err": err,
+				}).Errorf("Error when resending the video to queue...")
+				logging.SetSpanError(span, err)
+			}
 			span.End()
 			continue
 		}
