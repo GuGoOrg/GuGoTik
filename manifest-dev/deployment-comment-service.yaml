@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    sidecar.jaegertracing.io/inject: 'true'
+  labels:
+    app: gugotik-comment-service
+  name: gugotik-comment-service
+  namespace: gugotik-service-bundle
+spec:
+  selector:
+    matchLabels:
+      name: gugotik-comment-service
+  template:
+    metadata:
+      labels:
+        app: gugotik-comment-service
+        branch: master
+        version: ${BUILD_NUMBER}-${CI_COMMIT_ID}
+        name: gugotik-comment-service
+        dream-app: gugotik-comment-service
+        dream-unit: gugotik-comment-service
+    spec:
+      imagePullSecrets:
+        -   name: reg-cred
+      containers:
+        -   image: ${IMAGE}
+            imagePullPolicy: IfNotPresent
+            name: gugotik-comment-service
+            command:
+              - ./services/CommentService
+            envFrom:
+              -   configMapRef:
+                    name: env-config
+            ports:
+              - name: grpc-37003
+                containerPort: 37003
+                protocol: TCP
+            resources:
+              limits:
+                cpu: 500m
+                memory: 256Mi
+              requests:
+                cpu: 100m
+                memory: 8Mi
+      terminationGracePeriodSeconds: 30
