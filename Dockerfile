@@ -26,5 +26,5 @@ WORKDIR /data/apps/gugotik-service-bundle
 RUN apk update --no-cache \
     && apk upgrade
 
-COPY --from=builder /usr/share/zoneinfo/Asia/Shanghai /usr/share/zoneinfo/Asia/Shanghai
+COPY --from=builder /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
 COPY --from=builder /build/output .
