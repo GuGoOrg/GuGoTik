@@ -253,7 +253,8 @@ func textWatermark(ctx context.Context, video *models.RawVideo) (string, error) 
 	defer span.End()
 	logger := logging.LogService("VideoPicker.Picker").WithContext(ctx)
 	// 加载字体文件
-	fontBytes, err := os.ReadFile("E:\\下载\\香港民间字集.otf")
+	fontName := file.GetLocalPath(ctx, "font.otf")
+	fontBytes, err := os.ReadFile(fontName)
 	if err != nil {
 		logger.WithFields(logrus.Fields{
 			"err": err,
