@@ -31,7 +31,9 @@ message IsFavoriteRequest {
 }
 
 message IsFavoriteResponse {
-  bool result = 1; // 结果
+  int32 status_code = 1; // 状态码，0-成功，其他值-失败
+  string status_msg = 2; // 返回状态描述
+  bool result = 3; // 结果
 }
 
 message CountFavoriteRequest {
