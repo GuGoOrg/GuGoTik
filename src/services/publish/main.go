@@ -48,7 +48,7 @@ func main() {
 
 	var srv PublishServiceImpl
 	var probe healthImpl.ProbeImpl
-	defer CloseMQConn()
+	//defer CloseMQConn()
 	publish.RegisterPublishServiceServer(s, srv)
 	health.RegisterHealthServer(s, &probe)
 	if err := consul.RegisterConsul(config.PublishRpcServerName, config.PublishRpcServerPort); err != nil {
