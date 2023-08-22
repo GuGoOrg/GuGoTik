@@ -16,8 +16,17 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/streadway/amqp"
 	"gorm.io/gorm/clause"
+	"image"
+	"image/color"
+	"image/draw"
+	"image/png"
+	"os"
 	"os/exec"
 	"sync"
+
+	"github.com/golang/freetype"
+	"github.com/golang/freetype/truetype"
+	"golang.org/x/image/math/fixed"
 )
 
 func exitOnError(err error) {
@@ -149,9 +158,16 @@ func Consume(channel *amqp.Channel) {
 			}).Errorf("Error when extracting video cover.")
 			logging.SetSpanError(span, err)
 		}
-
+		// 获取视频水印
+		watermarkPNGName, err := textWatermark(ctx, &raw)
+		if err != nil {
+			logger.WithFields(logrus.Fields{
+				"err": err,
+			}).Errorf("Error when generate watermark png.")
+			logging.SetSpanError(span, err)
+		}
 		// 添加水印逻辑
-		err = addWatermarkToVideo(ctx, &raw)
+		err = addWatermarkToVideo(ctx, &raw, watermarkPNGName)
 		if err != nil {
 			logger.WithFields(logrus.Fields{
 				"err": err,
@@ -232,7 +248,112 @@ func extractVideoCover(ctx context.Context, video *models.RawVideo) error {
 	return nil
 }
 
-func addWatermarkToVideo(ctx context.Context, video *models.RawVideo) error {
+func textWatermark(ctx context.Context, video *models.RawVideo) (string, error) {
+	ctx, span := tracing.Tracer.Start(ctx, "NicknameWatermarkService")
+	defer span.End()
+	logger := logging.LogService("VideoPicker.Picker").WithContext(ctx)
+	// 加载字体文件
+	fontName := file.GetLocalPath(ctx, "font.otf")
+	fontBytes, err := os.ReadFile(fontName)
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"err": err,
+		}).Warnf("Read FontFile failed.")
+		logging.SetSpanError(span, err)
+		return "", err
+	}
+
+	// 解析字体文件
+	font, err := truetype.Parse(fontBytes)
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"err": err,
+		}).Warnf("Parse font failed.")
+		logging.SetSpanError(span, err)
+		return "", err
+	}
+
+	// 设置字体大小
+	fontSize := 20
+
+	// 设置图片大小
+	imgWidth := 200
+	imgHeight := 40
+
+	// 设置文本内容
+	var user models.User
+	err = database.Client.Where("id = ?", video.ActorId).First(&user).Error
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"err": err,
+		}).Warnf("Find userName failed.")
+		logging.SetSpanError(span, err)
+		return "", err
+	}
+	text := user.UserName
+
+	// 设置文本颜色
+	textColor := color.RGBA{R: 255, G: 255, B: 255, A: 255}
+
+	// 创建一个新的RGBA图片
+	img := image.NewRGBA(image.Rect(0, 0, imgWidth, imgHeight))
+
+	// 将背景颜色设置为透明
+	draw.Draw(img, img.Bounds(), &image.Uniform{C: color.Transparent}, image.Point{}, draw.Src)
+
+	// 创建一个新的freetype上下文
+	c := freetype.NewContext()
+	c.SetDPI(72)
+	c.SetFont(font)
+	c.SetFontSize(float64(fontSize))
+	c.SetClip(img.Bounds())
+	c.SetDst(img)
+	c.SetSrc(image.NewUniform(textColor))
+
+	// 计算文本的宽度和高度
+	textWidth := int(c.PointToFixed(float64(fontSize)) >> 6)
+	textHeight := int(font.Bounds(fixed.Int26_6(fontSize)).Max.Y - font.Bounds(fixed.Int26_6(fontSize)).Min.Y)
+
+	// 计算文本的位置
+	textX := (imgWidth - textWidth) / 4
+	textY := (imgHeight - textHeight) / 2
+
+	// 在图片上绘制文本
+	pt := freetype.Pt(textX, textY)
+	_, err = c.DrawString(text, pt)
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"err": err,
+		}).Warnf("DrawString failed.")
+		logging.SetSpanError(span, err)
+		return "", err
+	}
+
+	// 将图像保存到内存中
+	var buf bytes.Buffer
+	err = png.Encode(&buf, img)
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"err": err,
+		}).Warnf("Encode image failed.")
+		logging.SetSpanError(span, err)
+		return "", err
+	}
+
+	WatermarkPNGName := pathgen.GenerateNameWatermark(video.ActorId, text)
+	// 将图片保存到文件
+	_, err = file.Upload(ctx, WatermarkPNGName, bytes.NewReader(buf.Bytes()))
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"err": err,
+		}).Warnf("Create output.png failed.")
+		logging.SetSpanError(span, err)
+		return "", err
+	}
+	return WatermarkPNGName, nil
+}
+
+func addWatermarkToVideo(ctx context.Context, video *models.RawVideo, WatermarkPNGName string) error {
 	ctx, span := tracing.Tracer.Start(ctx, "AddWatermarkToVideoService")
 	defer span.End()
 	logger := logging.LogService("VideoPicker.Picker").WithContext(ctx)
@@ -240,12 +361,12 @@ func addWatermarkToVideo(ctx context.Context, video *models.RawVideo) error {
 	RawFileName := video.FileName
 	FinalFileName := pathgen.GenerateFinalVideoName(video.ActorId, video.Title, video.VideoId)
 	RawFilePath := file.GetLocalPath(ctx, RawFileName)
+	WatermarkPath := file.GetLocalPath(ctx, WatermarkPNGName)
 	cmdArgs := []string{
 		"-i", RawFilePath,
-		"-vf", "drawtext=text=" + video.Title + ":x=(w-text_w-10):y=10:fontsize=24:fontcolor=white",
-		"-c:v", "copy",
-		"-f", "mp4",
-		"-",
+		"-i", WatermarkPath,
+		"-filter_complex", "[0:v][1:v]overlay=W-w-10:10",
+		"-f", "matroska", "-",
 	}
 
 	cmd := exec.Command("ffmpeg", cmdArgs...)
