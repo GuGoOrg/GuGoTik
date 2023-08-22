@@ -20,10 +20,52 @@ func init() {
 	Client = relation.NewRelationServiceClient(conn)
 }
 
-//todo: frontend interface   relation/action
-//func ActionHandler(c *gin.Context) {
-//	actiontype := c.Query("")
-//}
+// ActionRelationHandler todo: frontend interface   relation/action
+func ActionRelationHandler(c *gin.Context) {
+
+	var req models.RelationActionReq
+	_, span := tracing.Tracer.Start(c.Request.Context(), "ActionRelationHandler")
+	defer span.End()
+	logger := logging.LogService("GateWay.ActionRelation").WithContext(c.Request.Context())
+
+	if err := c.ShouldBindQuery(&req); err != nil {
+		c.JSON(http.StatusOK, models.RelationActionRes{
+			StatusCode: strings.GateWayParamsErrorCode,
+			StatusMsg:  strings.GateWayParamsError,
+		})
+		return
+	}
+
+	var res *relation.RelationActionResponse
+	var err error
+	if req.ActionType == 1 {
+		res, err = Client.Follow(c.Request.Context(), &relation.RelationActionRequest{
+			ActorId: uint32(req.ActorId),
+			UserId:  uint32(req.UserId),
+		})
+	} else if req.ActionType == 2 {
+		res, err = Client.Unfollow(c.Request.Context(), &relation.RelationActionRequest{
+			ActorId: uint32(req.ActorId),
+			UserId:  uint32(req.UserId),
+		})
+	}
+
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"actor_id": req.ActorId,
+			"user_id":  req.UserId,
+		}).Warnf("RelationActionService returned an error response: %v", err)
+		c.JSON(http.StatusOK, res)
+		return
+	}
+
+	logger.WithFields(logrus.Fields{
+		"actor_id": req.ActorId,
+		"user_id":  req.UserId,
+	}).Infof("RelationAction success")
+
+	c.JSON(http.StatusOK, res)
+}
 
 func FollowHandler(c *gin.Context) {
 
