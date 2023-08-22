@@ -220,6 +220,7 @@ func speech2Text(ctx context.Context, audioFileName string) (transcript string, 
 	if err != nil {
 		logger.WithFields(logrus.Fields{
 			"AudioFileName": audioFileName,
+			"err":           err,
 		}).Errorf("Failed to get transcript from ChatGPT")
 		logging.SetSpanError(span, err)
 		return

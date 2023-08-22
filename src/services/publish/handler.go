@@ -1,15 +1,12 @@
 package main
 
 import (
-	"GuGoTik/src/constant/config"
 	"GuGoTik/src/constant/strings"
 	"GuGoTik/src/extra/tracing"
 	"GuGoTik/src/models"
-	"GuGoTik/src/rpc/feed"
 	"GuGoTik/src/rpc/publish"
 	"GuGoTik/src/storage/database"
 	"GuGoTik/src/storage/file"
-	grpc2 "GuGoTik/src/utils/grpc"
 	"GuGoTik/src/utils/logging"
 	"GuGoTik/src/utils/pathgen"
 	"GuGoTik/src/utils/rabbitmq"
@@ -31,7 +28,7 @@ var conn *amqp.Connection
 
 var channel *amqp.Channel
 
-var FeedClient feed.FeedServiceClient
+//var FeedClient feed.FeedServiceClient
 
 func exitOnError(err error) {
 	if err != nil {
@@ -40,8 +37,8 @@ func exitOnError(err error) {
 }
 
 func init() {
-	FeedRpcConn := grpc2.Connect(config.FeedRpcServerName)
-	FeedClient = feed.NewFeedServiceClient(FeedRpcConn)
+	//FeedRpcConn := grpc2.Connect(config.FeedRpcServerName)
+	//FeedClient = feed.NewFeedServiceClient(FeedRpcConn)
 	var err error
 
 	conn, err = amqp.Dial(rabbitmq.BuildMQConnAddr())
@@ -126,10 +123,10 @@ func (a PublishServiceImpl) ListVideo(ctx context.Context, req *publish.ListVide
 		videoIds = append(videoIds, video.ID)
 	}
 
-	queryVideoResp, err := FeedClient.QueryVideos(ctx, &feed.QueryVideosRequest{
-		ActorId:  req.ActorId,
-		VideoIds: videoIds,
-	})
+	//queryVideoResp, err := FeedClient.QueryVideos(ctx, &feed.QueryVideosRequest{
+	//	ActorId:  req.ActorId,
+	//	VideoIds: videoIds,
+	//})
 	if err != nil {
 		logger.WithFields(logrus.Fields{
 			"err": err,
@@ -148,7 +145,7 @@ func (a PublishServiceImpl) ListVideo(ctx context.Context, req *publish.ListVide
 	resp = &publish.ListVideoResponse{
 		StatusCode: strings.ServiceOKCode,
 		StatusMsg:  strings.ServiceOK,
-		VideoList:  queryVideoResp.VideoList,
+		VideoList:  nil, //queryVideoResp.VideoList,
 	}
 	return
 }
@@ -157,6 +154,7 @@ func (a PublishServiceImpl) CountVideo(ctx context.Context, req *publish.CountVi
 	ctx, span := tracing.Tracer.Start(ctx, "CountVideoService")
 	defer span.End()
 	logger := logging.LogService("PublishServiceImpl.CountVideo").WithContext(ctx)
+
 	var count int64
 	err = database.Client.WithContext(ctx).Where("user_id = ?", req.UserId).Count(&count).Error
 	if err != nil {
@@ -271,6 +269,14 @@ func (a PublishServiceImpl) CreateVideo(ctx context.Context, request *publish.Cr
 			Body:         marshal,
 			Headers:      headers,
 		})
+
+	if err != nil {
+		resp = &publish.CreateVideoResponse{
+			StatusCode: strings.VideoServiceInnerErrorCode,
+			StatusMsg:  strings.VideoServiceInnerError,
+		}
+		return
+	}
 
 	resp = &publish.CreateVideoResponse{
 		StatusCode: strings.ServiceOKCode,

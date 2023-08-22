@@ -33,7 +33,7 @@ func TestListVideo(t *testing.T) {
 func TestCountVideo(t *testing.T) {
 	var Client publish.PublishServiceClient
 	req := publish.CountVideoRequest{
-		UserId: 123,
+		UserId: 1,
 	}
 	conn, err := grpc.Dial(fmt.Sprintf("127.0.0.1%s", config.PublishRpcServerPort),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
@@ -47,7 +47,7 @@ func TestCountVideo(t *testing.T) {
 
 func TestPublishVideo(t *testing.T) {
 	var Client publish.PublishServiceClient
-	reader, err := os.Open("F:\\GuGo\\mysea1.mp4")
+	reader, err := os.Open("E:\\Administrator\\Videos\\2.mp4")
 	assert.Empty(t, err)
 	bytes, err := io.ReadAll(reader)
 	assert.Empty(t, err)
