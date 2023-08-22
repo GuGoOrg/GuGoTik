@@ -283,11 +283,11 @@ func textWatermark(ctx context.Context, video *models.RawVideo) (string, error) 
 	}
 
 	// 设置字体大小
-	fontSize := 20
+	fontSize := 40
 
 	// 设置图片大小
-	imgWidth := 200
-	imgHeight := 40
+	imgWidth := 400
+	imgHeight := 200
 
 	// 设置文本内容
 	var user models.User
