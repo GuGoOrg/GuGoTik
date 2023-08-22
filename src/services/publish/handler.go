@@ -1,12 +1,15 @@
 package main
 
 import (
+	"GuGoTik/src/constant/config"
 	"GuGoTik/src/constant/strings"
 	"GuGoTik/src/extra/tracing"
 	"GuGoTik/src/models"
+	"GuGoTik/src/rpc/feed"
 	"GuGoTik/src/rpc/publish"
 	"GuGoTik/src/storage/database"
 	"GuGoTik/src/storage/file"
+	grpc2 "GuGoTik/src/utils/grpc"
 	"GuGoTik/src/utils/logging"
 	"GuGoTik/src/utils/pathgen"
 	"GuGoTik/src/utils/rabbitmq"
@@ -28,7 +31,7 @@ var conn *amqp.Connection
 
 var channel *amqp.Channel
 
-//var FeedClient feed.FeedServiceClient
+var FeedClient feed.FeedServiceClient
 
 func exitOnError(err error) {
 	if err != nil {
@@ -37,8 +40,8 @@ func exitOnError(err error) {
 }
 
 func init() {
-	//FeedRpcConn := grpc2.Connect(config.FeedRpcServerName)
-	//FeedClient = feed.NewFeedServiceClient(FeedRpcConn)
+	FeedRpcConn := grpc2.Connect(config.FeedRpcServerName)
+	FeedClient = feed.NewFeedServiceClient(FeedRpcConn)
 	var err error
 
 	conn, err = amqp.Dial(rabbitmq.BuildMQConnAddr())
@@ -123,10 +126,10 @@ func (a PublishServiceImpl) ListVideo(ctx context.Context, req *publish.ListVide
 		videoIds = append(videoIds, video.ID)
 	}
 
-	//queryVideoResp, err := FeedClient.QueryVideos(ctx, &feed.QueryVideosRequest{
-	//	ActorId:  req.ActorId,
-	//	VideoIds: videoIds,
-	//})
+	queryVideoResp, err := FeedClient.QueryVideos(ctx, &feed.QueryVideosRequest{
+		ActorId:  req.ActorId,
+		VideoIds: videoIds,
+	})
 	if err != nil {
 		logger.WithFields(logrus.Fields{
 			"err": err,
@@ -145,7 +148,7 @@ func (a PublishServiceImpl) ListVideo(ctx context.Context, req *publish.ListVide
 	resp = &publish.ListVideoResponse{
 		StatusCode: strings.ServiceOKCode,
 		StatusMsg:  strings.ServiceOK,
-		VideoList:  nil, //queryVideoResp.VideoList,
+		VideoList:  queryVideoResp.VideoList,
 	}
 	return
 }
