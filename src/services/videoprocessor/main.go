@@ -311,7 +311,7 @@ func textWatermark(ctx context.Context, video *models.RawVideo) (string, error) 
 
 	// 计算文本的宽度和高度
 	textWidth := int(c.PointToFixed(float64(fontSize)) >> 6)
-	textHeight := int(font.Bounds(fixed.Int26_6(fontSize)).Min.Y - font.Bounds(fixed.Int26_6(fontSize)).Min.Y)
+	textHeight := int(font.Bounds(fixed.Int26_6(fontSize)).Max.Y - font.Bounds(fixed.Int26_6(fontSize)).Min.Y)
 
 	// 计算文本的位置
 	textX := (imgWidth - textWidth) / 4
