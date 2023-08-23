@@ -4,4 +4,3 @@ output/
 log/
 .env
 docker/static
-static/
