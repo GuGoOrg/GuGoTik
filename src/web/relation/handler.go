@@ -8,6 +8,7 @@ import (
 	grpc2 "GuGoTik/src/utils/grpc"
 	"GuGoTik/src/utils/logging"
 	"GuGoTik/src/web/models"
+	"GuGoTik/src/web/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 	"net/http"
@@ -55,7 +56,7 @@ func ActionRelationHandler(c *gin.Context) {
 			"actor_id": req.ActorId,
 			"user_id":  req.UserId,
 		}).Warnf("RelationActionService returned an error response: %v", err)
-		c.JSON(http.StatusOK, res)
+		c.Render(http.StatusOK, utils.CustomJSON{Data: res, Context: c})
 		return
 	}
 
@@ -64,7 +65,7 @@ func ActionRelationHandler(c *gin.Context) {
 		"user_id":  req.UserId,
 	}).Infof("RelationAction success")
 
-	c.JSON(http.StatusOK, res)
+	c.Render(http.StatusOK, utils.CustomJSON{Data: res, Context: c})
 }
 
 func FollowHandler(c *gin.Context) {
@@ -92,7 +93,7 @@ func FollowHandler(c *gin.Context) {
 			"actor_id": req.ActorId,
 			"user_id":  req.UserId,
 		}).Warnf("FollowService returned an error response: %v", err)
-		c.JSON(http.StatusOK, res)
+		c.Render(http.StatusOK, utils.CustomJSON{Data: res, Context: c})
 		return
 	}
 
@@ -101,7 +102,7 @@ func FollowHandler(c *gin.Context) {
 		"user_id":  req.UserId,
 	}).Infof("Follow success")
 
-	c.JSON(http.StatusOK, res)
+	c.Render(http.StatusOK, utils.CustomJSON{Data: res, Context: c})
 
 }
 
@@ -129,7 +130,7 @@ func UnfollowHandler(c *gin.Context) {
 			"actor_id": req.ActorId,
 			"user_id":  req.UserId,
 		}).Warnf("UnFollowService returned an error response: %v", err)
-		c.JSON(http.StatusOK, res)
+		c.Render(http.StatusOK, utils.CustomJSON{Data: res, Context: c})
 		return
 	}
 
@@ -138,7 +139,7 @@ func UnfollowHandler(c *gin.Context) {
 		"user_id":  req.UserId,
 	}).Infof("Unfollow success")
 
-	c.JSON(http.StatusOK, res)
+	c.Render(http.StatusOK, utils.CustomJSON{Data: res, Context: c})
 }
 
 func GetFollowListHandler(c *gin.Context) {
@@ -164,7 +165,7 @@ func GetFollowListHandler(c *gin.Context) {
 			"actor_id": req.ActorId,
 			"user_id":  req.UserId,
 		}).Warnf("GetFollowListService returned an error response: %v", err)
-		c.JSON(http.StatusOK, res)
+		c.Render(http.StatusOK, utils.CustomJSON{Data: res, Context: c})
 		return
 	}
 
@@ -173,7 +174,7 @@ func GetFollowListHandler(c *gin.Context) {
 		"user_id":  req.UserId,
 	}).Infof("GetFollowList success")
 
-	c.JSON(http.StatusOK, res)
+	c.Render(http.StatusOK, utils.CustomJSON{Data: res, Context: c})
 
 }
 
@@ -198,14 +199,14 @@ func CountFollowHandler(c *gin.Context) {
 		logger.WithFields(logrus.Fields{
 			"user_id": req.UserId,
 		}).Warnf("CountFollowListService returned an error response: %v", err)
-		c.JSON(http.StatusOK, res)
+		c.Render(http.StatusOK, utils.CustomJSON{Data: res, Context: c})
 		return
 	}
 
 	logger.WithFields(logrus.Fields{
 		"user_id": req.UserId,
 	}).Infof("Count follow success")
-	c.JSON(http.StatusOK, res)
+	c.Render(http.StatusOK, utils.CustomJSON{Data: res, Context: c})
 
 }
 
@@ -232,7 +233,7 @@ func GetFollowerListHandler(c *gin.Context) {
 			"actor_id": req.ActorId,
 			"user_id":  req.UserId,
 		}).Warnf("GetFollowerListService returned an error response: %v", err)
-		c.JSON(http.StatusOK, res)
+		c.Render(http.StatusOK, utils.CustomJSON{Data: res, Context: c})
 		return
 	}
 
@@ -241,7 +242,7 @@ func GetFollowerListHandler(c *gin.Context) {
 		"user_id":  req.UserId,
 	}).Infof("GetFollowerList success")
 
-	c.JSON(http.StatusOK, res)
+	c.Render(http.StatusOK, utils.CustomJSON{Data: res, Context: c})
 
 }
 
@@ -266,14 +267,14 @@ func CountFollowerHandler(c *gin.Context) {
 		logger.WithFields(logrus.Fields{
 			"user_id": req.UserId,
 		}).Warnf("CountFollowerListService returned an error response: %v", err)
-		c.JSON(http.StatusOK, res)
+		c.Render(http.StatusOK, utils.CustomJSON{Data: res, Context: c})
 		return
 	}
 
 	logger.WithFields(logrus.Fields{
 		"user_id": req.UserId,
 	}).Infof("Count follower success")
-	c.JSON(http.StatusOK, res)
+	c.Render(http.StatusOK, utils.CustomJSON{Data: res, Context: c})
 }
 
 func GetFriendListHandler(c *gin.Context) {
@@ -300,7 +301,7 @@ func GetFriendListHandler(c *gin.Context) {
 			"actor_id": req.ActorId,
 			"user_id":  req.UserId,
 		}).Warnf("GetFriendListService returned an error response: %v", err)
-		c.JSON(http.StatusOK, res)
+		c.Render(http.StatusOK, utils.CustomJSON{Data: res, Context: c})
 		return
 	}
 
@@ -309,7 +310,7 @@ func GetFriendListHandler(c *gin.Context) {
 		"user_id":  req.UserId,
 	}).Infof("GetFriendList success")
 
-	c.JSON(http.StatusOK, res)
+	c.Render(http.StatusOK, utils.CustomJSON{Data: res, Context: c})
 
 }
 
@@ -336,7 +337,7 @@ func IsFollowHandler(c *gin.Context) {
 			"actor_id": req.ActorId,
 			"user_id":  req.UserId,
 		}).Warnf("IsFollowService returned an error response: %v", err)
-		c.JSON(http.StatusOK, res)
+		c.Render(http.StatusOK, utils.CustomJSON{Data: res, Context: c})
 		return
 	}
 
@@ -344,5 +345,5 @@ func IsFollowHandler(c *gin.Context) {
 		"actor_id": req.ActorId,
 		"user_id":  req.UserId,
 	}).Infof("IsFollow success")
-	c.JSON(http.StatusOK, res)
+	c.Render(http.StatusOK, utils.CustomJSON{Data: res, Context: c})
 }

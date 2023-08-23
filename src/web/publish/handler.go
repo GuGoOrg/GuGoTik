@@ -8,6 +8,7 @@ import (
 	grpc2 "GuGoTik/src/utils/grpc"
 	"GuGoTik/src/utils/logging"
 	"GuGoTik/src/web/models"
+	"GuGoTik/src/web/utils"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
@@ -43,7 +44,7 @@ func ListPublishHandle(c *gin.Context) {
 		logger.WithFields(logrus.Fields{
 			"UserId": req.UserId,
 		}).Warnf("Error when trying to connect with PublishService")
-		c.JSON(http.StatusOK, res)
+		c.Render(http.StatusOK, utils.CustomJSON{Data: res, Context: c})
 		return
 	}
 	userId := req.UserId
@@ -51,7 +52,7 @@ func ListPublishHandle(c *gin.Context) {
 		"UserId": userId,
 	}).Infof("Publish List videos")
 
-	c.JSON(http.StatusOK, res)
+	c.Render(http.StatusOK, utils.CustomJSON{Data: res, Context: c})
 }
 
 func paramValidate(c *gin.Context) (err error) {
@@ -135,11 +136,11 @@ func ActionPublishHandle(c *gin.Context) {
 		logger.WithFields(logrus.Fields{
 			"err": err,
 		}).Warnf("Error when trying to connect with CreateVideoService")
-		c.JSON(http.StatusOK, res)
+		c.Render(http.StatusOK, utils.CustomJSON{Data: res, Context: c})
 		return
 	}
 	logger.WithFields(logrus.Fields{
 		"response": res,
 	}).Debugf("Create video success")
-	c.JSON(http.StatusOK, res)
+	c.Render(http.StatusOK, utils.CustomJSON{Data: res, Context: c})
 }

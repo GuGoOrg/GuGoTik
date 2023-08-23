@@ -8,6 +8,7 @@ import (
 	grpc2 "GuGoTik/src/utils/grpc"
 	"GuGoTik/src/utils/logging"
 	"GuGoTik/src/web/models"
+	"GuGoTik/src/web/utils"
 
 	"net/http"
 
@@ -59,7 +60,7 @@ func ActionMessageHandler(c *gin.Context) {
 			"content": req.Content,
 		}).Error("Error when trying to connect with ActionMessageHandler")
 
-		c.JSON(http.StatusBadRequest, res)
+		c.Render(http.StatusBadRequest, utils.CustomJSON{Data: res, Context: c})
 		return
 	}
 	logger.WithFields(logrus.Fields{
@@ -67,7 +68,7 @@ func ActionMessageHandler(c *gin.Context) {
 		"content": req.Content,
 	}).Infof("Action send message success")
 
-	c.JSON(http.StatusOK, res)
+	c.Render(http.StatusOK, utils.CustomJSON{Data: res, Context: c})
 }
 
 func ListMessageHandler(c *gin.Context) {
@@ -95,7 +96,7 @@ func ListMessageHandler(c *gin.Context) {
 			"ActorId": req.ActorId,
 			"user_id": req.UserId,
 		}).Error("Error when trying to connect with ListMessageHandler")
-		c.JSON(http.StatusOK, res)
+		c.Render(http.StatusOK, utils.CustomJSON{Data: res, Context: c})
 		return
 	}
 
@@ -104,5 +105,5 @@ func ListMessageHandler(c *gin.Context) {
 		"user_id": req.UserId,
 	}).Infof("List comment success")
 
-	c.JSON(http.StatusOK, res)
+	c.Render(http.StatusOK, utils.CustomJSON{Data: res, Context: c})
 }
