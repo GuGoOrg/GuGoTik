@@ -20,7 +20,7 @@ func TestGetUserInfo(t *testing.T) {
 	Client = user.NewUserServiceClient(conn)
 	res, err := Client.GetUserInfo(context.Background(), &user.UserRequest{
 		UserId:  2,
-		ActorId: 0,
+		ActorId: 1,
 	})
 	assert.Empty(t, err)
 	assert.Equal(t, int32(0), res.StatusCode)
