@@ -64,11 +64,10 @@ func (c MessageServiceImpl) ChatAction(ctx context.Context, request *chat.Action
 	if err != nil {
 		logger.WithFields(logrus.Fields{
 			"err":          err,
-			"ActorId":      request.ActorId,
 			"user_id":      request.UserId,
 			"action_type":  request.ActionType,
 			"content_text": request.Content,
-		}).Errorf("database  error")
+		}).Errorf("database insert  error")
 		logging.SetSpanError(span, err)
 		return res, err
 	}
@@ -86,8 +85,9 @@ func (c MessageServiceImpl) Chat(ctx context.Context, request *chat.ChatRequest)
 	defer span.End()
 	logger := logging.LogService("ChatService.chat").WithContext(ctx)
 	logger.WithFields(logrus.Fields{
-		"user_id": request.UserId,
-		"ActorId": request.ActorId,
+		"user_id":      request.UserId,
+		"ActorId":      request.ActorId,
+		"pre_msg_time": request.PreMsgTime,
 	}).Debugf("Process start")
 	toUserId := request.UserId
 	fromUserId := request.ActorId
@@ -101,13 +101,16 @@ func (c MessageServiceImpl) Chat(ctx context.Context, request *chat.ChatRequest)
 	//TO DO 看怎么需要一下
 
 	var rMessageList []*chat.Message
-	result := database.Client.WithContext(ctx).Where("conversation_id=?", conversationId).
+	result := database.Client.WithContext(ctx).Where("conversation_id=? and  ", conversationId).
 		Order("created_at desc").Find(&rMessageList)
 
 	if result.Error != nil {
 		logger.WithFields(logrus.Fields{
-			"err": result.Error,
-		}).Errorf("ChatServiceImpl list chat failed to response when listing message")
+			"err":          result.Error,
+			"user_id":      request.UserId,
+			"ActorId":      request.ActorId,
+			"pre_msg_time": request.PreMsgTime,
+		}).Errorf("ChatServiceImpl list chat failed to response when listing message,database err")
 		logging.SetSpanError(span, err)
 
 		resp = &chat.ChatResponse{

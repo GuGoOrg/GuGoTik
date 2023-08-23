@@ -10,10 +10,10 @@ import (
 )
 
 var client = &http.Client{}
-var baseUrl = "http://127.0.0.1:37000/douyin/comment"
+var commentBaseUrl = "http://127.0.0.1:37000/douyin/comment"
 
 func TestActionComment_Add(t *testing.T) {
-	url := baseUrl + "/action"
+	url := commentBaseUrl + "/action"
 	method := "POST"
 	req, err := http.NewRequest(method, url, nil)
 	q := req.URL.Query()
@@ -42,7 +42,7 @@ func TestActionComment_Add(t *testing.T) {
 }
 
 func TestActionComment_Delete(t *testing.T) {
-	url := baseUrl + "/action"
+	url := commentBaseUrl + "/action"
 	method := "POST"
 	req, err := http.NewRequest(method, url, nil)
 	q := req.URL.Query()
@@ -71,7 +71,7 @@ func TestActionComment_Delete(t *testing.T) {
 }
 
 func TestListComment(t *testing.T) {
-	url := baseUrl + "/list"
+	url := commentBaseUrl + "/list"
 	method := "GET"
 	req, err := http.NewRequest(method, url, nil)
 	q := req.URL.Query()
@@ -98,7 +98,7 @@ func TestListComment(t *testing.T) {
 }
 
 func TestCountComment(t *testing.T) {
-	url := baseUrl + "/count"
+	url := commentBaseUrl + "/count"
 	method := "GET"
 	req, err := http.NewRequest(method, url, nil)
 	q := req.URL.Query()

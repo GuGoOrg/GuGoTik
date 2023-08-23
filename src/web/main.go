@@ -8,6 +8,7 @@ import (
 	"GuGoTik/src/web/about"
 	"GuGoTik/src/web/auth"
 	comment2 "GuGoTik/src/web/comment"
+	favorite2 "GuGoTik/src/web/favorite"
 	feed2 "GuGoTik/src/web/feed"
 	message2 "GuGoTik/src/web/message"
 	"GuGoTik/src/web/middleware"
@@ -101,6 +102,11 @@ func main() {
 	{
 		message.GET("/chat", message2.ListMessageHandler)
 		message.POST("/action", message2.ActionMessageHandler)
+	}
+	favorite := rootPath.Group("/favorite")
+	{
+		favorite.POST("/action", favorite2.ActionFavoriteHandler)
+		favorite.GET("/list", favorite2.ListFavoriteHandler)
 	}
 	// Run Server
 	if err := g.Run(config.WebServiceAddr); err != nil {

@@ -47,7 +47,7 @@ func TestCountVideo(t *testing.T) {
 
 func TestPublishVideo(t *testing.T) {
 	var Client publish.PublishServiceClient
-	reader, err := os.Open("E:\\Administrator\\Videos\\2.mp4")
+	reader, err := os.Open("/home/yangfeng/Repos/youthcamp/videos/upload_video_2_1080p.mp4")
 	assert.Empty(t, err)
 	bytes, err := io.ReadAll(reader)
 	assert.Empty(t, err)
