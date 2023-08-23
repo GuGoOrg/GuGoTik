@@ -3,4 +3,5 @@ debug/
 output/
 log/
 .env
-docker/static
+docker/basic/static
+docker/rabbitmq/static

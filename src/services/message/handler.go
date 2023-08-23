@@ -14,7 +14,6 @@ import (
 	"fmt"
 
 	"github.com/sirupsen/logrus"
-	"go.opentelemetry.io/otel/trace"
 )
 
 var UserClient user.UserServiceClient
@@ -47,8 +46,11 @@ func (c MessageServiceImpl) ChatAction(ctx context.Context, request *chat.Action
 
 	if err != nil || userResponse.StatusCode != strings.ServiceOKCode {
 		logger.WithFields(logrus.Fields{
-			"err":      err,
-			"cctor_id": request.ActorId,
+			"err":          err,
+			"ActorId":      request.ActorId,
+			"user_id":      request.UserId,
+			"action_type":  request.ActionType,
+			"content_text": request.Content,
 		}).Errorf("User service error")
 		logging.SetSpanError(span, err)
 
@@ -58,12 +60,14 @@ func (c MessageServiceImpl) ChatAction(ctx context.Context, request *chat.Action
 		}, err
 	}
 
-	res, err = addMessage(ctx, logger, span, request.ActorId, request.UserId, request.Content)
+	res, err = addMessage(ctx, request.ActorId, request.UserId, request.Content)
 	if err != nil {
 		logger.WithFields(logrus.Fields{
-			"err":     err,
-			"ActorId": request.ActorId,
-		}).Errorf("User service error")
+			"err":          err,
+			"user_id":      request.UserId,
+			"action_type":  request.ActionType,
+			"content_text": request.Content,
+		}).Errorf("database insert  error")
 		logging.SetSpanError(span, err)
 		return res, err
 	}
@@ -81,8 +85,9 @@ func (c MessageServiceImpl) Chat(ctx context.Context, request *chat.ChatRequest)
 	defer span.End()
 	logger := logging.LogService("ChatService.chat").WithContext(ctx)
 	logger.WithFields(logrus.Fields{
-		"user_id": request.UserId,
-		"ActorId": request.ActorId,
+		"user_id":      request.UserId,
+		"ActorId":      request.ActorId,
+		"pre_msg_time": request.PreMsgTime,
 	}).Debugf("Process start")
 	toUserId := request.UserId
 	fromUserId := request.ActorId
@@ -96,13 +101,16 @@ func (c MessageServiceImpl) Chat(ctx context.Context, request *chat.ChatRequest)
 	//TO DO 看怎么需要一下
 
 	var rMessageList []*chat.Message
-	result := database.Client.WithContext(ctx).Where("conversation_id=?", conversationId).
+	result := database.Client.WithContext(ctx).Where("conversation_id=? and  ", conversationId).
 		Order("created_at desc").Find(&rMessageList)
 
 	if result.Error != nil {
 		logger.WithFields(logrus.Fields{
-			"err": result.Error,
-		}).Errorf("ChatServiceImpl list chat failed to response when listing message")
+			"err":          result.Error,
+			"user_id":      request.UserId,
+			"ActorId":      request.ActorId,
+			"pre_msg_time": request.PreMsgTime,
+		}).Errorf("ChatServiceImpl list chat failed to response when listing message,database err")
 		logging.SetSpanError(span, err)
 
 		resp = &chat.ChatResponse{
@@ -125,7 +133,7 @@ func (c MessageServiceImpl) Chat(ctx context.Context, request *chat.ChatRequest)
 	return
 }
 
-func addMessage(ctx context.Context, logger *logrus.Entry, span trace.Span, fromUserId uint32, toUserId uint32, Context string) (resp *chat.ActionResponse, err error) {
+func addMessage(ctx context.Context, fromUserId uint32, toUserId uint32, Context string) (resp *chat.ActionResponse, err error) {
 	conversationId := fmt.Sprintf("%d_%d", toUserId, fromUserId)
 
 	if toUserId > fromUserId {
@@ -142,13 +150,6 @@ func addMessage(ctx context.Context, logger *logrus.Entry, span trace.Span, from
 	result := database.Client.WithContext(ctx).Create(&message)
 
 	if result.Error != nil {
-		//TO_DO 错误 替换
-		logger.WithFields(logrus.Fields{
-			"err":     result.Error,
-			"id":      message.ID,
-			"ActorId": message.FromUserId,
-			"to_id":   message.ToUserId,
-		}).Errorf("send message failed when insert to database")
 
 		resp = &chat.ActionResponse{
 			StatusCode: strings.UnableToAddMessageErrorCode,

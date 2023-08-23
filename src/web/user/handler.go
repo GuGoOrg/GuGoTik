@@ -16,9 +16,8 @@ import (
 var userClient user.UserServiceClient
 
 func init() {
-	userConn := grpc2.Connect(config.RelationRpcServerName)
+	userConn := grpc2.Connect(config.UserRpcServerName)
 	userClient = user.NewUserServiceClient(userConn)
-
 }
 
 func UserHandler(c *gin.Context) {
