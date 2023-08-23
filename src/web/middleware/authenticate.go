@@ -24,7 +24,7 @@ func TokenAuthMiddleware() gin.HandlerFunc {
 		}
 
 		var token string
-		if c.Request.URL.Path == "/douyin/publish/action/" {
+		if c.Request.URL.Path == "/douyin/publish/action" {
 			token = c.PostForm("token")
 		} else {
 			token = c.Query("token")
