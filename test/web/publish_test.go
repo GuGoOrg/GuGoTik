@@ -10,7 +10,7 @@ import (
 )
 
 func TestListVideo(t *testing.T) {
-	url := baseUrl + "/publish/list"
+	url := "http://127.0.0.1:37000/douyin/publish/list"
 	method := "GET"
 	req, err := http.NewRequest(method, url, nil)
 	q := req.URL.Query()
