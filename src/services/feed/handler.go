@@ -49,10 +49,7 @@ func (s FeedServiceImpl) ListVideos(ctx context.Context, request *feed.ListFeedR
 	logger := logging.LogService("FeedService.ListVideos").WithContext(ctx)
 
 	now := uint32(time.Now().UnixMilli())
-
-	layout := "2006-01-02T15:04:05.999Z"
-	t, err := time.Parse(layout, *request.LatestTime)
-	latestTime := t.Unix()
+	latestTime, err := strconv.ParseInt(*request.LatestTime, 10, 64)
 	if err != nil {
 		var numError *strconv.NumError
 		if errors.As(err, &numError) {
