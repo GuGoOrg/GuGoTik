@@ -291,3 +291,10 @@ func CacheAndRedisGet(ctx context.Context, key string, obj interface{}) (bool, e
 
 	return false, nil
 }
+
+func ActionRedisSync(time time.Duration, f func(client redis2.UniversalClient) error) {
+	go func() {
+		daemon := NewTick(time, f)
+		daemon.Start()
+	}()
+}
