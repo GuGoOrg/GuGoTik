@@ -45,6 +45,7 @@ func TokenAuthMiddleware() gin.HandlerFunc {
 				"status_code": strings.GateWayErrorCode,
 				"status_msg":  strings.GateWayError,
 			})
+			c.Abort()
 			return
 		}
 
