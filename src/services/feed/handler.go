@@ -34,7 +34,7 @@ var UserClient user.UserServiceClient
 var CommentClient comment.CommentServiceClient
 var FavoriteClient favorite.FavoriteServiceClient
 
-func init() {
+func (s FeedServiceImpl) New() {
 	userRpcConn := grpc2.Connect(config.UserRpcServerName)
 	UserClient = user.NewUserServiceClient(userRpcConn)
 	commentRpcConn := grpc2.Connect(config.CommentRpcServerName)

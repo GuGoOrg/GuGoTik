@@ -53,6 +53,7 @@ func main() {
 	if err := consul.RegisterConsul(config.CommentRpcServerName, config.CommentRpcServerPort); err != nil {
 		log.Panicf("Rpc %s register consul happens error for: %v", config.CommentRpcServerName, err)
 	}
+	srv.New()
 	log.Infof("Rpc %s is running at %s now", config.CommentRpcServerName, config.CommentRpcServerPort)
 	if err := s.Serve(lis); err != nil {
 		log.Panicf("Rpc %s listen happens error for: %v", config.CommentRpcServerName, err)

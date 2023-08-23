@@ -3,3 +3,4 @@ debug/
 output/
 log/
 .env
+docker/static

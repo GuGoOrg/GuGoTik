@@ -39,7 +39,7 @@ func (c *CacheRelationList) GetID() uint32 {
 	return 0
 }
 
-func init() {
+func (r RelationServiceImpl) New() {
 	userRPCConn := grpc2.Connect(config.UserRpcServerName)
 	userClient = user.NewUserServiceClient(userRPCConn)
 }
@@ -543,13 +543,17 @@ func (r RelationServiceImpl) IsFollow(ctx context.Context, request *relation.IsF
 		logging.SetSpanError(span, err)
 
 		resp = &relation.IsFollowResponse{
-			Result: false,
+			StatusCode: strings.RelationServiceIntErrorCode,
+			StatusMsg:  strings.RelationServiceIntError,
+			Result:     false,
 		}
 		return
 	}
 
 	resp = &relation.IsFollowResponse{
-		Result: count > 0,
+		StatusCode: strings.ServiceOKCode,
+		StatusMsg:  strings.ServiceOK,
+		Result:     count > 0,
 	}
 	return
 }

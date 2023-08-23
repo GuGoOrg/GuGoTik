@@ -68,3 +68,18 @@ func (f FSStorage) GetLink(ctx context.Context, fileName string) (string, error)
 	defer span.End()
 	return url.JoinPath(config.EnvCfg.FileSystemBaseUrl, fileName)
 }
+
+func (f FSStorage) IsFileExist(ctx context.Context, fileName string) (bool, error) {
+	_, span := tracing.Tracer.Start(ctx, "FSStorage-IsFileExist")
+	defer span.End()
+	filePath := path.Join(config.EnvCfg.FileSystemStartPath, fileName)
+	_, err := os.Stat(filePath)
+	if err == nil {
+		return true, nil
+	}
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+
+	return false, err
+}

@@ -39,7 +39,7 @@ func exitOnError(err error) {
 	}
 }
 
-func init() {
+func (a PublishServiceImpl) New() {
 	FeedRpcConn := grpc2.Connect(config.FeedRpcServerName)
 	FeedClient = feed.NewFeedServiceClient(FeedRpcConn)
 	var err error
@@ -50,14 +50,17 @@ func init() {
 	channel, err = conn.Channel()
 	exitOnError(err)
 
+	exchangeArgs := amqp.Table{
+		"x-delayed-type": "topic",
+	}
 	err = channel.ExchangeDeclare(
 		strings.VideoExchange,
-		"fanout",
+		"x-delayed-message", //"topic",
 		true,
 		false,
 		false,
 		false,
-		nil,
+		exchangeArgs,
 	)
 	exitOnError(err)
 
@@ -83,7 +86,7 @@ func init() {
 
 	err = channel.QueueBind(
 		strings.VideoPicker,
-		"",
+		strings.VideoPicker,
 		strings.VideoExchange,
 		false,
 		nil,
@@ -92,7 +95,7 @@ func init() {
 
 	err = channel.QueueBind(
 		strings.VideoSummary,
-		"",
+		strings.VideoSummary,
 		strings.VideoExchange,
 		false,
 		nil,
@@ -265,20 +268,24 @@ func (a PublishServiceImpl) CreateVideo(ctx context.Context, request *publish.Cr
 	// Context 注入到 RabbitMQ 中
 	headers := rabbitmq.InjectAMQPHeaders(ctx)
 
-	err = channel.Publish(strings.VideoExchange, "", false, false,
-		amqp.Publishing{
-			DeliveryMode: amqp.Persistent,
-			ContentType:  "text/plain",
-			Body:         marshal,
-			Headers:      headers,
-		})
+	routingKeys := []string{strings.VideoPicker, strings.VideoSummary}
+	for _, key := range routingKeys {
+		// Send raw video to all queues bound the exchange
+		err = channel.Publish(strings.VideoExchange, key, false, false,
+			amqp.Publishing{
+				DeliveryMode: amqp.Persistent,
+				ContentType:  "text/plain",
+				Body:         marshal,
+				Headers:      headers,
+			})
 
-	if err != nil {
-		resp = &publish.CreateVideoResponse{
-			StatusCode: strings.VideoServiceInnerErrorCode,
-			StatusMsg:  strings.VideoServiceInnerError,
+		if err != nil {
+			resp = &publish.CreateVideoResponse{
+				StatusCode: strings.VideoServiceInnerErrorCode,
+				StatusMsg:  strings.VideoServiceInnerError,
+			}
+			return
 		}
-		return
 	}
 
 	resp = &publish.CreateVideoResponse{

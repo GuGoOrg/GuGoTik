@@ -25,7 +25,7 @@ var relationClient relation.RelationServiceClient
 
 var publishClient publish.PublishServiceClient
 
-func init() {
+func (a UserServiceImpl) New() {
 	relationConn := grpc2.Connect(config.RelationRpcServerName)
 	relationClient = relation.NewRelationServiceClient(relationConn)
 
@@ -34,7 +34,7 @@ func init() {
 }
 
 func (a UserServiceImpl) GetUserInfo(ctx context.Context, request *user.UserRequest) (resp *user.UserResponse, err error) {
-	ctx, span := tracing.Tracer.Start(ctx, "UserService-GetUserInfo")
+	ctx, span := tracing.Tracer.Start(ctx, "GetUserInfo")
 	defer span.End()
 	logger := logging.LogService("UserService.GetUserInfo").WithContext(ctx)
 
@@ -152,6 +152,17 @@ func (a UserServiceImpl) GetUserInfo(ctx context.Context, request *user.UserRequ
 			return
 		}
 
+		if rResp != nil && rResp.StatusCode == strings.ServiceOKCode {
+			if err != nil {
+				logger.WithFields(logrus.Fields{
+					"errMsg": rResp.StatusMsg,
+					"userId": request.UserId,
+				}).Errorf("Error when user service get is follow")
+				isErr = true
+				return
+			}
+		}
+
 		resp.User.IsFollow = rResp.Result
 	}()
 
@@ -191,6 +202,5 @@ func (a UserServiceImpl) GetUserInfo(ctx context.Context, request *user.UserRequ
 		return
 	}
 
-	//TODO 等待其他服务写完后接入
 	return
 }

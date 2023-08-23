@@ -17,14 +17,14 @@ RUN apk update --no-cache \
     && go mod download \
     && bash ./scripts/build-all.sh
 
-FROM docker.io/epicmo/gugotik-basic:1.0 as prod
+FROM docker.io/epicmo/gugotik-basic:1.2 as prod
 
 ENV TZ Asia/Shanghai
 
-WORKDIR /work
+WORKDIR /data/apps/gugotik-service-bundle
 
 RUN apk update --no-cache \
     && apk upgrade
 
-COPY --from=builder /usr/share/zoneinfo/Asia/Shanghai /usr/share/zoneinfo/Asia/Shanghai
+COPY --from=builder /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
 COPY --from=builder /build/output .
