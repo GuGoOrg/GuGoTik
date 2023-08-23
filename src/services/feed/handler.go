@@ -258,6 +258,7 @@ func queryDetailed(
 		go func(i int, v *models.Video) {
 			defer wg.Done()
 			commentCount, localErr := CommentClient.ListComment(ctx, &comment.ListCommentRequest{
+				ActorId: actorId,
 				VideoId: v.ID,
 			})
 			if localErr != nil {
