@@ -27,7 +27,7 @@ func (t *TimeTicker) Start() {
 
 func NewTick(interval time.Duration, f func(client redis2.UniversalClient) error) *TimeTicker {
 	return &TimeTicker{
-		Tick: time.NewTicker(interval * time.Second),
+		Tick: time.NewTicker(interval),
 		Work: f,
 	}
 }
