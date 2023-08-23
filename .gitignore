@@ -5,3 +5,4 @@ log/
 .env
 docker/basic/static
 docker/rabbitmq/static
+static/
