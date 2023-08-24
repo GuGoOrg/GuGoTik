@@ -1,0 +1,233 @@
+version: "3.9"
+services:
+  rdb:
+    container_name: "GuGoTik-Extra-PostgreSQL"
+    image: postgres
+    restart: always
+    environment:
+      POSTGRES_PASSWORD: gugotik123
+      POSTGRES_DB: gugodb
+      POSTGRES_USER: gugotik
+    ports:
+      - "5432:5432"
+  pyroscope:
+    container_name: "GuGoTik-Extra-Pyroscope"
+    image: pyroscope/pyroscope
+    command:
+      - server
+    ports:
+      - "4040:4040"
+    stdin_open: true
+    tty: true
+  consul:
+    container_name: "GuGoTik-Extra-Consul"
+    image: consul:1.15.4
+    command: [
+      "agent",
+      "-dev",
+      "-client=0.0.0.0"
+    ]
+    ports:
+      - "8500:8500"
+  redis:
+    container_name: "GuGoTik-Extra-Redis"
+    image: redis
+    ports:
+      - "6379:6379"
+  jaeger:
+    container_name: "GuGoTik-Extra-Jaeger"
+    image: jaegertracing/all-in-one
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    ports:
+      - "16686:16686"
+      - "14268"
+      - "14250:14250"
+      - "6831:6831"
+  victoriametrics:
+    container_name: "GuGoTik-Extra-VictoriaMetrics"
+    image: victoriametrics/victoria-metrics
+    ports:
+      - "8428:8428"
+      - "8089:8089"
+      - "8089:8089/udp"
+      - "2003:2003"
+      - "2003:2003/udp"
+      - "4242:4242"
+    command:
+      - '--storageDataPath=/storage'
+      - '--graphiteListenAddr=:2003'
+      - '--opentsdbListenAddr=:4242'
+      - '--httpListenAddr=:8428'
+      - '--influxListenAddr=:8089'
+    restart: always
+  grafana:
+    container_name: "GuGoTik-Extra-Grafana"
+    image: grafana/grafana
+    environment:
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      - GF_AUTH_DISABLE_LOGIN_FORM=true
+    ports:
+      - "3000:3000"
+  rabbitmq:
+    container_name: "GuGoTik-Extra-RabbitMQ"
+    image: epicmo/rabbitmq-manager:1.0
+  prometheus:
+    container_name: "GuGoTik-Extra-Prometheus"
+    image:  bitnami/prometheus:latest
+    ports:
+      - "5672:5672"
+  auth:
+    container_name: "GuGoTik-AuthService"
+    build:
+      dockerfile: Dockerfile
+    ports:
+      - "37001:37001"
+    env_file:
+      - .env.docker.compose
+    command:
+      - ./services/auth/AuthService
+    depends_on:
+      - rdb
+      - redis
+      - consul
+      - jaeger
+  comment:
+    container_name: "GuGoTik-CommentService"
+    build:
+      dockerfile: Dockerfile
+    ports:
+      - "37003:37003"
+    env_file:
+      - .env.docker.compose
+    command:
+      - ./services/comment/CommentService
+    depends_on:
+      - rdb
+      - redis
+      - consul
+      - jaeger
+  favorite:
+    container_name: "GuGoTik-FavoriteService"
+    build:
+      dockerfile: Dockerfile
+    ports:
+      - "37006:37006"
+    env_file:
+      - .env.docker.compose
+    command:
+      - ./services/favorite/FavoriteService
+    depends_on:
+      - rdb
+      - redis
+      - consul
+      - jaeger
+  feed:
+    container_name: "GuGoTik-FeedService"
+    build:
+      dockerfile: Dockerfile
+    ports:
+      - "37004:37004"
+    env_file:
+      - .env.docker.compose
+    command:
+      - ./services/feed/FeedService
+    depends_on:
+      - rdb
+      - redis
+      - consul
+      - jaeger
+  message:
+    container_name: "GuGoTik-MessageService"
+    build:
+      dockerfile: Dockerfile
+    ports:
+      - "37007:37007"
+    env_file:
+      - .env.docker.compose
+    command:
+      - ./services/message/MessageService
+    depends_on:
+      - rdb
+      - redis
+      - consul
+      - jaeger
+  publish:
+    container_name: "GuGoTik-PublishService"
+    build:
+      dockerfile: Dockerfile
+    ports:
+      - "37005:37005"
+    env_file:
+      - .env.docker.compose
+    command:
+      - ./services/publish/PublishService
+    depends_on:
+      - rdb
+      - redis
+      - consul
+      - jaeger
+  relation:
+    container_name: "GuGoTik-RelationService"
+    build:
+      dockerfile: Dockerfile
+    ports:
+      - "37008:37008"
+    env_file:
+      - .env.docker.compose
+    command:
+      - ./services/relation/RelationService
+    depends_on:
+      - rdb
+      - redis
+      - consul
+      - jaeger
+  user:
+    container_name: "GuGoTik-UserService"
+    build:
+      dockerfile: Dockerfile
+    ports:
+      - "37002:37002"
+    env_file:
+      - .env.docker.compose
+    command:
+      - ./services/user/UserService
+    depends_on:
+      - rdb
+      - redis
+      - consul
+      - jaeger
+  videoprocessor:
+    container_name: "GuGoTik-VideoProcessorService"
+    build:
+      dockerfile: Dockerfile
+    env_file:
+      - .env.docker.compose
+    command:
+      - ./services/videoprocessor/VideoprocessorService
+    depends_on:
+      - rdb
+      - redis
+      - consul
+      - jaeger
+  gateway:
+    container_name: "GuGoTik-GateWay"
+    build:
+      dockerfile: Dockerfile
+    ports:
+      - "37000:37000"
+    env_file:
+      - .env.docker.compose
+    command:
+      - ./gateway/Gateway
+    depends_on:
+      - rdb
+      - redis
+      - consul
+      - jaeger
+    networks:
+      - server
+networks:
+  server:
+    driver: bridge
