@@ -100,7 +100,7 @@ func (c FavoriteServiceServerImpl) FavoriteAction(ctx context.Context, req *favo
 			val = -1
 		}
 		videoId := fmt.Sprintf("%svideo_like_%d", config.EnvCfg.RedisPrefix, req.VideoId)      // 该视频的点赞数量
-		user_like_Id := fmt.Sprintf("%suser_like_%d", config.EnvCfg.RedisPrefix, req.ActorId)  // 用户的点赞数量
+		user_like_Id := fmt.Sprintf("%suser_like_%d", config.EnvCfg.RedisPrefix, req.ActorId)  // 用户的点赞
 		user_liked_id := fmt.Sprintf("%suser_liked_%d", config.EnvCfg.RedisPrefix, user_liked) // 被赞用户的获赞数量
 		pipe.IncrBy(ctx, videoId, val)
 		pipe.IncrBy(ctx, user_liked_id, val)
@@ -149,9 +149,8 @@ func (c FavoriteServiceServerImpl) FavoriteList(ctx context.Context, req *favori
 	}).Debugf("Process start")
 
 	//以下判断用户是否合法，我觉得大可不必
-	userResponse, err := userClient.GetUserInfo(ctx, &user.UserRequest{
-		UserId:  req.ActorId,
-		ActorId: req.UserId,
+	userResponse, err := userClient.GetUserExistInformation(ctx, &user.UserExistRequest{
+		UserId: req.UserId,
 	})
 
 	if err != nil || userResponse.StatusCode != strings.ServiceOKCode {
@@ -235,9 +234,8 @@ func (c FavoriteServiceServerImpl) IsFavorite(ctx context.Context, req *favorite
 		"video_id": req.VideoId,
 	}).Debugf("Process start")
 	//判断视频id是否存在，我觉得大可不必
-	value, err := feedClient.QueryVideos(ctx, &feed.QueryVideosRequest{
-		ActorId:  req.ActorId,
-		VideoIds: []uint32{req.VideoId},
+	value, err := feedClient.QueryVideoExisted(ctx, &feed.VideoExistRequest{
+		VideoId: req.VideoId,
 	})
 	if err != nil || value.StatusCode != strings.ServiceOKCode {
 		logger.WithFields(logrus.Fields{
@@ -303,7 +301,20 @@ func (c FavoriteServiceServerImpl) CountFavorite(ctx context.Context, req *favor
 	logger.WithFields(logrus.Fields{
 		"video_id": req.VideoId,
 	}).Debugf("Process start")
-
+	//判断视频id是否存在，我觉得大可不必
+	Vresp, err := feedClient.QueryVideoExisted(ctx, &feed.VideoExistRequest{
+		VideoId: req.VideoId,
+	})
+	if err != nil || Vresp.StatusCode != strings.ServiceOKCode {
+		logger.WithFields(logrus.Fields{
+			"user_id": req.VideoId,
+		}).Errorf("feed Service error")
+		logging.SetSpanError(span, err)
+		return &favorite.CountFavoriteResponse{
+			StatusCode: strings.FavorivateServiceErrorCode,
+			StatusMsg:  strings.FavorivateServiceError,
+		}, err
+	}
 	videoId := fmt.Sprintf("%svideo_like_%d", config.EnvCfg.RedisPrefix, req.VideoId)
 	value, err := redis2.Client.Get(ctx, videoId).Result()
 	var num int
@@ -346,9 +357,8 @@ func (c FavoriteServiceServerImpl) CountUserFavorite(ctx context.Context, req *f
 	}).Debugf("Process start")
 
 	//以下判断用户是否合法，我觉得大可不必
-	userResponse, err := userClient.GetUserInfo(ctx, &user.UserRequest{
-		ActorId: 1,
-		UserId:  req.UserId,
+	userResponse, err := userClient.GetUserExistInformation(ctx, &user.UserExistRequest{
+		UserId: req.UserId,
 	})
 
 	if err != nil || userResponse.StatusCode != strings.ServiceOKCode {
@@ -407,9 +417,8 @@ func (c FavoriteServiceServerImpl) CountUserTotalFavorited(ctx context.Context, 
 	}).Debugf("Process start")
 
 	//以下判断用户是否合法，我觉得大可不必
-	userResponse, err := userClient.GetUserInfo(ctx, &user.UserRequest{
-		ActorId: req.ActorId,
-		UserId:  req.UserId,
+	userResponse, err := userClient.GetUserExistInformation(ctx, &user.UserExistRequest{
+		UserId: req.UserId,
 	})
 
 	if err != nil || userResponse.StatusCode != strings.ServiceOKCode {
