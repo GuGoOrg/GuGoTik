@@ -51,12 +51,14 @@ func ScanGet(ctx context.Context, key string, obj interface{}) (bool, error) {
 	}).Infof("Missed local memory cached")
 
 	if err := redis.Client.HGetAll(ctx, key).Scan(obj); err != nil {
-		logger.WithFields(logrus.Fields{
-			"err": err,
-			"key": key,
-		}).Errorf("Redis error when find struct")
-		logging.SetSpanError(span, err)
-		return false, err
+		if err != redis2.Nil {
+			logger.WithFields(logrus.Fields{
+				"err": err,
+				"key": key,
+			}).Errorf("Redis error when find struct")
+			logging.SetSpanError(span, err)
+			return false, err
+		}
 	}
 
 	// 如果 Redis 命中，那么就存到 localCached 然后返回
