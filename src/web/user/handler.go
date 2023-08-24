@@ -8,6 +8,7 @@ import (
 	grpc2 "GuGoTik/src/utils/grpc"
 	"GuGoTik/src/utils/logging"
 	"GuGoTik/src/web/models"
+	"GuGoTik/src/web/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 	"net/http"
@@ -16,9 +17,8 @@ import (
 var userClient user.UserServiceClient
 
 func init() {
-	userConn := grpc2.Connect(config.RelationRpcServerName)
+	userConn := grpc2.Connect(config.UserRpcServerName)
 	userClient = user.NewUserServiceClient(userConn)
-
 }
 
 func UserHandler(c *gin.Context) {
@@ -46,9 +46,9 @@ func UserHandler(c *gin.Context) {
 			"err": err,
 		}).Errorf("Error when gateway get info from UserInfo Service")
 		logging.SetSpanError(span, err)
-		c.JSON(http.StatusOK, resp)
+		c.Render(http.StatusOK, utils.CustomJSON{Data: resp, Context: c})
 		return
 	}
 
-	c.JSON(http.StatusOK, resp)
+	c.Render(http.StatusOK, utils.CustomJSON{Data: resp, Context: c})
 }

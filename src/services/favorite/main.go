@@ -18,7 +18,7 @@ import (
 )
 
 func main() {
-	tp, err := tracing.SetTraceProvider(config.LikeRpcServerName)
+	tp, err := tracing.SetTraceProvider(config.FavoriteRpcServerName)
 
 	if err != nil {
 		logging.Logger.WithFields(logrus.Fields{
@@ -40,12 +40,12 @@ func main() {
 		grpc.UnaryInterceptor(otelgrpc.UnaryServerInterceptor()),
 	)
 
-	log := logging.LogService(config.LikeRpcServerName)
+	log := logging.LogService(config.FavoriteRpcServerName)
 
-	lis, err := net.Listen("tcp", config.LikeRpcServerPort)
+	lis, err := net.Listen("tcp", config.FavoriteRpcServerPort)
 
 	if err != nil {
-		log.Panicf("Rpc %s listen happens error: %v", config.LikeRpcServerName, err)
+		log.Panicf("Rpc %s listen happens error: %v", config.FavoriteRpcServerName, err)
 	}
 
 	var srv FavoriteServiceServerImpl
@@ -55,12 +55,12 @@ func main() {
 
 	health.RegisterHealthServer(s, &probe)
 
-	if err := consul.RegisterConsul(config.LikeRpcServerName, config.LikeRpcServerPort); err != nil {
-		log.Panicf("Rpc %s register consul happens error for: %v", config.LikeRpcServerName, err)
+	if err := consul.RegisterConsul(config.FavoriteRpcServerName, config.FavoriteRpcServerPort); err != nil {
+		log.Panicf("Rpc %s register consul happens error for: %v", config.FavoriteRpcServerName, err)
 	}
 
 	srv.New()
-	log.Infof("Rpc %s is running at %s now", config.LikeRpcServerName, config.LikeRpcServerPort)
+	log.Infof("Rpc %s is running at %s now", config.FavoriteRpcServerName, config.FavoriteRpcServerPort)
 	if err := s.Serve(lis); err != nil {
 		log.Panicf("Rpc %s listen happens error for: %v", config.FavoriteRpcServerName, err)
 	}

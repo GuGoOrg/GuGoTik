@@ -5,6 +5,7 @@ import (
 	"GuGoTik/src/constant/strings"
 	"GuGoTik/src/extra/tracing"
 	"GuGoTik/src/models"
+	"GuGoTik/src/rpc/favorite"
 	"GuGoTik/src/rpc/publish"
 	"GuGoTik/src/rpc/relation"
 	"GuGoTik/src/rpc/user"
@@ -25,12 +26,17 @@ var relationClient relation.RelationServiceClient
 
 var publishClient publish.PublishServiceClient
 
+var favoriteClient favorite.FavoriteServiceClient
+
 func (a UserServiceImpl) New() {
 	relationConn := grpc2.Connect(config.RelationRpcServerName)
 	relationClient = relation.NewRelationServiceClient(relationConn)
 
 	publishConn := grpc2.Connect(config.PublishRpcServerName)
 	publishClient = publish.NewPublishServiceClient(publishConn)
+
+	favoriteConn := grpc2.Connect(config.FavoriteRpcServerName)
+	favoriteClient = favorite.NewFavoriteServiceClient(favoriteConn)
 }
 
 func (a UserServiceImpl) GetUserInfo(ctx context.Context, request *user.UserRequest) (resp *user.UserResponse, err error) {
@@ -82,7 +88,7 @@ func (a UserServiceImpl) GetUserInfo(ctx context.Context, request *user.UserRequ
 	}
 
 	var wg sync.WaitGroup
-	wg.Add(4)
+	wg.Add(6)
 	isErr := false
 
 	go func() {
@@ -190,6 +196,61 @@ func (a UserServiceImpl) GetUserInfo(ctx context.Context, request *user.UserRequ
 		}
 
 		resp.User.WorkCount = &rResp.Count
+	}()
+
+	go func() {
+		defer wg.Done()
+		rResp, err := favoriteClient.CountUserTotalFavorited(ctx, &favorite.CountUserTotalFavoritedRequest{
+			ActorId: request.ActorId,
+			UserId:  request.UserId,
+		})
+		if err != nil {
+			logger.WithFields(logrus.Fields{
+				"err":    err,
+				"userId": request.UserId,
+			}).Errorf("Error when user service get toal favorited")
+			isErr = true
+			return
+		}
+
+		if rResp != nil && rResp.StatusCode == strings.ServiceOKCode {
+			if err != nil {
+				logger.WithFields(logrus.Fields{
+					"errMsg": rResp.StatusMsg,
+					"userId": request.UserId,
+				}).Errorf("Error when user service get toal favorited")
+				isErr = true
+				return
+			}
+		}
+
+		resp.User.TotalFavorited = &rResp.Count
+	}()
+
+	go func() {
+		defer wg.Done()
+		rResp, err := favoriteClient.CountUserFavorite(ctx, &favorite.CountUserFavoriteRequest{UserId: request.UserId})
+		if err != nil {
+			logger.WithFields(logrus.Fields{
+				"err":    err,
+				"userId": request.UserId,
+			}).Errorf("Error when user service get favorite")
+			isErr = true
+			return
+		}
+
+		if rResp != nil && rResp.StatusCode == strings.ServiceOKCode {
+			if err != nil {
+				logger.WithFields(logrus.Fields{
+					"errMsg": rResp.StatusMsg,
+					"userId": request.UserId,
+				}).Errorf("Error when user service get favorite")
+				isErr = true
+				return
+			}
+		}
+
+		resp.User.FavoriteCount = &rResp.Count
 	}()
 
 	wg.Wait()

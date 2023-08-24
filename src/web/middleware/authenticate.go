@@ -23,7 +23,13 @@ func TokenAuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		token := c.Query("token")
+		var token string
+		if c.Request.URL.Path == "/douyin/publish/action" {
+			token = c.PostForm("token")
+		} else {
+			token = c.Query("token")
+		}
+
 		ctx, span := tracing.Tracer.Start(c.Request.Context(), "AuthMiddleWare")
 		defer span.End()
 		span.SetAttributes(attribute.String("token", token))
@@ -39,6 +45,7 @@ func TokenAuthMiddleware() gin.HandlerFunc {
 				"status_code": strings.GateWayErrorCode,
 				"status_msg":  strings.GateWayError,
 			})
+			c.Abort()
 			return
 		}
 
