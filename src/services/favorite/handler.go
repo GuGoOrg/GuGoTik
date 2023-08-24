@@ -302,7 +302,7 @@ func (c FavoriteServiceServerImpl) CountUserTotalFavorited(ctx context.Context, 
 		"ActorId": req.ActorId,
 	}).Debugf("Process start")
 
-	user_liked_id := fmt.Sprintf("%suser_liked_%d", req.UserId)
+	user_liked_id := fmt.Sprintf("%suser_liked_%d", config.EnvCfg.RedisPrefix, req.UserId)
 	value, err := redis2.Client.SCard(ctx, user_liked_id).Result()
 
 	if err != nil {
