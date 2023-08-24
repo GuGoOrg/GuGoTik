@@ -167,9 +167,7 @@ func (c FavoriteServiceServerImpl) FavoriteList(ctx context.Context, req *favori
 		}, err
 	}
 
-	
-
-	userId := fmt.Sprintf("%suser_like_%d", config.EnvCfg.RedisPrefix, req.ActorId)
+	userId := fmt.Sprintf("%suser_like_%d", config.EnvCfg.RedisPrefix, req.UserId)
 	arr, err := redis2.Client.ZRevRange(ctx, userId, 0, -1).Result()
 	if err != nil {
 		logger.WithFields(logrus.Fields{
@@ -262,9 +260,6 @@ func (c FavoriteServiceServerImpl) IsFavorite(ctx context.Context, req *favorite
 	if err == redis.Nil {
 
 	} else if err != nil {
-
-
-	if err != nil {
 		logger.WithFields(logrus.Fields{
 			"ActorId":  req.ActorId,
 			"video_id": req.VideoId,
@@ -294,6 +289,7 @@ func (c FavoriteServiceServerImpl) IsFavorite(ctx context.Context, req *favorite
 		"response": resp,
 	}).Debugf("Process done.")
 	return
+
 }
 
 // 这里无法判断视频id是否存在，只有一个参数
@@ -367,8 +363,8 @@ func (c FavoriteServiceServerImpl) CountUserFavorite(ctx context.Context, req *f
 			StatusMsg:  strings.FavorivateServiceError,
 		}, err
 	}
+	user_like_id := fmt.Sprintf("%svideo_like_%d", config.EnvCfg.RedisPrefix, req.UserId)
 
-	user_like_id := fmt.Sprintf("user_like_%d", req.UserId)
 	value, err := redis2.Client.ZCard(ctx, user_like_id).Result()
 	var num int64
 	if err == redis.Nil {
@@ -429,8 +425,8 @@ func (c FavoriteServiceServerImpl) CountUserTotalFavorited(ctx context.Context, 
 			StatusMsg:  strings.FavorivateServiceError,
 		}, err
 	}
+	user_liked_id := fmt.Sprintf("%svideo_like_%d", config.EnvCfg.RedisPrefix, req.UserId)
 
-	user_liked_id := fmt.Sprintf("user_liked_%d", req.UserId)
 	value, err := redis2.Client.Get(ctx, user_liked_id).Result()
 	var num int
 	if err == redis.Nil {
