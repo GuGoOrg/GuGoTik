@@ -32,9 +32,11 @@ func ActionMessageHandler(c *gin.Context) {
 	if err := c.ShouldBindQuery(&req); err != nil {
 		logger.WithFields(logrus.Fields{
 			//"CreateTime": req.Create_time,
-			"ActorId": req.ActorId,
-			"from_id": req.UserId,
-			"err":     err,
+			"ActorId":    req.ActorId,
+			"ToUserId":   req.ToUserId,
+			"ActionType": req.ActionType,
+			"Content":    req.Content,
+			"err":        err,
 		}).Errorf("Error when trying to bind query")
 
 		c.JSON(http.StatusOK, models.ActionCommentRes{
@@ -49,23 +51,29 @@ func ActionMessageHandler(c *gin.Context) {
 
 	res, err = Client.ChatAction(c.Request.Context(), &chat.ActionRequest{
 		ActorId:    uint32(req.ActorId),
-		UserId:     uint32(req.UserId),
-		ActionType: uint32(req.Action_type),
+		UserId:     uint32(req.ToUserId),
+		ActionType: uint32(req.ActionType),
 		Content:    req.Content,
 	})
 
 	if err != nil {
 		logger.WithFields(logrus.Fields{
-			"ActorId": req.ActorId,
-			"content": req.Content,
+			"ActorId":    req.ActorId,
+			"ToUserId":   req.ToUserId,
+			"ActionType": req.ActionType,
+			"Content":    req.Content,
+			"err":        err,
 		}).Error("Error when trying to connect with ActionMessageHandler")
 
 		c.Render(http.StatusBadRequest, utils.CustomJSON{Data: res, Context: c})
 		return
 	}
 	logger.WithFields(logrus.Fields{
-		"ActorId": req.ActorId,
-		"content": req.Content,
+		"ActorId":    req.ActorId,
+		"ToUserId":   req.ToUserId,
+		"ActionType": req.ActionType,
+		"Content":    req.Content,
+		"err":        err,
 	}).Infof("Action send message success")
 
 	c.Render(http.StatusOK, utils.CustomJSON{Data: res, Context: c})
@@ -78,6 +86,12 @@ func ListMessageHandler(c *gin.Context) {
 	logger := logging.LogService("GateWay.ListMessage").WithContext(c.Request.Context())
 
 	if err := c.ShouldBindQuery(&req); err != nil {
+		logger.WithFields(logrus.Fields{
+			"ActorId":    req.ActorId,
+			"ToUserId":   req.ToUserId,
+			"PreMsgTime": req.PreMsgTime,
+			"Err":        err,
+		}).Error("Error when trying to bind query")
 		c.JSON(http.StatusOK, models.ListCommentRes{
 			StatusCode: strings.GateWayParamsErrorCode,
 			StatusMsg:  strings.GateWayParamsError,
@@ -87,14 +101,16 @@ func ListMessageHandler(c *gin.Context) {
 
 	res, err := Client.Chat(c.Request.Context(), &chat.ChatRequest{
 		ActorId:    req.ActorId,
-		UserId:     req.UserId,
+		UserId:     req.ToUserId,
 		PreMsgTime: req.PreMsgTime,
 	})
 
 	if err != nil {
 		logger.WithFields(logrus.Fields{
-			"ActorId": req.ActorId,
-			"user_id": req.UserId,
+			"ActorId":    req.ActorId,
+			"ToUserId":   req.ToUserId,
+			"PreMsgTime": req.PreMsgTime,
+			"Err":        err,
 		}).Error("Error when trying to connect with ListMessageHandler")
 		c.Render(http.StatusOK, utils.CustomJSON{Data: res, Context: c})
 		return
@@ -102,7 +118,7 @@ func ListMessageHandler(c *gin.Context) {
 
 	logger.WithFields(logrus.Fields{
 		"ActorId": req.ActorId,
-		"user_id": req.UserId,
+		"user_id": req.ToUserId,
 	}).Infof("List comment success")
 
 	c.Render(http.StatusOK, utils.CustomJSON{Data: res, Context: c})

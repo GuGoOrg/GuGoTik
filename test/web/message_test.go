@@ -19,11 +19,10 @@ func TestActionMessage_Add(t *testing.T) {
 	method := "POST"
 	req, err := http.NewRequest(method, url, nil)
 	q := req.URL.Query()
-	q.Add("token", "1ae83f2a-7b82-4901-9e66-50d49dba00d5")
-	q.Add("actor_id", "1")
-	q.Add("user_id", "1")
+	q.Add("token", token)
+	q.Add("to_user_id", "2")
 	q.Add("action_type", "1")
-	q.Add("content", "test comment")
+	q.Add("content", "test comment in gateway")
 	req.URL.RawQuery = q.Encode()
 
 	assert.Empty(t, err)
@@ -51,9 +50,8 @@ func TestChat(t *testing.T) {
 	req, err := http.NewRequest(method, url, nil)
 
 	q := req.URL.Query()
-	q.Add("token", "1ae83f2a-7b82-4901-9e66-50d49dba00d5")
-	q.Add("actor_id", "1")
-	q.Add("user_id", "1")
+	q.Add("token", "token")
+	q.Add("to_user_id", "2")
 	q.Add("perMsgTime", "0")
 	req.URL.RawQuery = q.Encode()
 	assert.Empty(t, err)
