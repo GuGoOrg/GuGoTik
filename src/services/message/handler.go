@@ -8,7 +8,7 @@ import (
 	"GuGoTik/src/rpc/chat"
 	"GuGoTik/src/rpc/user"
 	"GuGoTik/src/storage/database"
-	"GuGoTik/src/utils/grpc"
+	grpc2 "GuGoTik/src/utils/grpc"
 	"GuGoTik/src/utils/logging"
 	"context"
 	"fmt"
@@ -23,7 +23,7 @@ type MessageServiceImpl struct {
 }
 
 func (c MessageServiceImpl) New() {
-	userRpcConn := grpc.Connect(config.UserRpcServerName)
+	userRpcConn := grpc2.Connect(config.UserRpcServerName)
 	UserClient = user.NewUserServiceClient(userRpcConn)
 }
 
@@ -160,7 +160,7 @@ func addMessage(ctx context.Context, fromUserId uint32, toUserId uint32, Context
 	}
 
 	//TO_DO 后面写mq？
-	result := database.Client.WithContext(ctx).Create(message)
+	result := database.Client.WithContext(ctx).Create(&message)
 
 	if result.Error != nil {
 

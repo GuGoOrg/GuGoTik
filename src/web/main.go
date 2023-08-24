@@ -11,10 +11,12 @@ import (
 	favorite2 "GuGoTik/src/web/favorite"
 	feed2 "GuGoTik/src/web/feed"
 	message2 "GuGoTik/src/web/message"
+	"GuGoTik/src/web/middleware"
 	publish2 "GuGoTik/src/web/publish"
 	relation2 "GuGoTik/src/web/relation"
 	user2 "GuGoTik/src/web/user"
 	"context"
+	"time"
 
 	"github.com/gin-contrib/gzip"
 	"github.com/gin-gonic/gin"
@@ -48,8 +50,8 @@ func main() {
 	g.Use(gzip.Gzip(gzip.DefaultCompression))
 	// Configure Tracing
 	g.Use(otelgin.Middleware(config.WebServiceName))
-	// g.Use(middleware.TokenAuthMiddleware())
-	// g.Use(middleware.RateLimiterMiddleWare(time.Second, 100, 100))
+	g.Use(middleware.TokenAuthMiddleware())
+	g.Use(middleware.RateLimiterMiddleWare(time.Second, 100, 100))
 
 	// Configure Pyroscope
 	profiling.InitPyroscope("GuGoTik.GateWay")
