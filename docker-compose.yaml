@@ -9,7 +9,7 @@ services:
       POSTGRES_DB: gugodb
       POSTGRES_USER: gugotik
     ports:
-      - "5432:5432"
+      - "5436:5432"
   pyroscope:
     container_name: "GuGoTik-Extra-Pyroscope"
     image: pyroscope/pyroscope
@@ -226,8 +226,3 @@ services:
       - redis
       - consul
       - jaeger
-    networks:
-      - server
-networks:
-  server:
-    driver: bridge
