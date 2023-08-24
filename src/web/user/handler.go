@@ -9,9 +9,10 @@ import (
 	"GuGoTik/src/utils/logging"
 	"GuGoTik/src/web/models"
 	"GuGoTik/src/web/utils"
+	"net/http"
+
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
-	"net/http"
 )
 
 var userClient user.UserServiceClient
