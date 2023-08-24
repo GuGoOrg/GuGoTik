@@ -6,10 +6,10 @@ import (
 
 // 这个是发数据的数据结构
 type SMessageReq struct {
-	ActorId     int    `form:"actor_id"`
-	UserId      int    `form:"user_id"`
-	Content     string `form:"content"`
-	Action_type int    `form:"action_type"` // send message
+	ActorId     int    `form:"actor_id"  `
+	UserId      int    `form:"to_user_id" binding:"required"`
+	Content     string `form:"content" binding:"required"`
+	Action_type int    `form:"action_type"  binding:"required" ` // send message
 	//Create_time string //time maybe have some question
 }
 
@@ -23,7 +23,7 @@ type SMessageRes struct {
 
 type ListMessageReq struct {
 	ActorId    uint32 `form:"actor_id"`
-	UserId     uint32 `from:"user_id"`
+	UserId     uint32 `from:"to_user_id"`
 	PreMsgTime uint32 `from:"preMsgTime"`
 }
 

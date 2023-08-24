@@ -24,8 +24,8 @@ func setups() {
 func TestActionMessage_Add(t *testing.T) {
 	setups()
 	res, err := chatClient.ChatAction(context.Background(), &chat.ActionRequest{
-		ActorId:    3,
-		UserId:     1,
+		ActorId:    1,
+		UserId:     2,
 		ActionType: 1,
 		Content:    "Test message1",
 	})
@@ -39,7 +39,7 @@ func TestChat(t *testing.T) {
 	setups()
 	res, err := chatClient.Chat(context.Background(), &chat.ChatRequest{
 		ActorId:    1,
-		UserId:     3,
+		UserId:     2,
 		PreMsgTime: 0,
 	})
 

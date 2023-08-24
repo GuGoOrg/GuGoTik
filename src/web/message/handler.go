@@ -31,9 +31,11 @@ func ActionMessageHandler(c *gin.Context) {
 	if err := c.ShouldBindQuery(&req); err != nil {
 		logger.WithFields(logrus.Fields{
 			//"CreateTime": req.Create_time,
-			"ActorId": req.ActorId,
-			"from_id": req.UserId,
-			"err":     err,
+			"ActorId":     req.ActorId,
+			"from_id":     req.UserId,
+			"action_type": req.Action_type,
+			"content":     req.Content,
+			"err":         err,
 		}).Errorf("Error when trying to bind query")
 
 		c.JSON(http.StatusOK, models.ActionCommentRes{
@@ -55,16 +57,22 @@ func ActionMessageHandler(c *gin.Context) {
 
 	if err != nil {
 		logger.WithFields(logrus.Fields{
-			"ActorId": req.ActorId,
-			"content": req.Content,
+			"ActorId":     req.ActorId,
+			"from_id":     req.UserId,
+			"action_type": req.Action_type,
+			"content":     req.Content,
+			"err":         err,
 		}).Error("Error when trying to connect with ActionMessageHandler")
 
 		c.JSON(http.StatusBadRequest, res)
 		return
 	}
 	logger.WithFields(logrus.Fields{
-		"ActorId": req.ActorId,
-		"content": req.Content,
+		"ActorId":     req.ActorId,
+		"from_id":     req.UserId,
+		"action_type": req.Action_type,
+		"content":     req.Content,
+		"err":         err,
 	}).Infof("Action send message success")
 
 	c.JSON(http.StatusOK, res)
@@ -77,6 +85,13 @@ func ListMessageHandler(c *gin.Context) {
 	logger := logging.LogService("GateWay.ListMessage").WithContext(c.Request.Context())
 
 	if err := c.ShouldBindQuery(&req); err != nil {
+		logger.WithFields(logrus.Fields{
+			//"CreateTime": req.Create_time,
+			"ActorId": req.ActorId,
+			"from_id": req.UserId,
+			"err":     err,
+		}).Errorf("Error when trying to bind query")
+
 		c.JSON(http.StatusOK, models.ListCommentRes{
 			StatusCode: strings.GateWayParamsErrorCode,
 			StatusMsg:  strings.GateWayParamsError,

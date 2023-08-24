@@ -1,14 +1,11 @@
 package main
 
 import (
-	"GuGoTik/src/constant/config"
 	"GuGoTik/src/constant/strings"
 	"GuGoTik/src/extra/tracing"
 	"GuGoTik/src/models"
 	"GuGoTik/src/rpc/chat"
-	"GuGoTik/src/rpc/user"
 	"GuGoTik/src/storage/database"
-	grpc2 "GuGoTik/src/utils/grpc"
 	"GuGoTik/src/utils/logging"
 	"context"
 	"fmt"
@@ -16,15 +13,15 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var UserClient user.UserServiceClient
+// var UserClient user.UserServiceClient
 
 type MessageServiceImpl struct {
 	chat.ChatServiceServer
 }
 
 func (c MessageServiceImpl) New() {
-	userRpcConn := grpc2.Connect(config.UserRpcServerName)
-	UserClient = user.NewUserServiceClient(userRpcConn)
+	// userRpcConn := grpc2.Connect(config.UserRpcServerName)
+	// UserClient = user.NewUserServiceClient(userRpcConn)
 }
 
 func (c MessageServiceImpl) ChatAction(ctx context.Context, request *chat.ActionRequest) (res *chat.ActionResponse, err error) {
@@ -39,7 +36,7 @@ func (c MessageServiceImpl) ChatAction(ctx context.Context, request *chat.Action
 		"content_text": request.Content,
 	}).Debugf("Process start")
 
-	userResponse, err := UserClient.GetUserInfo(ctx, &user.UserRequest{
+	/* 		userResponse, err := UserClient.GetUserInfo(ctx, &user.UserRequest{
 		ActorId: request.ActorId,
 		UserId:  request.UserId,
 	})
@@ -58,7 +55,7 @@ func (c MessageServiceImpl) ChatAction(ctx context.Context, request *chat.Action
 			StatusCode: strings.UnableToAddMessageErrorCode,
 			StatusMsg:  strings.UnableToAddMessageRrror,
 		}, err
-	}
+	} */
 
 	res, err = addMessage(ctx, request.ActorId, request.UserId, request.Content)
 	if err != nil {
@@ -101,7 +98,7 @@ func (c MessageServiceImpl) Chat(ctx context.Context, request *chat.ChatRequest)
 	//TO DO 看怎么需要一下
 
 	var rMessageList []*chat.Message
-	result := database.Client.WithContext(ctx).Where("conversation_id=? and  ", conversationId).
+	result := database.Client.WithContext(ctx).Where("conversation_id=?", conversationId).
 		Order("created_at desc").Find(&rMessageList)
 
 	if result.Error != nil {
@@ -147,7 +144,7 @@ func addMessage(ctx context.Context, fromUserId uint32, toUserId uint32, Context
 	}
 
 	//TO_DO 后面写mq？
-	result := database.Client.WithContext(ctx).Create(&message)
+	result := database.Client.WithContext(ctx).Create(message)
 
 	if result.Error != nil {
 
