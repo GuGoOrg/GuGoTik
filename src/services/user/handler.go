@@ -10,6 +10,7 @@ import (
 	"GuGoTik/src/rpc/relation"
 	"GuGoTik/src/rpc/user"
 	"GuGoTik/src/storage/cached"
+	grpc2 "GuGoTik/src/utils/grpc"
 	"GuGoTik/src/utils/logging"
 	"context"
 	"sync"
@@ -21,10 +22,9 @@ type UserServiceImpl struct {
 	user.UserServiceServer
 }
 
-func (a UserServiceImpl) New() {
-}
+var relationClient relation.RelationServiceClient
 
-// var relationClient relation.RelationServiceClient
+var publishClient publish.PublishServiceClient
 
 var favoriteClient favorite.FavoriteServiceClient
 
