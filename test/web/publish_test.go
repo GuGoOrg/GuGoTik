@@ -18,8 +18,7 @@ func TestListVideo(t *testing.T) {
 	req, err := http.NewRequest(method, url, nil)
 	q := req.URL.Query()
 	q.Add("token", token)
-	q.Add("actor_id", "1")
-	q.Add("user_id", "2")
+	q.Add("user_id", "1")
 	req.URL.RawQuery = q.Encode()
 
 	assert.Empty(t, err)
@@ -42,7 +41,7 @@ func TestListVideo(t *testing.T) {
 func TestPublishVideo(t *testing.T) {
 	url := "http://127.0.0.1:37000/douyin/publish/action"
 	method := "POST"
-	filePath := "/home/yangfeng/Repos/youthcamp/videos/upload_video_1_1080p.mp4"
+	filePath := "/home/yangfeng/Repos/youthcamp/videos/upload_video_4.mp4"
 
 	payload := &bytes.Buffer{}
 	writer := multipart.NewWriter(payload)
