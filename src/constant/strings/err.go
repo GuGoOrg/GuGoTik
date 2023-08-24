@@ -50,6 +50,8 @@ const (
 	RelationServiceIntError          = "关系服务出现内部错误"
 	FavorivateServiceErrorCode       = 50020
 	FavorivateServiceError           = "点赞服务内部出错"
+	UserServiceInnerErrorCode        = 50021
+	UserServiceInnerError            = "登录服务出现内部错误，请稍后重试！"
 )
 
 // Expected Error
