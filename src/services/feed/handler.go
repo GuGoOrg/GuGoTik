@@ -85,7 +85,7 @@ func (s FeedServiceImpl) ListVideos(ctx context.Context, request *feed.ListFeedR
 		}
 		return resp, err
 	}
-	nextTime := uint32(find[len(find)-1].CreatedAt.Add(time.Duration(-1)).UnixMilli())
+	nextTime := uint32(find[len(find)-1].CreatedAt.Unix())
 
 	var actorId uint32 = 0
 	if request.ActorId != nil {

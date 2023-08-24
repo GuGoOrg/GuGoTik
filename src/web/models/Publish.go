@@ -11,7 +11,7 @@ type ListPublishReq struct {
 type ListPublishRes struct {
 	StatusCode int           `json:"status_code"`
 	StatusMsg  string        `json:"status_msg"`
-	VideoList  []*feed.Video `json:"vide_list"`
+	VideoList  []*feed.Video `json:"video_list"`
 }
 
 type ActionPublishReq struct {
