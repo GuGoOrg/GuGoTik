@@ -18,7 +18,7 @@ var client auth.AuthServiceClient
 
 func TokenAuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if c.Request.URL.Path == "/douyin/user/login" || c.Request.URL.Path == "/douyin/user/register" {
+		if c.Request.URL.Path == "/douyin/user/login" || c.Request.URL.Path == "/douyin/user/register" || c.Request.URL.Path == "/douyin/feed" {
 			c.Next()
 			return
 		}

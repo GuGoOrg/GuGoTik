@@ -67,6 +67,7 @@ func RegisterHandle(c *gin.Context) {
 			UserId:     0,
 			Token:      "",
 		})
+		return
 	}
 
 	res, err := Client.Register(c.Request.Context(), &auth.RegisterRequest{

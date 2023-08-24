@@ -114,13 +114,13 @@ func ActionPublishHandle(c *gin.Context) {
 		}).Errorf("file.Size != readSize")
 		return
 	}
-	var req models.ListPublishReq
+	var req models.ActionPublishReq
 	if err := c.ShouldBindQuery(&req); err != nil {
-		c.JSON(http.StatusOK, models.ListPublishRes{
+		c.JSON(http.StatusOK, models.ActionPublishRes{
 			StatusCode: strings.GateWayParamsErrorCode,
 			StatusMsg:  strings.GateWayParamsError,
-			VideoList:  nil,
 		})
+		return
 	}
 	logger.WithFields(logrus.Fields{
 		"actorId":  req.ActorId,
