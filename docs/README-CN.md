@@ -48,4 +48,10 @@ GuGoTik可以自动捕获环境变量，也可以以 .env 文件的方式手动�
 ```bash
 docker pull epicmo/gugotik:latest
 ```
-通过交互式终端进入容器后自行运行 GateWay 文件夹下和 Services 文件夹下程序
+通过交互式终端进入容器后自行运行 GateWay 文件夹下和 Services 文件夹下程序  
+## 基于 Docker-Compose
+在项目根目录运行：  
+注：相关的账号密码设置在 .env.docker.compose 文件查看  
+```bash
+docker compose up -d
+```
