@@ -23,10 +23,6 @@ type FavoriteServiceServerImpl struct {
 	favorite.FavoriteServiceServer
 }
 
-// func (a FavoriteServiceServerImpl) New() {
-
-// }
-
 func (c FavoriteServiceServerImpl) New() {
 	userRpcConn := grpc2.Connect(config.FeedRpcServerName)
 	Client = feed.NewFeedServiceClient(userRpcConn)
@@ -80,9 +76,9 @@ func (c FavoriteServiceServerImpl) FavoriteAction(ctx context.Context, req *favo
 		} else {
 			val = -1
 		}
-		videoId := fmt.Sprintf("video_like_%d", req.VideoId)
-		user_like_Id := fmt.Sprintf("user_like_%d", req.ActorId)
-		user_liked_id := fmt.Sprintf("user_liked_%d", user_liked)
+		videoId := fmt.Sprintf("%svideo_like_%d", config.EnvCfg.RedisPrefix, req.VideoId)      // 该视频的点赞数量
+		user_like_Id := fmt.Sprintf("%suser_like_%d", config.EnvCfg.RedisPrefix, req.ActorId)  // 用户的点赞数量
+		user_liked_id := fmt.Sprintf("%suser_liked_%d", config.EnvCfg.RedisPrefix, user_liked) // 被赞用户的获赞数量
 		pipe.IncrBy(ctx, videoId, val)
 		pipe.IncrBy(ctx, user_liked_id, val)
 		if req.ActionType == 2 {
@@ -127,7 +123,7 @@ func (c FavoriteServiceServerImpl) FavoriteList(ctx context.Context, req *favori
 		"ActorId": req.ActorId,
 		"user_id": req.UserId,
 	}).Debugf("Process start")
-	userId := fmt.Sprintf("user_like_%d", req.ActorId)
+	userId := fmt.Sprintf("%suser_like_%d", config.EnvCfg.RedisPrefix, req.ActorId)
 	arr, err := redis2.Client.SMembers(ctx, userId).Result()
 	if err != nil {
 		logger.WithFields(logrus.Fields{
@@ -185,7 +181,7 @@ func (c FavoriteServiceServerImpl) IsFavorite(ctx context.Context, req *favorite
 		"video_id": req.VideoId,
 	}).Debugf("Process start")
 
-	userId := fmt.Sprintf("user_like_%d", req.ActorId)
+	userId := fmt.Sprintf("%suser_like_%d", config.EnvCfg.RedisPrefix, req.ActorId)
 	ok, err := redis2.Client.SIsMember(ctx, userId, req.VideoId).Result()
 	if err != nil {
 		logger.WithFields(logrus.Fields{
@@ -229,7 +225,7 @@ func (c FavoriteServiceServerImpl) CountFavorite(ctx context.Context, req *favor
 		"video_id": req.VideoId,
 	}).Debugf("Process start")
 
-	videoId := fmt.Sprintf("video_like_%d", req.VideoId)
+	videoId := fmt.Sprintf("%svideo_like_%d", config.EnvCfg.RedisPrefix, req.VideoId)
 	value, err := redis2.Client.Get(ctx, videoId).Result()
 	if err != nil {
 		logger.WithFields(logrus.Fields{
@@ -268,7 +264,7 @@ func (c FavoriteServiceServerImpl) CountUserFavorite(ctx context.Context, req *f
 		"user_id": req.UserId,
 	}).Debugf("Process start")
 
-	user_like_id := fmt.Sprintf("user_like_%d", req.UserId)
+	user_like_id := fmt.Sprintf("%suser_like_%d", config.EnvCfg.RedisPrefix, req.UserId)
 	value, err := redis2.Client.SCard(ctx, user_like_id).Result()
 
 	if err != nil {
@@ -306,7 +302,7 @@ func (c FavoriteServiceServerImpl) CountUserTotalFavorited(ctx context.Context, 
 		"ActorId": req.ActorId,
 	}).Debugf("Process start")
 
-	user_liked_id := fmt.Sprintf("user_liked_%d", req.UserId)
+	user_liked_id := fmt.Sprintf("%suser_liked_%d", config.EnvCfg.RedisPrefix, req.UserId)
 	value, err := redis2.Client.SCard(ctx, user_liked_id).Result()
 
 	if err != nil {
