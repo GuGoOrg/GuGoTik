@@ -53,10 +53,10 @@ func ListVideosHandle(c *gin.Context) {
 		return
 	}
 
-	logger.WithFields(logrus.Fields{
-		"LatestTime": latestTime,
-		"res":        res,
-	}).Infof("Feed List videos")
+	//logger.WithFields(logrus.Fields{
+	//	"LatestTime": latestTime,
+	//	"res":        res,
+	//}).Infof("Feed List videos")
 	c.Render(http.StatusOK, utils.CustomJSON{Data: res, Context: c})
 }
 
