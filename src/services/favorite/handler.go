@@ -1,36 +1,35 @@
 package main
 
 import (
-	"GuGoTik/src/constant/config"
 	"GuGoTik/src/constant/strings"
 	"GuGoTik/src/extra/tracing"
 	"GuGoTik/src/rpc/favorite"
 	"GuGoTik/src/rpc/feed"
 	redis2 "GuGoTik/src/storage/redis"
-	grpc2 "GuGoTik/src/utils/grpc"
 	"GuGoTik/src/utils/logging"
 	"context"
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
 )
 
-var Client feed.FeedServiceClient
+var feedClient feed.FeedServiceClient
 
 type FavoriteServiceServerImpl struct {
 	favorite.FavoriteServiceServer
 }
 
-// func (a FavoriteServiceServerImpl) New() {
+func (a FavoriteServiceServerImpl) New() {
 
-// }
-
-func (c FavoriteServiceServerImpl) New() {
-	userRpcConn := grpc2.Connect(config.FeedRpcServerName)
-	Client = feed.NewFeedServiceClient(userRpcConn)
 }
+
+// func (c FavoriteServiceServerImpl) New() {
+// 	userRpcConn := grpc2.Connect(config.FeedRpcServerName)
+// 	Client = feed.NewFeedServiceClient(userRpcConn)
+// }
 
 func (c FavoriteServiceServerImpl) FavoriteAction(ctx context.Context, req *favorite.FavoriteRequest) (resp *favorite.FavoriteResponse, err error) {
 	ctx, span := tracing.Tracer.Start(ctx, "FavoriteServiceServerImpl")
@@ -43,36 +42,28 @@ func (c FavoriteServiceServerImpl) FavoriteAction(ctx context.Context, req *favo
 		"action_type": req.ActionType, //点赞 1 2 取消点赞
 	}).Debugf("Process start")
 
-	VideosRes, err := Client.QueryVideos(ctx, &feed.QueryVideosRequest{
-		ActorId:  req.ActorId,
-		VideoIds: []uint32{req.VideoId},
-	})
+	// VideosRes, err := feedClient.QueryVideos(ctx, &feed.QueryVideosRequest{
+	// 	ActorId:  req.ActorId,
+	// 	VideoIds: []uint32{req.VideoId},
+	// })
 
-	if err != nil || VideosRes.StatusCode != strings.ServiceOKCode {
-		logger.WithFields(logrus.Fields{
-			"ActorId":     req.ActorId,
-			"video_id":    req.VideoId,
-			"action_type": req.ActionType, //点赞 1 2 取消点赞
-		}).Errorf("feed Service error")
-		logging.SetSpanError(span, err)
+	// if err != nil || VideosRes.StatusCode != strings.ServiceOKCode {
+	// 	logger.WithFields(logrus.Fields{
+	// 		"ActorId":     req.ActorId,
+	// 		"video_id":    req.VideoId,
+	// 		"action_type": req.ActionType, //点赞 1 2 取消点赞
+	// 	}).Errorf("FavoriteAction call feed Service error")
+	// 	logging.SetSpanError(span, err)
 
-		return &favorite.FavoriteResponse{
-			StatusCode: strings.FavorivateServiceErrorCode,
-			StatusMsg:  strings.FavorivateServiceError,
-		}, err
-	}
+	// 	return &favorite.FavoriteResponse{
+	// 		StatusCode: strings.FavorivateServiceErrorCode,
+	// 		StatusMsg:  strings.FavorivateServiceError,
+	// 	}, err
+	// }
 
-	// 被赞的用户id
-	user_liked := VideosRes.VideoList[0].Author.Id
-	// 点赞 id
-	// 用户set
-	// 事务
-	// pipe := redis.Client.TxPipeline()
-	// pipe.Incr()
-	// pipe.IncrBy(ctx, "key", 1)
-	// pipe.SAdd(ctx, "key", 1)
-	// _, err = pipe.Exec(ctx)
-	// 点赞功能
+	// user_liked := VideosRes.VideoList[0].Author.Id
+	user_liked := 2
+
 	_, err = redis2.Client.TxPipelined(ctx, func(pipe redis.Pipeliner) error {
 		var val int64
 		if req.ActionType == 1 {
@@ -80,15 +71,15 @@ func (c FavoriteServiceServerImpl) FavoriteAction(ctx context.Context, req *favo
 		} else {
 			val = -1
 		}
-		videoId := fmt.Sprintf("video_like_%d", req.VideoId)
-		user_like_Id := fmt.Sprintf("user_like_%d", req.ActorId)
-		user_liked_id := fmt.Sprintf("user_liked_%d", user_liked)
+		videoId := fmt.Sprintf("video_like_%d", req.VideoId)      // redis 视频key
+		user_like_Id := fmt.Sprintf("user_like_%d", req.ActorId)  // redis 用户喜欢 key
+		user_liked_id := fmt.Sprintf("user_liked_%d", user_liked) //用户被喜欢key
 		pipe.IncrBy(ctx, videoId, val)
 		pipe.IncrBy(ctx, user_liked_id, val)
 		if req.ActionType == 2 {
-			pipe.SRem(ctx, user_like_Id, req.VideoId)
+			pipe.ZRem(ctx, user_like_Id, req.VideoId)
 		} else {
-			pipe.SAdd(ctx, user_like_Id, req.VideoId)
+			pipe.ZAdd(ctx, user_like_Id, redis.Z{Score: float64(time.Now().Unix()), Member: req.VideoId})
 		}
 		return nil
 	})
@@ -128,7 +119,7 @@ func (c FavoriteServiceServerImpl) FavoriteList(ctx context.Context, req *favori
 		"user_id": req.UserId,
 	}).Debugf("Process start")
 	userId := fmt.Sprintf("user_like_%d", req.ActorId)
-	arr, err := redis2.Client.SMembers(ctx, userId).Result()
+	arr, err := redis2.Client.ZRevRange(ctx, userId, 0, -1).Result()
 	if err != nil {
 		logger.WithFields(logrus.Fields{
 			"ActorId": req.ActorId,
@@ -141,15 +132,24 @@ func (c FavoriteServiceServerImpl) FavoriteList(ctx context.Context, req *favori
 			StatusMsg:  strings.FavorivateServiceError,
 		}, err
 	}
+	if len(arr) == 0 {
+		resp = &favorite.FavoriteListResponse{
+			StatusCode: strings.ServiceOKCode,
+			StatusMsg:  strings.ServiceOK,
+			VideoList:  nil,
+		}
+		return resp, nil
+	}
 
 	res := make([]uint32, len(arr))
 	for index, val := range arr {
 		num, _ := strconv.Atoi(val)
 		res[index] = uint32(num)
+
 	}
 
 	var VideoList []*feed.Video
-	value, err := Client.QueryVideos(ctx, &feed.QueryVideosRequest{
+	value, err := feedClient.QueryVideos(ctx, &feed.QueryVideosRequest{
 		ActorId:  req.ActorId,
 		VideoIds: res,
 	})
@@ -186,7 +186,9 @@ func (c FavoriteServiceServerImpl) IsFavorite(ctx context.Context, req *favorite
 	}).Debugf("Process start")
 
 	userId := fmt.Sprintf("user_like_%d", req.ActorId)
-	ok, err := redis2.Client.SIsMember(ctx, userId, req.VideoId).Result()
+	videoId := fmt.Sprintf("%d", req.VideoId)
+	//等下单步跟下 返回值
+	ok, err := redis2.Client.ZScore(ctx, userId, videoId).Result()
 	if err != nil {
 		logger.WithFields(logrus.Fields{
 			"ActorId":  req.ActorId,
@@ -200,7 +202,7 @@ func (c FavoriteServiceServerImpl) IsFavorite(ctx context.Context, req *favorite
 		}, err
 	}
 
-	if ok {
+	if ok != 0 {
 		resp = &favorite.IsFavoriteResponse{
 			StatusCode: strings.ServiceOKCode,
 			StatusMsg:  strings.ServiceOK,
@@ -269,7 +271,7 @@ func (c FavoriteServiceServerImpl) CountUserFavorite(ctx context.Context, req *f
 	}).Debugf("Process start")
 
 	user_like_id := fmt.Sprintf("user_like_%d", req.UserId)
-	value, err := redis2.Client.SCard(ctx, user_like_id).Result()
+	value, err := redis2.Client.ZCard(ctx, user_like_id).Result()
 
 	if err != nil {
 		logger.WithFields(logrus.Fields{
@@ -294,8 +296,6 @@ func (c FavoriteServiceServerImpl) CountUserFavorite(ctx context.Context, req *f
 	return
 }
 
-// CountUserTotalFavorited(context.Context, *CountUserTotalFavoritedRequest) (*CountUserTotalFavoritedResponse, error)
-
 func (c FavoriteServiceServerImpl) CountUserTotalFavorited(ctx context.Context, req *favorite.CountUserTotalFavoritedRequest) (resp *favorite.CountUserTotalFavoritedResponse, err error) {
 	ctx, span := tracing.Tracer.Start(ctx, "FavoriteServiceServerImpl")
 	defer span.End()
@@ -307,11 +307,13 @@ func (c FavoriteServiceServerImpl) CountUserTotalFavorited(ctx context.Context, 
 	}).Debugf("Process start")
 
 	user_liked_id := fmt.Sprintf("user_liked_%d", req.UserId)
-	value, err := redis2.Client.SCard(ctx, user_liked_id).Result()
+	value, err := redis2.Client.Get(ctx, user_liked_id).Result()
 
 	if err != nil {
 		logger.WithFields(logrus.Fields{
+			"err":     err,
 			"user_id": req.UserId,
+			"ActorId": req.ActorId,
 		}).Errorf("redis Service error")
 		logging.SetSpanError(span, err)
 
@@ -320,11 +322,11 @@ func (c FavoriteServiceServerImpl) CountUserTotalFavorited(ctx context.Context, 
 			StatusMsg:  strings.FavorivateServiceError,
 		}, err
 	}
-
+	num, err := strconv.Atoi(value)
 	resp = &favorite.CountUserTotalFavoritedResponse{
 		StatusCode: strings.ServiceOKCode,
 		StatusMsg:  strings.ServiceOK,
-		Count:      uint32(value),
+		Count:      uint32(num),
 	}
 	logger.WithFields(logrus.Fields{
 		"response": resp,

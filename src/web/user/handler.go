@@ -8,15 +8,16 @@ import (
 	grpc2 "GuGoTik/src/utils/grpc"
 	"GuGoTik/src/utils/logging"
 	"GuGoTik/src/web/models"
+	"net/http"
+
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
-	"net/http"
 )
 
 var userClient user.UserServiceClient
 
 func init() {
-	userConn := grpc2.Connect(config.RelationRpcServerName)
+	userConn := grpc2.Connect(config.UserRpcServerName)
 	userClient = user.NewUserServiceClient(userConn)
 
 }

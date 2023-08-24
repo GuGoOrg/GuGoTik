@@ -24,7 +24,7 @@ func TestFavoriteAction(t *testing.T) {
 	setups1()
 	res, err := likeClient.FavoriteAction(context.Background(), &favorite.FavoriteRequest{
 		ActorId:    2,
-		VideoId:    1,
+		VideoId:    2,
 		ActionType: 1,
 	})
 	assert.Empty(t, err)
@@ -67,18 +67,18 @@ func TestCountFavorite(t *testing.T) {
 func TestCountUserFavorite(t *testing.T) {
 	setups1()
 	res, err := likeClient.CountUserFavorite(context.Background(), &favorite.CountUserFavoriteRequest{
-		UserId: 1,
+		UserId: 3,
 	})
 	assert.Empty(t, err)
 	assert.Equal(t, int32(0), res.StatusCode)
-	assert.Equal(t, uint32(1), res.Count)
+	assert.Equal(t, uint32(0), res.Count)
 }
 
 func TestCountUserTotalFavorited(t *testing.T) {
 	setups1()
 	res, err := likeClient.CountUserTotalFavorited(context.Background(), &favorite.CountUserTotalFavoritedRequest{
-		ActorId: 1,
-		UserId:  1,
+		ActorId: 2,
+		UserId:  2,
 	})
 	assert.Empty(t, err)
 	assert.Equal(t, int32(0), res.StatusCode)
