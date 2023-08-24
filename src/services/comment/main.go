@@ -40,7 +40,7 @@ func main() {
 	)
 
 	log := logging.LogService(config.CommentRpcServerName)
-	lis, err := net.Listen("tcp", config.EnvCfg.PodIpAddr+config.AuthRpcServerPort)
+	lis, err := net.Listen("tcp", config.EnvCfg.PodIpAddr+config.CommentRpcServerPort)
 
 	if err != nil {
 		log.Panicf("Rpc %s listen happens error: %v", config.CommentRpcServerName, err)
