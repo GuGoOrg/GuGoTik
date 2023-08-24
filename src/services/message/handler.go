@@ -79,7 +79,7 @@ func (c MessageServiceImpl) ChatAction(ctx context.Context, request *chat.Action
 	return res, err
 }
 
-// Chat(context.Context, *ChatRequest) (*ChatResponse, error)
+// Chat Chat(context.Context, *ChatRequest) (*ChatResponse, error)
 func (c MessageServiceImpl) Chat(ctx context.Context, request *chat.ChatRequest) (resp *chat.ChatResponse, err error) {
 	ctx, span := tracing.Tracer.Start(ctx, "ChatService")
 	defer span.End()
@@ -100,9 +100,11 @@ func (c MessageServiceImpl) Chat(ctx context.Context, request *chat.ChatRequest)
 	//这个地方应该取出多少条消息？
 	//TO DO 看怎么需要一下
 
-	var rMessageList []*chat.Message
-	result := database.Client.WithContext(ctx).Where("conversation_id=? and  ", conversationId).
-		Order("created_at desc").Find(&rMessageList)
+	var pMessageList []models.Message
+	result := database.Client.WithContext(ctx).
+		Where("conversation_id=?", conversationId).
+		Order("created_at desc").
+		Find(&pMessageList)
 
 	if result.Error != nil {
 		logger.WithFields(logrus.Fields{
@@ -118,6 +120,17 @@ func (c MessageServiceImpl) Chat(ctx context.Context, request *chat.ChatRequest)
 			StatusMsg:  strings.UnableToQueryMessageError,
 		}
 		return
+	}
+
+	rMessageList := make([]*chat.Message, 0, len(pMessageList))
+	for _, pMessage := range pMessageList {
+		rMessageList = append(rMessageList, &chat.Message{
+			Id:         pMessage.ID,
+			Content:    pMessage.Content,
+			CreateTime: uint32(pMessage.CreatedAt.Unix()),
+			FromUserId: &pMessage.FromUserId,
+			ToUserId:   &pMessage.ToUserId,
+		})
 	}
 
 	resp = &chat.ChatResponse{
