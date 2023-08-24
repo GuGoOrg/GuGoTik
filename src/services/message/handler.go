@@ -79,7 +79,7 @@ func (c MessageServiceImpl) ChatAction(ctx context.Context, request *chat.Action
 	return res, err
 }
 
-// Chat(context.Context, *ChatRequest) (*ChatResponse, error)
+// Chat Chat(context.Context, *ChatRequest) (*ChatResponse, error)
 func (c MessageServiceImpl) Chat(ctx context.Context, request *chat.ChatRequest) (resp *chat.ChatResponse, err error) {
 	ctx, span := tracing.Tracer.Start(ctx, "ChatService")
 	defer span.End()
@@ -101,7 +101,7 @@ func (c MessageServiceImpl) Chat(ctx context.Context, request *chat.ChatRequest)
 	//TO DO 看怎么需要一下
 
 	var rMessageList []*chat.Message
-	result := database.Client.WithContext(ctx).Where("conversation_id=? and  ", conversationId).
+	result := database.Client.WithContext(ctx).Where("conversation_id=?", conversationId).
 		Order("created_at desc").Find(&rMessageList)
 
 	if result.Error != nil {
