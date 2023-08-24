@@ -6,10 +6,11 @@ import (
 	"GuGoTik/src/rpc/health"
 	"context"
 	"fmt"
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"testing"
 )
 
 func TestHealth(t *testing.T) {
@@ -28,8 +29,8 @@ func TestHealth(t *testing.T) {
 func TestRegister(t *testing.T) {
 	var Client auth.AuthServiceClient
 	req := auth.RegisterRequest{
-		Username: "epicmo",
-		Password: "epicmo",
+		Username: "epicmo12312",
+		Password: "epicmo12312312",
 	}
 	conn, err := grpc.Dial(fmt.Sprintf("127.0.0.1%s", config.AuthRpcServerPort),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),

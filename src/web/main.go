@@ -16,7 +16,6 @@ import (
 	relation2 "GuGoTik/src/web/relation"
 	user2 "GuGoTik/src/web/user"
 	"context"
-
 	"time"
 
 	"github.com/gin-contrib/gzip"
