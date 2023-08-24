@@ -4,7 +4,6 @@ import (
 	"GuGoTik/src/constant/config"
 	"GuGoTik/src/rpc/chat"
 	"context"
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -15,7 +14,7 @@ import (
 var chatClient chat.ChatServiceClient
 
 func setups() {
-	conn, _ := grpc.Dial(fmt.Sprintf("127.0.0.1%s", config.MessageRpcServerPort),
+	conn, _ := grpc.Dial(config.MessageRpcServerPort,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithDefaultServiceConfig(`{"loadBalancingPolicy": "round_robin"}`))
 	chatClient = chat.NewChatServiceClient(conn)
