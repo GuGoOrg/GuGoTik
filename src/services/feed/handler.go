@@ -15,6 +15,7 @@ import (
 	"GuGoTik/src/utils/logging"
 	"context"
 	"errors"
+	"gorm.io/gorm"
 	"strconv"
 	"sync"
 	"time"
@@ -141,6 +142,45 @@ func (s FeedServiceImpl) QueryVideos(ctx context.Context, req *feed.QueryVideosR
 	return resp, err
 }
 
+func (s FeedServiceImpl) QueryVideoExisted(ctx context.Context, req *feed.VideoExistRequest) (resp *feed.VideoExistResponse, err error) {
+	ctx, span := tracing.Tracer.Start(ctx, "QueryVideoExistedService")
+	defer span.End()
+	logger := logging.LogService("FeedService.QueryVideoExisted").WithContext(ctx)
+	var video models.Video
+	result := database.Client.WithContext(ctx).Where("id = ?", req.VideoId).First(&video)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			logger.WithFields(logrus.Fields{
+				"video_id": req.VideoId,
+			}).Warnf("gorm.ErrRecordNotFound")
+			logging.SetSpanError(span, err)
+			resp = &feed.VideoExistResponse{
+				StatusCode: strings.ServiceOKCode,
+				StatusMsg:  strings.ServiceOK,
+				Existed:    false,
+			}
+			return resp, nil
+		} else {
+			logger.WithFields(logrus.Fields{
+				"video_id": req.VideoId,
+			}).Warnf("Error occurred while querying database")
+			logging.SetSpanError(span, err)
+			resp = &feed.VideoExistResponse{
+				StatusCode: strings.FeedServiceInnerErrorCode,
+				StatusMsg:  strings.FeedServiceInnerError,
+				Existed:    false,
+			}
+			return resp, result.Error
+		}
+	}
+	resp = &feed.VideoExistResponse{
+		StatusCode: strings.ServiceOKCode,
+		StatusMsg:  strings.ServiceOK,
+		Existed:    true,
+	}
+	return
+}
+
 func findVideos(ctx context.Context, latestTime int64) ([]*models.Video, error) {
 	logger := logging.LogService("ListVideos.findVideos").WithContext(ctx)
 
@@ -159,12 +199,7 @@ func findVideos(ctx context.Context, latestTime int64) ([]*models.Video, error) 
 	return videos, nil
 }
 
-func queryDetailed(
-	ctx context.Context,
-	logger *logrus.Entry,
-	actorId uint32,
-	videos []*models.Video,
-) (respVideoList []*feed.Video) {
+func queryDetailed(ctx context.Context, logger *logrus.Entry, actorId uint32, videos []*models.Video) (respVideoList []*feed.Video) {
 	ctx, span := tracing.Tracer.Start(ctx, "queryDetailed")
 	defer span.End()
 	logger = logging.LogService("ListVideos.queryDetailed").WithContext(ctx)
@@ -245,12 +280,6 @@ func queryDetailed(
 			respVideoList[i].FavoriteCount = favoriteCount.Count
 		}(i, v)
 
-		// mock favorite count
-		//go func(i int, v *models.Video) {
-		//	defer wg.Done()
-		//	respVideoList[i].FavoriteCount = uint32(countFavorite())
-		//}(i, v)
-
 		// fill comment count
 		go func(i int, v *models.Video) {
 			defer wg.Done()
@@ -286,13 +315,6 @@ func queryDetailed(
 			}
 			respVideoList[i].IsFavorite = isFavorite.Result
 		}(i, v)
-
-		// mock isFavorite
-		//go func(i int, v *models.Video) {
-		//	defer wg.Done()
-		//	respVideoList[i].IsFavorite = isFavorite()
-		//}(i, v)
-
 	}
 	wg.Wait()
 
@@ -308,10 +330,3 @@ func query(ctx context.Context, logger *logrus.Entry, actorId uint32, videoIds [
 	}
 	return queryDetailed(ctx, logger, actorId, videos), nil
 }
-
-//func countFavorite() int {
-//	return 0
-//}
-//func isFavorite() bool {
-//	return true
-//}
