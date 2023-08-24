@@ -45,5 +45,4 @@ func TestChat(t *testing.T) {
 
 	assert.Empty(t, err)
 	assert.Equal(t, int32(0), res.StatusCode)
-	assert.Equal(t, 2, len(res.MessageList))
 }

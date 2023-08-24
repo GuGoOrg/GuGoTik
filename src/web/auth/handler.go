@@ -8,6 +8,7 @@ import (
 	grpc2 "GuGoTik/src/utils/grpc"
 	"GuGoTik/src/utils/logging"
 	"GuGoTik/src/web/models"
+	"GuGoTik/src/web/utils"
 	"github.com/gin-gonic/gin"
 	_ "github.com/mbobakov/grpc-consul-resolver"
 	"github.com/sirupsen/logrus"
@@ -40,7 +41,7 @@ func LoginHandle(c *gin.Context) {
 		logger.WithFields(logrus.Fields{
 			"Username": req.UserName,
 		}).Warnf("Error when trying to connect with AuthService")
-		c.JSON(http.StatusOK, res)
+		c.Render(http.StatusOK, utils.CustomJSON{Data: res, Context: c})
 		return
 	}
 
@@ -50,7 +51,7 @@ func LoginHandle(c *gin.Context) {
 		"UserId":   res.UserId,
 	}).Infof("User log in")
 
-	c.JSON(http.StatusOK, res)
+	c.Render(http.StatusOK, utils.CustomJSON{Data: res, Context: c})
 }
 
 func RegisterHandle(c *gin.Context) {
@@ -66,6 +67,7 @@ func RegisterHandle(c *gin.Context) {
 			UserId:     0,
 			Token:      "",
 		})
+		return
 	}
 
 	res, err := Client.Register(c.Request.Context(), &auth.RegisterRequest{
@@ -77,7 +79,7 @@ func RegisterHandle(c *gin.Context) {
 		logger.WithFields(logrus.Fields{
 			"Username": req.UserName,
 		}).Warnf("Error when trying to connect with AuthService")
-		c.JSON(http.StatusOK, res)
+		c.Render(http.StatusOK, utils.CustomJSON{Data: res, Context: c})
 		return
 	}
 
@@ -87,7 +89,7 @@ func RegisterHandle(c *gin.Context) {
 		"UserId":   res.UserId,
 	}).Infof("User register in")
 
-	c.JSON(http.StatusOK, res)
+	c.Render(http.StatusOK, utils.CustomJSON{Data: res, Context: c})
 }
 
 func init() {

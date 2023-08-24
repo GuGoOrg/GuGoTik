@@ -1,11 +1,14 @@
 package main
 
 import (
+	"GuGoTik/src/constant/config"
 	"GuGoTik/src/constant/strings"
 	"GuGoTik/src/extra/tracing"
 	"GuGoTik/src/models"
 	"GuGoTik/src/rpc/chat"
+	"GuGoTik/src/rpc/user"
 	"GuGoTik/src/storage/database"
+	"GuGoTik/src/utils/grpc"
 	"GuGoTik/src/utils/logging"
 	"context"
 	"fmt"
@@ -13,15 +16,15 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// var UserClient user.UserServiceClient
+var UserClient user.UserServiceClient
 
 type MessageServiceImpl struct {
 	chat.ChatServiceServer
 }
 
 func (c MessageServiceImpl) New() {
-	// userRpcConn := grpc2.Connect(config.UserRpcServerName)
-	// UserClient = user.NewUserServiceClient(userRpcConn)
+	userRpcConn := grpc.Connect(config.UserRpcServerName)
+	UserClient = user.NewUserServiceClient(userRpcConn)
 }
 
 func (c MessageServiceImpl) ChatAction(ctx context.Context, request *chat.ActionRequest) (res *chat.ActionResponse, err error) {
@@ -36,7 +39,7 @@ func (c MessageServiceImpl) ChatAction(ctx context.Context, request *chat.Action
 		"content_text": request.Content,
 	}).Debugf("Process start")
 
-	/* 		userResponse, err := UserClient.GetUserInfo(ctx, &user.UserRequest{
+	userResponse, err := UserClient.GetUserInfo(ctx, &user.UserRequest{
 		ActorId: request.ActorId,
 		UserId:  request.UserId,
 	})
@@ -55,7 +58,7 @@ func (c MessageServiceImpl) ChatAction(ctx context.Context, request *chat.Action
 			StatusCode: strings.UnableToAddMessageErrorCode,
 			StatusMsg:  strings.UnableToAddMessageRrror,
 		}, err
-	} */
+	}
 
 	res, err = addMessage(ctx, request.ActorId, request.UserId, request.Content)
 	if err != nil {
@@ -76,7 +79,7 @@ func (c MessageServiceImpl) ChatAction(ctx context.Context, request *chat.Action
 	return res, err
 }
 
-// Chat(context.Context, *ChatRequest) (*ChatResponse, error)
+// Chat Chat(context.Context, *ChatRequest) (*ChatResponse, error)
 func (c MessageServiceImpl) Chat(ctx context.Context, request *chat.ChatRequest) (resp *chat.ChatResponse, err error) {
 	ctx, span := tracing.Tracer.Start(ctx, "ChatService")
 	defer span.End()
@@ -97,9 +100,11 @@ func (c MessageServiceImpl) Chat(ctx context.Context, request *chat.ChatRequest)
 	//这个地方应该取出多少条消息？
 	//TO DO 看怎么需要一下
 
-	var rMessageList []*chat.Message
-	result := database.Client.WithContext(ctx).Where("conversation_id=?", conversationId).
-		Order("created_at desc").Find(&rMessageList)
+	var pMessageList []models.Message
+	result := database.Client.WithContext(ctx).
+		Where("conversation_id=?", conversationId).
+		Order("created_at desc").
+		Find(&pMessageList)
 
 	if result.Error != nil {
 		logger.WithFields(logrus.Fields{
@@ -115,6 +120,17 @@ func (c MessageServiceImpl) Chat(ctx context.Context, request *chat.ChatRequest)
 			StatusMsg:  strings.UnableToQueryMessageError,
 		}
 		return
+	}
+
+	rMessageList := make([]*chat.Message, 0, len(pMessageList))
+	for _, pMessage := range pMessageList {
+		rMessageList = append(rMessageList, &chat.Message{
+			Id:         pMessage.ID,
+			Content:    pMessage.Content,
+			CreateTime: uint32(pMessage.CreatedAt.Unix()),
+			FromUserId: &pMessage.FromUserId,
+			ToUserId:   &pMessage.ToUserId,
+		})
 	}
 
 	resp = &chat.ChatResponse{

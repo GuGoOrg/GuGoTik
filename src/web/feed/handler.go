@@ -8,6 +8,7 @@ import (
 	grpc2 "GuGoTik/src/utils/grpc"
 	"GuGoTik/src/utils/logging"
 	"GuGoTik/src/web/models"
+	"GuGoTik/src/web/utils"
 	"github.com/gin-gonic/gin"
 	_ "github.com/mbobakov/grpc-consul-resolver"
 	"github.com/sirupsen/logrus"
@@ -52,11 +53,11 @@ func ListVideosHandle(c *gin.Context) {
 		return
 	}
 
-	logger.WithFields(logrus.Fields{
-		"LatestTime": latestTime,
-		"res":        res,
-	}).Infof("Feed List videos")
-	c.JSON(http.StatusOK, res)
+	//logger.WithFields(logrus.Fields{
+	//	"LatestTime": latestTime,
+	//	"res":        res,
+	//}).Infof("Feed List videos")
+	c.Render(http.StatusOK, utils.CustomJSON{Data: res, Context: c})
 }
 
 func init() {

@@ -8,6 +8,7 @@ import (
 	grpc2 "GuGoTik/src/utils/grpc"
 	"GuGoTik/src/utils/logging"
 	"GuGoTik/src/web/models"
+	"GuGoTik/src/web/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 	"net/http"
@@ -50,6 +51,12 @@ func ActionCommentHandler(c *gin.Context) {
 			ActionType: comment.ActionCommentType_ACTION_COMMENT_TYPE_DELETE,
 			Action:     &comment.ActionCommentRequest_CommentId{CommentId: uint32(req.CommentId)},
 		})
+	} else {
+		c.JSON(http.StatusOK, models.ActionCommentRes{
+			StatusCode: strings.GateWayParamsErrorCode,
+			StatusMsg:  strings.GateWayParamsError,
+		})
+		return
 	}
 
 	if err != nil {
@@ -57,7 +64,7 @@ func ActionCommentHandler(c *gin.Context) {
 			"video_id": req.VideoId,
 			"actor_id": req.ActorId,
 		}).Warnf("Error when trying to connect with ActionCommentService")
-		c.JSON(http.StatusOK, res)
+		c.Render(http.StatusOK, utils.CustomJSON{Data: res, Context: c})
 		return
 	}
 
@@ -66,7 +73,7 @@ func ActionCommentHandler(c *gin.Context) {
 		"actor_id": req.ActorId,
 	}).Infof("Action comment success")
 
-	c.JSON(http.StatusOK, res)
+	c.Render(http.StatusOK, utils.CustomJSON{Data: res, Context: c})
 }
 
 func ListCommentHandler(c *gin.Context) {
@@ -92,7 +99,7 @@ func ListCommentHandler(c *gin.Context) {
 			"video_id": req.VideoId,
 			"actor_id": req.ActorId,
 		}).Warnf("Error when trying to connect with ListCommentService")
-		c.JSON(http.StatusOK, res)
+		c.Render(http.StatusOK, utils.CustomJSON{Data: res, Context: c})
 		return
 	}
 
@@ -101,7 +108,7 @@ func ListCommentHandler(c *gin.Context) {
 		"actor_id": req.ActorId,
 	}).Infof("List comment success")
 
-	c.JSON(http.StatusOK, res)
+	c.Render(http.StatusOK, utils.CustomJSON{Data: res, Context: c})
 }
 
 func CountCommentHandler(c *gin.Context) {
@@ -127,7 +134,7 @@ func CountCommentHandler(c *gin.Context) {
 			"video_id": req.VideoId,
 			"actor_id": req.ActorId,
 		}).Warnf("Error when trying to connect with CountCommentService")
-		c.JSON(http.StatusOK, res)
+		c.Render(http.StatusOK, utils.CustomJSON{Data: res, Context: c})
 		return
 	}
 
@@ -136,5 +143,5 @@ func CountCommentHandler(c *gin.Context) {
 		"actor_id": req.ActorId,
 	}).Infof("Count comment success")
 
-	c.JSON(http.StatusOK, res)
+	c.Render(http.StatusOK, utils.CustomJSON{Data: res, Context: c})
 }

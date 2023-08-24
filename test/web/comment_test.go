@@ -17,7 +17,7 @@ func TestActionComment_Add(t *testing.T) {
 	method := "POST"
 	req, err := http.NewRequest(method, url, nil)
 	q := req.URL.Query()
-	q.Add("token", "c8e50d04-ebc6-4c36-ad67-9b46a61a2197")
+	q.Add("token", token)
 	q.Add("actor_id", "1")
 	q.Add("video_id", "0")
 	q.Add("action_type", "1")
@@ -46,7 +46,7 @@ func TestActionComment_Delete(t *testing.T) {
 	method := "POST"
 	req, err := http.NewRequest(method, url, nil)
 	q := req.URL.Query()
-	q.Add("token", "c8e50d04-ebc6-4c36-ad67-9b46a61a2197")
+	q.Add("token", token)
 	q.Add("actor_id", "1")
 	q.Add("video_id", "0")
 	q.Add("action_type", "2")
@@ -75,7 +75,7 @@ func TestListComment(t *testing.T) {
 	method := "GET"
 	req, err := http.NewRequest(method, url, nil)
 	q := req.URL.Query()
-	q.Add("token", "c8e50d04-ebc6-4c36-ad67-9b46a61a2197")
+	q.Add("token", token)
 	q.Add("actor_id", "1")
 	q.Add("video_id", "0")
 	req.URL.RawQuery = q.Encode()
@@ -102,7 +102,7 @@ func TestCountComment(t *testing.T) {
 	method := "GET"
 	req, err := http.NewRequest(method, url, nil)
 	q := req.URL.Query()
-	q.Add("token", "c8e50d04-ebc6-4c36-ad67-9b46a61a2197")
+	q.Add("token", token)
 	q.Add("actor_id", "1")
 	q.Add("video_id", "0")
 	req.URL.RawQuery = q.Encode()

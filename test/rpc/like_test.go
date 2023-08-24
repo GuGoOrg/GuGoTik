@@ -15,7 +15,7 @@ import (
 var likeClient favorite.FavoriteServiceClient
 
 func setups1() {
-	conn, _ := grpc.Dial(fmt.Sprintf("127.0.0.1%s", config.LikeRpcServerPort),
+	conn, _ := grpc.Dial(fmt.Sprintf("127.0.0.1%s", config.FavoriteRpcServerPort),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithDefaultServiceConfig(`{"loadBalancingPolicy": "round_robin"}`))
 	likeClient = favorite.NewFavoriteServiceClient(conn)

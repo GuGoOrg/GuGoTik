@@ -8,6 +8,7 @@ import (
 	grpc2 "GuGoTik/src/utils/grpc"
 	"GuGoTik/src/utils/logging"
 	"GuGoTik/src/web/models"
+	"GuGoTik/src/web/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 	"net/http"
@@ -35,6 +36,13 @@ func ActionFavoriteHandler(c *gin.Context) {
 	}
 
 	actionType := uint32(req.ActionType)
+	if actionType != uint32(1) && actionType != uint32(2) {
+		c.JSON(http.StatusOK, models.ActionCommentRes{
+			StatusCode: strings.GateWayParamsErrorCode,
+			StatusMsg:  strings.GateWayParamsError,
+		})
+		return
+	}
 	res, err := Client.FavoriteAction(c.Request.Context(), &favorite.FavoriteRequest{
 		ActorId:    uint32(req.ActorId),
 		VideoId:    uint32(req.VideoId),
@@ -47,7 +55,7 @@ func ActionFavoriteHandler(c *gin.Context) {
 			"VideoId":    req.VideoId,
 			"ActionType": req.ActionType,
 		}).Warnf("Error when trying to connect with ActionFavoriteService")
-		c.JSON(http.StatusOK, res)
+		c.Render(http.StatusOK, utils.CustomJSON{Data: res, Context: c})
 		return
 	}
 
@@ -57,7 +65,7 @@ func ActionFavoriteHandler(c *gin.Context) {
 		"ActionType": req.ActionType,
 	}).Infof("Action favorite success")
 
-	c.JSON(http.StatusOK, res)
+	c.Render(http.StatusOK, utils.CustomJSON{Data: res, Context: c})
 }
 
 func ListFavoriteHandler(c *gin.Context) {
@@ -83,7 +91,7 @@ func ListFavoriteHandler(c *gin.Context) {
 			"ActorId": req.ActorId,
 			"UserId":  req.UserId,
 		}).Warnf("Error when trying to connect with ListFavoriteHandler")
-		c.JSON(http.StatusOK, res)
+		c.Render(http.StatusOK, utils.CustomJSON{Data: res, Context: c})
 		return
 	}
 
@@ -92,5 +100,5 @@ func ListFavoriteHandler(c *gin.Context) {
 		"UserId":  req.UserId,
 	}).Infof("List favorite videos success")
 
-	c.JSON(http.StatusOK, res)
+	c.Render(http.StatusOK, utils.CustomJSON{Data: res, Context: c})
 }
