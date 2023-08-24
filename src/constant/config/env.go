@@ -37,6 +37,7 @@ type envConfig struct {
 	RabbitMQPort          string `env:"RABBITMQ_PORT" envDefault:"5672"`
 	RabbitMQVhostPrefix   string `env:"RABBITMQ_VHOST_PREFIX" envDefault:""`
 	ChatGPTAPIKEYS        string `env:"CHATGPT_API_KEYS"`
+	PodIpAddr             string `env:"POD_IP"`
 }
 
 func init() {
