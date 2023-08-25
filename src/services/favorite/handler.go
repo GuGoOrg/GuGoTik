@@ -124,12 +124,13 @@ func (c FavoriteServiceServerImpl) FavoriteAction(ctx context.Context, req *favo
 				user_liked_id := fmt.Sprintf("%suser_liked_%d", config.EnvCfg.RedisPrefix, user_liked) // 被赞用户的获赞数量
 				pipe.IncrBy(ctx, videoId, -1)
 				pipe.IncrBy(ctx, user_liked_id, -1)
-				_, err := pipe.ZRem(ctx, user_like_Id, req.VideoId).Result()
-				if err == redis.Nil {
-					err = nil
-				}
+				pipe.ZRem(ctx, user_like_Id, req.VideoId)
+
 				return nil
 			})
+			if err == redis.Nil {
+				err = nil
+			}
 		}
 
 	}
