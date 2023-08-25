@@ -51,14 +51,14 @@ func (s FeedServiceImpl) ListVideos(ctx context.Context, request *feed.ListFeedR
 
 	now := time.Now().Unix()
 	latestTime := now
-	if request.LatestTime != nil {
+	if request.LatestTime != nil && *request.LatestTime != "" {
 		// Check if request.LatestTime is a timestamp
 		t, ok := isUnixTimestamp(*request.LatestTime)
 		if ok {
 			latestTime = t
 		} else {
 			logger.WithFields(logrus.Fields{
-				"latestTime": latestTime,
+				"latestTime": request.LatestTime,
 			}).Errorf("The latestTime is not a unix timestamp")
 			logging.SetSpanError(span, errors.New("the latestTime is not a unit timestamp"))
 		}
