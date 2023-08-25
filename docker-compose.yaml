@@ -214,6 +214,8 @@ services:
     env_file:
       - .env.docker.compose
     command: ["/bin/sh", "-c", "export POD_IP=`hostname -i` && ./services/publish/PublishService"]
+    volumes:
+      - share-volume:/var/tmp
     depends_on:
       rdb:
         condition: service_healthy
@@ -268,6 +270,8 @@ services:
     env_file:
       - .env.docker.compose
     command: ["/bin/sh", "-c", "export POD_IP=`hostname -i` && ./services/videoprocessor/VideoprocessorService"]
+    volumes:
+      - share-volume:/var/tmp
     depends_on:
       rdb:
         condition: service_healthy
@@ -293,3 +297,5 @@ services:
         condition: service_healthy
       jaeger:
         condition: service_healthy
+volumes:
+  share-volume:

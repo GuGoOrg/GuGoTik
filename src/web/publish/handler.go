@@ -34,6 +34,7 @@ func ListPublishHandle(c *gin.Context) {
 			StatusMsg:  strings.GateWayParamsError,
 			VideoList:  nil,
 		})
+		return
 	}
 
 	res, err := Client.ListVideo(c.Request.Context(), &publish.ListVideoRequest{
@@ -85,6 +86,11 @@ func ActionPublishHandle(c *gin.Context) {
 		logger.WithFields(logrus.Fields{
 			"err": err,
 		}).Errorf("paramValidate failed")
+		c.JSON(http.StatusOK, models.ActionPublishRes{
+			StatusCode: strings.GateWayParamsErrorCode,
+			StatusMsg:  strings.GateWayParamsError,
+		})
+		return
 	}
 
 	form, _ := c.MultipartForm()
@@ -106,12 +112,20 @@ func ActionPublishHandle(c *gin.Context) {
 		logger.WithFields(logrus.Fields{
 			"err": err,
 		}).Errorf("opened.Read(data) failed")
+		c.JSON(http.StatusOK, models.ActionPublishRes{
+			StatusCode: strings.GateWayErrorCode,
+			StatusMsg:  strings.GateWayError,
+		})
 		return
 	}
 	if readSize != int(file.Size) {
 		logger.WithFields(logrus.Fields{
 			"err": err,
 		}).Errorf("file.Size != readSize")
+		c.JSON(http.StatusOK, models.ActionPublishRes{
+			StatusCode: strings.GateWayErrorCode,
+			StatusMsg:  strings.GateWayError,
+		})
 		return
 	}
 	var req models.ActionPublishReq

@@ -83,12 +83,12 @@ func ScanGet(ctx context.Context, key string, obj interface{}) (bool, error) {
 		return false, result.Error
 	}
 
-	if err := redis.Client.HSet(ctx, key, obj); err != nil {
+	if result := redis.Client.HSet(ctx, key, obj); result.Err() != nil {
 		logger.WithFields(logrus.Fields{
-			"err": err,
+			"err": result.Err(),
 			"key": key,
 		}).Errorf("Redis error when set struct info")
-		logging.SetSpanError(span, err.Err())
+		logging.SetSpanError(span, result.Err())
 		return false, nil
 	}
 

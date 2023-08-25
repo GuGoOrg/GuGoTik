@@ -276,6 +276,10 @@ func (a UserServiceImpl) GetUserExistInformation(ctx context.Context, request *u
 	ok, err := cached.ScanGet(ctx, "UserInfo", &userModel)
 
 	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"err": err,
+		}).Errorf("Error when selecting user info")
+		logging.SetSpanError(span, err)
 		resp = &user.UserExistResponse{
 			StatusCode: strings.UserServiceInnerErrorCode,
 			StatusMsg:  strings.UserServiceInnerError,
@@ -292,7 +296,7 @@ func (a UserServiceImpl) GetUserExistInformation(ctx context.Context, request *u
 		}
 		logger.WithFields(logrus.Fields{
 			"user": request.UserId,
-		}).Infof("Do not exist")
+		}).Infof("User do not exist")
 		return
 	}
 

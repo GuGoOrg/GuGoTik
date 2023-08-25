@@ -1,3 +1,3 @@
 package web
 
-const token = "a594ab0f-4d95-480d-8977-f62eb692776a"
+const token = "073f82f3-cb20-4d62-9050-11de6c7e6c09"
