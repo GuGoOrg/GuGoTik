@@ -217,34 +217,46 @@ func queryDetailed(ctx context.Context, logger *logrus.Entry, actorId uint32, vi
 	ctx, span := tracing.Tracer.Start(ctx, "queryDetailed")
 	defer span.End()
 	logger = logging.LogService("ListVideos.queryDetailed").WithContext(ctx)
-	wg := sync.WaitGroup{}
 	respVideoList = make([]*feed.Video, len(videos))
+
+	// Init respVideoList
 	for i, v := range videos {
 		respVideoList[i] = &feed.Video{
 			Id:     v.ID,
 			Title:  v.Title,
 			Author: &user.User{Id: v.UserId},
 		}
-		wg.Add(5)
-		// fill author
-		go func(i int, v *models.Video) {
-			defer wg.Done()
+	}
+
+	// Create userid -> user map to reduce duplicate user info query
+	userMap := make(map[uint32]*user.User)
+	for _, video := range videos {
+		userMap[video.UserId] = &user.User{}
+	}
+
+	userWg := sync.WaitGroup{}
+	userWg.Add(len(userMap))
+	for userId := range userMap {
+		go func(userId uint32) {
+			defer userWg.Done()
 			userResponse, localErr := UserClient.GetUserInfo(ctx, &user.UserRequest{
-				UserId:  v.UserId,
+				UserId:  userId,
 				ActorId: actorId,
 			})
 			if localErr != nil || userResponse.StatusCode != strings.ServiceOKCode {
 				logger.WithFields(logrus.Fields{
-					"video_id": v.ID,
-					"user_id":  v.UserId,
-					"cause":    localErr,
+					"UserId": userId,
+					"cause":  localErr,
 				}).Warning("failed to get user info")
 				logging.SetSpanError(span, localErr)
-				return
 			}
-			respVideoList[i].Author = userResponse.User
-		}(i, v)
+			userMap[userId] = userResponse.User
+		}(userId)
+	}
 
+	wg := sync.WaitGroup{}
+	for i, v := range videos {
+		wg.Add(4)
 		// fill play url
 		go func(i int, v *models.Video) {
 			defer wg.Done()
@@ -335,7 +347,13 @@ func queryDetailed(ctx context.Context, logger *logrus.Entry, actorId uint32, vi
 			respVideoList[i].IsFavorite = false
 		}
 	}
+	userWg.Wait()
 	wg.Wait()
+
+	for i, respVideo := range respVideoList {
+		authorId := respVideo.Author.Id
+		respVideoList[i].Author = userMap[authorId]
+	}
 
 	return
 }
