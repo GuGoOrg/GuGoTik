@@ -69,19 +69,7 @@ func (c FavoriteServiceServerImpl) FavoriteAction(ctx context.Context, req *favo
 	videoId := fmt.Sprintf("%d", req.VideoId)
 	value, err := redis2.Client.ZScore(ctx, userId, videoId).Result()
 	//判断是否重复点赞
-	if value > 0 {
-		resp = &favorite.FavoriteResponse{
-			StatusCode: strings.FavorivateServiceErrorCode,
-			StatusMsg:  strings.FavorivateServiceError,
-		}
-		logger.WithFields(logrus.Fields{
-			"response": resp,
-		}).Debugf("Process done.")
-
-		return
-	}
-
-	if err != redis.Nil {
+	if err != redis.Nil && err != nil {
 		logger.WithFields(logrus.Fields{
 			"ActorId":  req.ActorId,
 			"video_id": req.VideoId,
@@ -92,26 +80,60 @@ func (c FavoriteServiceServerImpl) FavoriteAction(ctx context.Context, req *favo
 		return
 	}
 
-	_, err = redis2.Client.TxPipelined(ctx, func(pipe redis.Pipeliner) error {
-		var val int64
-		if req.ActionType == 1 {
-			val = 1
-		} else {
-			val = -1
+	if req.ActionType == 1 {
+		//重复点赞
+		if value > 0 {
+			resp = &favorite.FavoriteResponse{
+				StatusCode: strings.FavorivateServiceDuplicateCode,
+				StatusMsg:  strings.FavorivateServiceDuplicateError,
+			}
+			logger.WithFields(logrus.Fields{
+				"ActorId":  req.ActorId,
+				"video_id": req.VideoId,
+			}).Info("user duplicate like")
+			logging.SetSpanError(span, err)
+			return
+		} else { //正常点赞
+			_, err = redis2.Client.TxPipelined(ctx, func(pipe redis.Pipeliner) error {
+				videoId := fmt.Sprintf("%svideo_like_%d", config.EnvCfg.RedisPrefix, req.VideoId)      // 该视频的点赞数量
+				user_like_Id := fmt.Sprintf("%suser_like_%d", config.EnvCfg.RedisPrefix, req.ActorId)  // 用户的点赞
+				user_liked_id := fmt.Sprintf("%suser_liked_%d", config.EnvCfg.RedisPrefix, user_liked) // 被赞用户的获赞数量
+				pipe.IncrBy(ctx, videoId, 1)
+				pipe.IncrBy(ctx, user_liked_id, 1)
+				pipe.ZAdd(ctx, user_like_Id, redis.Z{Score: float64(time.Now().Unix()), Member: req.VideoId})
+				return nil
+			})
 		}
-		videoId := fmt.Sprintf("%svideo_like_%d", config.EnvCfg.RedisPrefix, req.VideoId)      // 该视频的点赞数量
-		user_like_Id := fmt.Sprintf("%suser_like_%d", config.EnvCfg.RedisPrefix, req.ActorId)  // 用户的点赞
-		user_liked_id := fmt.Sprintf("%suser_liked_%d", config.EnvCfg.RedisPrefix, user_liked) // 被赞用户的获赞数量
-		pipe.IncrBy(ctx, videoId, val)
-		pipe.IncrBy(ctx, user_liked_id, val)
-		if req.ActionType == 2 {
-			pipe.ZRem(ctx, user_like_Id, req.VideoId)
-		} else {
-			pipe.ZAdd(ctx, user_like_Id, redis.Z{Score: float64(time.Now().Unix()), Member: req.VideoId})
-		}
-		return nil
-	})
+	} else {
+		//没有的点过赞
+		if value == 0 {
+			resp = &favorite.FavoriteResponse{
+				StatusCode: strings.FavorivateServiceCancelCode,
+				StatusMsg:  strings.FavorivateServiceCancelError,
+			}
 
+			logger.WithFields(logrus.Fields{
+				"ActorId":  req.ActorId,
+				"video_id": req.VideoId,
+			}).Info("User did not like, cancel liking")
+			return
+		} else { //正常取消点赞
+			_, err = redis2.Client.TxPipelined(ctx, func(pipe redis.Pipeliner) error {
+				videoId := fmt.Sprintf("%svideo_like_%d", config.EnvCfg.RedisPrefix, req.VideoId)      // 该视频的点赞数量
+				user_like_Id := fmt.Sprintf("%suser_like_%d", config.EnvCfg.RedisPrefix, req.ActorId)  // 用户的点赞
+				user_liked_id := fmt.Sprintf("%suser_liked_%d", config.EnvCfg.RedisPrefix, user_liked) // 被赞用户的获赞数量
+				pipe.IncrBy(ctx, videoId, -1)
+				pipe.IncrBy(ctx, user_liked_id, -1)
+				pipe.ZRem(ctx, user_like_Id, req.VideoId)
+
+				return nil
+			})
+			if err == redis.Nil {
+				err = nil
+			}
+		}
+
+	}
 	if err != nil {
 		logger.WithFields(logrus.Fields{
 			"ActorId":     req.ActorId,
@@ -157,6 +179,7 @@ func (c FavoriteServiceServerImpl) FavoriteList(ctx context.Context, req *favori
 		logger.WithFields(logrus.Fields{
 			"err":     err,
 			"ActorId": req.ActorId,
+			"user_id": req.UserId,
 		}).Errorf("User service error")
 		logging.SetSpanError(span, err)
 
@@ -256,7 +279,7 @@ func (c FavoriteServiceServerImpl) IsFavorite(ctx context.Context, req *favorite
 	ok, err := redis2.Client.ZScore(ctx, userId, videoId).Result()
 
 	if err == redis.Nil {
-
+		err = nil
 	} else if err != nil {
 		logger.WithFields(logrus.Fields{
 			"ActorId":  req.ActorId,
