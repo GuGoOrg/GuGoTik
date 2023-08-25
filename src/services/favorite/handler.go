@@ -136,7 +136,7 @@ func (c FavoriteServiceServerImpl) FavoriteAction(ctx context.Context, req *favo
 	return
 }
 
-// 判断是否合法
+// FavoriteList 判断是否合法
 func (c FavoriteServiceServerImpl) FavoriteList(ctx context.Context, req *favorite.FavoriteListRequest) (resp *favorite.FavoriteListResponse, err error) {
 
 	ctx, span := tracing.Tracer.Start(ctx, "FavoriteServiceServerImpl")
