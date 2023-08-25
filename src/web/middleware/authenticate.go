@@ -18,7 +18,7 @@ var client auth.AuthServiceClient
 
 func TokenAuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if c.Request.URL.Path == "/douyin/user/login" || c.Request.URL.Path == "/douyin/user/register" || c.Request.URL.Path == "/douyin/feed/" {
+		if c.Request.URL.Path == "/douyin/user/login" || c.Request.URL.Path == "/douyin/user/register" {
 			c.Next()
 			return
 		}
@@ -28,6 +28,11 @@ func TokenAuthMiddleware() gin.HandlerFunc {
 			token = c.PostForm("token")
 		} else {
 			token = c.Query("token")
+		}
+
+		if token == "" && c.Request.URL.Path == "/douyin/feed/" {
+			c.Next()
+			return
 		}
 
 		ctx, span := tracing.Tracer.Start(c.Request.Context(), "AuthMiddleWare")
