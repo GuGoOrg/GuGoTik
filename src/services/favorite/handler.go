@@ -396,7 +396,7 @@ func (c FavoriteServiceServerImpl) CountUserFavorite(ctx context.Context, req *f
 			StatusMsg:  strings.FavorivateServiceError,
 		}, err
 	}
-	user_like_id := fmt.Sprintf("%svideo_like_%d", config.EnvCfg.RedisPrefix, req.UserId)
+	user_like_id := fmt.Sprintf("%suser_like_%d", config.EnvCfg.RedisPrefix, req.UserId)
 
 	value, err := redis2.Client.ZCard(ctx, user_like_id).Result()
 	var num int64
@@ -457,7 +457,7 @@ func (c FavoriteServiceServerImpl) CountUserTotalFavorited(ctx context.Context, 
 			StatusMsg:  strings.FavorivateServiceError,
 		}, err
 	}
-	user_liked_id := fmt.Sprintf("%svideo_like_%d", config.EnvCfg.RedisPrefix, req.UserId)
+	user_liked_id := fmt.Sprintf("%suser_liked_%d", config.EnvCfg.RedisPrefix, req.UserId)
 
 	value, err := redis2.Client.Get(ctx, user_liked_id).Result()
 	var num int
