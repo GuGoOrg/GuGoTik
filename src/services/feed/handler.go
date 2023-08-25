@@ -49,20 +49,23 @@ func (s FeedServiceImpl) ListVideos(ctx context.Context, request *feed.ListFeedR
 	defer span.End()
 	logger := logging.LogService("FeedService.ListVideos").WithContext(ctx)
 
-	now := uint32(time.Now().UnixMilli())
-	latestTime, err := strconv.ParseInt(*request.LatestTime, 10, 64)
-	if err != nil {
-		var numError *strconv.NumError
-		if errors.As(err, &numError) {
-			latestTime = int64(now)
+	now := time.Now().Unix()
+	latestTime := now
+	if request.LatestTime != nil && *request.LatestTime != "" {
+		// Check if request.LatestTime is a timestamp
+		t, ok := isUnixTimestamp(*request.LatestTime)
+		if ok {
+			latestTime = t
+		} else {
 			logger.WithFields(logrus.Fields{
-				"latestTime": latestTime,
-				"err":        err,
-			}).Warnf("strconv.ParseInt meet trouble.")
-			logging.SetSpanError(span, err)
+				"latestTime": request.LatestTime,
+			}).Errorf("The latestTime is not a unix timestamp")
+			logging.SetSpanError(span, errors.New("the latestTime is not a unit timestamp"))
 		}
 	}
-	find, err := findVideos(ctx, latestTime)
+
+	find, nextTime, err := findVideos(ctx, latestTime)
+	nextTimeStamp := uint32(nextTime.Unix())
 	if err != nil {
 		logger.WithFields(logrus.Fields{
 			"find": find,
@@ -72,7 +75,7 @@ func (s FeedServiceImpl) ListVideos(ctx context.Context, request *feed.ListFeedR
 		resp = &feed.ListFeedResponse{
 			StatusCode: strings.FeedServiceInnerErrorCode,
 			StatusMsg:  strings.FeedServiceInnerError,
-			NextTime:   &now,
+			NextTime:   &nextTimeStamp,
 			VideoList:  nil,
 		}
 		return resp, err
@@ -86,7 +89,6 @@ func (s FeedServiceImpl) ListVideos(ctx context.Context, request *feed.ListFeedR
 		}
 		return resp, err
 	}
-	nextTime := uint32(find[len(find)-1].CreatedAt.Unix())
 
 	var actorId uint32 = 0
 	if request.ActorId != nil {
@@ -109,7 +111,7 @@ func (s FeedServiceImpl) ListVideos(ctx context.Context, request *feed.ListFeedR
 	resp = &feed.ListFeedResponse{
 		StatusCode: strings.ServiceOKCode,
 		StatusMsg:  strings.ServiceOK,
-		NextTime:   &nextTime,
+		NextTime:   &nextTimeStamp,
 		VideoList:  videos,
 	}
 	return resp, err
@@ -181,11 +183,13 @@ func (s FeedServiceImpl) QueryVideoExisted(ctx context.Context, req *feed.VideoE
 	return
 }
 
-func findVideos(ctx context.Context, latestTime int64) ([]*models.Video, error) {
+func findVideos(ctx context.Context, latestTime int64) ([]*models.Video, time.Time, error) {
 	logger := logging.LogService("ListVideos.findVideos").WithContext(ctx)
 
+	nextTime := time.Unix(latestTime, 0)
+
 	var videos []*models.Video
-	result := database.Client.Where("created_at <= ?", time.Unix(latestTime, 0)).
+	result := database.Client.Where("created_at < ?", time.Unix(latestTime, 0)).
 		Order("created_at DESC").
 		Limit(VideoCount).
 		Find(&videos)
@@ -194,43 +198,65 @@ func findVideos(ctx context.Context, latestTime int64) ([]*models.Video, error) 
 		logger.WithFields(logrus.Fields{
 			"videos": videos,
 		}).Warnf("database.Client.Where meet trouble")
-		return nil, result.Error
+		return nil, nextTime, result.Error
 	}
-	return videos, nil
+
+	if len(videos) != 0 {
+		nextTime = videos[len(videos)-1].CreatedAt
+	}
+
+	logger.WithFields(logrus.Fields{
+		"latestTime":  time.Unix(latestTime, 0),
+		"VideosCount": len(videos),
+		"NextTime":    nextTime,
+	}).Debugf("Find videos")
+	return videos, nextTime, nil
 }
 
 func queryDetailed(ctx context.Context, logger *logrus.Entry, actorId uint32, videos []*models.Video) (respVideoList []*feed.Video) {
 	ctx, span := tracing.Tracer.Start(ctx, "queryDetailed")
 	defer span.End()
 	logger = logging.LogService("ListVideos.queryDetailed").WithContext(ctx)
-	wg := sync.WaitGroup{}
 	respVideoList = make([]*feed.Video, len(videos))
+
+	// Init respVideoList
 	for i, v := range videos {
 		respVideoList[i] = &feed.Video{
 			Id:     v.ID,
 			Title:  v.Title,
 			Author: &user.User{Id: v.UserId},
 		}
-		wg.Add(6)
-		// fill author
-		go func(i int, v *models.Video) {
-			defer wg.Done()
+	}
+
+	// Create userid -> user map to reduce duplicate user info query
+	userMap := make(map[uint32]*user.User)
+	for _, video := range videos {
+		userMap[video.UserId] = &user.User{}
+	}
+
+	userWg := sync.WaitGroup{}
+	userWg.Add(len(userMap))
+	for userId := range userMap {
+		go func(userId uint32) {
+			defer userWg.Done()
 			userResponse, localErr := UserClient.GetUserInfo(ctx, &user.UserRequest{
-				UserId:  v.UserId,
+				UserId:  userId,
 				ActorId: actorId,
 			})
 			if localErr != nil || userResponse.StatusCode != strings.ServiceOKCode {
 				logger.WithFields(logrus.Fields{
-					"video_id": v.ID,
-					"user_id":  v.UserId,
-					"cause":    localErr,
+					"UserId": userId,
+					"cause":  localErr,
 				}).Warning("failed to get user info")
 				logging.SetSpanError(span, localErr)
-				return
 			}
-			respVideoList[i].Author = userResponse.User
-		}(i, v)
+			userMap[userId] = userResponse.User
+		}(userId)
+	}
 
+	wg := sync.WaitGroup{}
+	for i, v := range videos {
+		wg.Add(4)
 		// fill play url
 		go func(i int, v *models.Video) {
 			defer wg.Done()
@@ -283,7 +309,7 @@ func queryDetailed(ctx context.Context, logger *logrus.Entry, actorId uint32, vi
 		// fill comment count
 		go func(i int, v *models.Video) {
 			defer wg.Done()
-			commentCount, localErr := CommentClient.ListComment(ctx, &comment.ListCommentRequest{
+			commentCount, localErr := CommentClient.CountComment(ctx, &comment.CountCommentRequest{
 				ActorId: actorId,
 				VideoId: v.ID,
 			})
@@ -295,28 +321,39 @@ func queryDetailed(ctx context.Context, logger *logrus.Entry, actorId uint32, vi
 				logging.SetSpanError(span, localErr)
 				return
 			}
-			respVideoList[i].CommentCount = uint32(len(commentCount.CommentList))
+			respVideoList[i].CommentCount = commentCount.CommentCount
 		}(i, v)
 
 		// fill is favorite
-		go func(i int, v *models.Video) {
-			defer wg.Done()
-			isFavorite, localErr := FavoriteClient.IsFavorite(ctx, &favorite.IsFavoriteRequest{
-				ActorId: actorId,
-				VideoId: v.ID,
-			})
-			if localErr != nil {
-				logger.WithFields(logrus.Fields{
-					"video_id": v.ID,
-					"err":      localErr,
-				}).Warning("failed to fetch favorite status")
-				logging.SetSpanError(span, localErr)
-				return
-			}
-			respVideoList[i].IsFavorite = isFavorite.Result
-		}(i, v)
+		if actorId != 0 {
+			wg.Add(1)
+			go func(i int, v *models.Video) {
+				defer wg.Done()
+				isFavorite, localErr := FavoriteClient.IsFavorite(ctx, &favorite.IsFavoriteRequest{
+					ActorId: actorId,
+					VideoId: v.ID,
+				})
+				if localErr != nil {
+					logger.WithFields(logrus.Fields{
+						"video_id": v.ID,
+						"err":      localErr,
+					}).Warning("failed to fetch favorite status")
+					logging.SetSpanError(span, localErr)
+					return
+				}
+				respVideoList[i].IsFavorite = isFavorite.Result
+			}(i, v)
+		} else {
+			respVideoList[i].IsFavorite = false
+		}
 	}
+	userWg.Wait()
 	wg.Wait()
+
+	for i, respVideo := range respVideoList {
+		authorId := respVideo.Author.Id
+		respVideoList[i].Author = userMap[authorId]
+	}
 
 	return
 }
@@ -329,4 +366,19 @@ func query(ctx context.Context, logger *logrus.Entry, actorId uint32, videoIds [
 		return nil, err
 	}
 	return queryDetailed(ctx, logger, actorId, videos), nil
+}
+
+func isUnixTimestamp(s string) (int64, bool) {
+	timestamp, err := strconv.ParseInt(s, 10, 64)
+	if err != nil {
+		return 0, false
+	}
+
+	startTime := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
+	endTime := time.Now().AddDate(100, 0, 0)
+
+	t := time.Unix(timestamp, 0)
+	res := t.After(startTime) && t.Before(endTime)
+
+	return timestamp, res
 }

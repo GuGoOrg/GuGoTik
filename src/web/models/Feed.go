@@ -6,7 +6,7 @@ import (
 
 type ListVideosReq struct {
 	LatestTime string `form:"latest_time"`
-	Token      string `form:"token"`
+	ActorId    int    `form:"actor_id"`
 }
 
 type ListVideosRes struct {
