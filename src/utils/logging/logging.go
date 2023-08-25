@@ -2,6 +2,7 @@ package logging
 
 import (
 	"GuGoTik/src/constant/config"
+	"fmt"
 	log "github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
@@ -61,6 +62,10 @@ func (t logTraceHook) Fire(entry *log.Entry) error {
 		logMessageKey := attribute.Key("log.message")
 		attrs = append(attrs, logSeverityKey.String(entry.Level.String()))
 		attrs = append(attrs, logMessageKey.String(entry.Message))
+		for key, value := range entry.Data {
+			fields := attribute.Key(fmt.Sprintf("log.fields.%s", key))
+			attrs = append(attrs, fields.String(fmt.Sprintf("%v", value)))
+		}
 		span.AddEvent("log", trace.WithAttributes(attrs...))
 		if entry.Level <= log.ErrorLevel {
 			span.SetStatus(codes.Error, entry.Message)

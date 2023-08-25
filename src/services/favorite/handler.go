@@ -80,6 +80,10 @@ func (c FavoriteServiceServerImpl) FavoriteAction(ctx context.Context, req *favo
 		return
 	}
 
+	if err == redis.Nil {
+		err = nil
+	}
+
 	if req.ActionType == 1 {
 		//重复点赞
 		if value > 0 {
@@ -91,7 +95,6 @@ func (c FavoriteServiceServerImpl) FavoriteAction(ctx context.Context, req *favo
 				"ActorId":  req.ActorId,
 				"video_id": req.VideoId,
 			}).Info("user duplicate like")
-			logging.SetSpanError(span, err)
 			return
 		} else { //正常点赞
 			_, err = redis2.Client.TxPipelined(ctx, func(pipe redis.Pipeliner) error {
@@ -103,6 +106,9 @@ func (c FavoriteServiceServerImpl) FavoriteAction(ctx context.Context, req *favo
 				pipe.ZAdd(ctx, user_like_Id, redis.Z{Score: float64(time.Now().Unix()), Member: req.VideoId})
 				return nil
 			})
+			if err == redis.Nil {
+				err = nil
+			}
 		}
 	} else {
 		//没有的点过赞
@@ -134,6 +140,7 @@ func (c FavoriteServiceServerImpl) FavoriteAction(ctx context.Context, req *favo
 		}
 
 	}
+
 	if err != nil {
 		logger.WithFields(logrus.Fields{
 			"ActorId":     req.ActorId,
@@ -154,7 +161,6 @@ func (c FavoriteServiceServerImpl) FavoriteAction(ctx context.Context, req *favo
 	logger.WithFields(logrus.Fields{
 		"response": resp,
 	}).Debugf("Process done.")
-
 	return
 }
 

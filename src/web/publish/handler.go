@@ -85,7 +85,7 @@ func ActionPublishHandle(c *gin.Context) {
 	if err := paramValidate(c); err != nil {
 		logger.WithFields(logrus.Fields{
 			"err": err,
-		}).Errorf("paramValidate failed")
+		}).Errorf("Param Validate failed")
 		c.JSON(http.StatusOK, models.ActionPublishRes{
 			StatusCode: strings.GateWayParamsErrorCode,
 			StatusMsg:  strings.GateWayParamsError,

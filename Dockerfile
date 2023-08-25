@@ -5,16 +5,17 @@ WORKDIR /build
 ENV CGO_ENABLED 0
 ENV GOPROXY https://goproxy.cn,direct
 
-COPY . .
-
 RUN apk update --no-cache \
     && apk upgrade \
     && apk add --no-cache bash \
             bash-doc \
             bash-completion \
     && apk add --no-cache tzdata \
-    && rm -rf /var/cache/apk/* \
-    && go mod download \
+    && rm -rf /var/cache/apk/*
+
+COPY . .
+
+RUN go mod download \
     && bash ./scripts/build-all.sh
 
 FROM docker.io/epicmo/gugotik-basic:1.2 as prod
