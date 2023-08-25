@@ -39,9 +39,9 @@ func TestListVideo(t *testing.T) {
 }
 
 func TestPublishVideo(t *testing.T) {
-	url := "http://127.0.0.1:37000/douyin/publish/action"
+	url := "http://localhost:37000/douyin/publish/action"
 	method := "POST"
-	filePath := "/home/yangfeng/Repos/youthcamp/videos/upload_video_4.mp4"
+	filePath := "E:\\Administrator\\Downloads\\Video\\1223461612-1-192.mp4"
 
 	payload := &bytes.Buffer{}
 	writer := multipart.NewWriter(payload)
@@ -60,7 +60,7 @@ func TestPublishVideo(t *testing.T) {
 	assert.Empty(t, err)
 
 	_ = writer.WriteField("token", token)
-	_ = writer.WriteField("title", "午夜小电影")
+	_ = writer.WriteField("title", "怎么找到余华的B站账号？")
 
 	err = writer.Close()
 	assert.Empty(t, err)

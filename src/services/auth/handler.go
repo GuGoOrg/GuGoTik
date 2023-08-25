@@ -155,7 +155,14 @@ func (a AuthServiceImpl) Register(ctx context.Context, request *auth.RegisterReq
 	go func() {
 		defer wg.Done()
 		if user.IsNameEmail() {
+			logger.WithFields(logrus.Fields{
+				"mail": user.UserName,
+			}).Infof("Trying to get the user avatar")
 			user.Avatar = getAvatarByEmail(ctx, user.UserName)
+		} else {
+			logger.WithFields(logrus.Fields{
+				"mail": user.UserName,
+			}).Infof("Username is not the email, using default logic to fetch avatar")
 		}
 	}()
 
