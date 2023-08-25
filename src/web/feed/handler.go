@@ -39,20 +39,10 @@ func ListVideosHandle(c *gin.Context) {
 
 	latestTime := req.LatestTime
 	actorId := uint32(req.ActorId)
-	var (
-		res *feed.ListFeedResponse
-		err error
-	)
-	if req.ActorId == 0 {
-		res, err = Client.ListVideos(c.Request.Context(), &feed.ListFeedRequest{
-			LatestTime: &latestTime,
-		})
-	} else {
-		res, err = Client.ListVideos(c.Request.Context(), &feed.ListFeedRequest{
-			ActorId:    &actorId,
-			LatestTime: &latestTime,
-		})
-	}
+	res, err := Client.ListVideos(c.Request.Context(), &feed.ListFeedRequest{
+		LatestTime: &latestTime,
+		ActorId:    &actorId,
+	})
 	if err != nil {
 		logger.WithFields(logrus.Fields{
 			"LatestTime": latestTime,

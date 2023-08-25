@@ -225,7 +225,7 @@ func queryDetailed(ctx context.Context, logger *logrus.Entry, actorId uint32, vi
 			Title:  v.Title,
 			Author: &user.User{Id: v.UserId},
 		}
-		wg.Add(6)
+		wg.Add(5)
 		// fill author
 		go func(i int, v *models.Video) {
 			defer wg.Done()
@@ -314,6 +314,7 @@ func queryDetailed(ctx context.Context, logger *logrus.Entry, actorId uint32, vi
 
 		// fill is favorite
 		if actorId != 0 {
+			wg.Add(1)
 			go func(i int, v *models.Video) {
 				defer wg.Done()
 				isFavorite, localErr := FavoriteClient.IsFavorite(ctx, &favorite.IsFavoriteRequest{
