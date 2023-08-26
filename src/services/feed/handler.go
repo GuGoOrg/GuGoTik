@@ -183,6 +183,11 @@ func (s FeedServiceImpl) QueryVideoExisted(ctx context.Context, req *feed.VideoE
 	return
 }
 
+// QueryVideoSummaryAndKeywords TODO
+func (s FeedServiceImpl) QueryVideoSummaryAndKeywords(ctx context.Context, req *feed.QueryVideoSummaryAndKeywordsRequest) (resp *feed.QueryVideoSummaryAndKeywordsResponse, err error) {
+	return
+}
+
 func findVideos(ctx context.Context, latestTime int64) ([]*models.Video, time.Time, error) {
 	logger := logging.LogService("ListVideos.findVideos").WithContext(ctx)
 
