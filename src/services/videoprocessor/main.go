@@ -130,6 +130,8 @@ func main() {
 	logger = logging.LogService("VideoSummary")
 	logger.Infof(strings.VideoSummary + " is running now")
 
+	ConnectServiceClient()
+
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	wg.Wait()
