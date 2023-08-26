@@ -283,6 +283,42 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+  msgconsumer:
+    container_name: "GuGoTik-MsgConsumerService"
+    build:
+      dockerfile: Dockerfile
+    env_file:
+      - .env.docker.compose
+    command: [ "/bin/sh", "-c", "export POD_IP=`hostname -i` && ./services/msgconsumer/MsgconsumerService" ]
+    depends_on:
+      rdb:
+        condition: service_healthy
+      consul:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      jaeger:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+  recommend:
+    container_name: "GuGoTik-RecommendService"
+    build:
+      dockerfile: Dockerfile
+    env_file:
+      - .env.docker.compose
+    command: [ "/bin/sh", "-c", "export POD_IP=`hostname -i` && ./services/recommend/RecommendService" ]
+    depends_on:
+      rdb:
+        condition: service_healthy
+      consul:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      jaeger:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
   gateway:
     container_name: "GuGoTik-GateWay"
     build:
