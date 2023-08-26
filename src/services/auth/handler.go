@@ -7,7 +7,7 @@ import (
 	"GuGoTik/src/models"
 	"GuGoTik/src/rpc/auth"
 	"GuGoTik/src/rpc/relation"
-	"GuGoTik/src/rpc/user"
+	user2 "GuGoTik/src/rpc/user"
 	"GuGoTik/src/storage/cached"
 	"GuGoTik/src/storage/database"
 	grpc2 "GuGoTik/src/utils/grpc"
@@ -31,7 +31,7 @@ import (
 )
 
 var relationClient relation.RelationServiceClient
-var userClient user.UserServiceClient
+var userClient user2.UserServiceClient
 
 type AuthServiceImpl struct {
 	auth.AuthServiceServer
@@ -41,7 +41,7 @@ func (a AuthServiceImpl) New() {
 	relationConn := grpc2.Connect(config.RelationRpcServerName)
 	relationClient = relation.NewRelationServiceClient(relationConn)
 	userRpcConn := grpc2.Connect(config.UserRpcServerName)
-	userClient = user.NewUserServiceClient(userRpcConn)
+	userClient = user2.NewUserServiceClient(userRpcConn)
 }
 
 func (a AuthServiceImpl) Authenticate(ctx context.Context, request *auth.AuthenticateRequest) (resp *auth.AuthenticateResponse, err error) {
@@ -403,7 +403,7 @@ func getEmailMD5(ctx context.Context, email string) (md5String string) {
 func addMagicUserFriend(ctx context.Context, span *trace.Span, userId uint32) {
 	logger := logging.LogService("AuthService.Register.AddMagicUserFriend").WithContext(ctx)
 
-	isMagicUserExist, err := userClient.GetUserExistInformation(ctx, &user.UserExistRequest{
+	isMagicUserExist, err := userClient.GetUserExistInformation(ctx, &user2.UserExistRequest{
 		UserId: 999999,
 	})
 	if err != nil {
