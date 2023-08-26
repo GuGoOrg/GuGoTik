@@ -50,22 +50,28 @@ const (
 	RelationServiceIntError          = "关系服务出现内部错误"
 	FavorivateServiceErrorCode       = 50020
 	FavorivateServiceError           = "点赞服务内部出错"
+	UserServiceInnerErrorCode        = 50021
+	UserServiceInnerError            = "登录服务出现内部错误，请稍后重试！"
 )
 
 // Expected Error
 const (
-	AuthUserExistedCode          = 10001
-	AuthUserExisted              = "用户已存在，请更换用户名或尝试登录！"
-	UserNotExistedCode           = 10002
-	UserNotExisted               = "用户不存在，请先注册或检查你的用户名是否正确！"
-	AuthUserLoginFailedCode      = 10003
-	AuthUserLoginFailed          = "用户信息错误，请检查账号密码是否正确"
-	AuthUserNeededCode           = 10004
-	AuthUserNeeded               = "用户无权限操作，请登陆后重试！"
-	ActionCommentTypeInvalidCode = 10005
-	ActionCommentTypeInvalid     = "不合法的评论类型"
-	ActionCommentLimitedCode     = 10006
-	ActionCommentLimited         = "评论频繁，请稍后再试！"
-	InvalidContentTypeCode       = 10007
-	InvalidContentType           = "不合法的内容类型"
+	AuthUserExistedCode             = 10001
+	AuthUserExisted                 = "用户已存在，请更换用户名或尝试登录！"
+	UserNotExistedCode              = 10002
+	UserNotExisted                  = "用户不存在，请先注册或检查你的用户名是否正确！"
+	AuthUserLoginFailedCode         = 10003
+	AuthUserLoginFailed             = "用户信息错误，请检查账号密码是否正确"
+	AuthUserNeededCode              = 10004
+	AuthUserNeeded                  = "用户无权限操作，请登陆后重试！"
+	ActionCommentTypeInvalidCode    = 10005
+	ActionCommentTypeInvalid        = "不合法的评论类型"
+	ActionCommentLimitedCode        = 10006
+	ActionCommentLimited            = "评论频繁，请稍后再试！"
+	InvalidContentTypeCode          = 10007
+	InvalidContentType              = "不合法的内容类型"
+	FavorivateServiceDuplicateCode  = 10008
+	FavorivateServiceDuplicateError = "不能重复点赞"
+	FavorivateServiceCancelCode     = 10009
+	FavorivateServiceCancelError    = "没有点赞,不能取消点赞"
 )

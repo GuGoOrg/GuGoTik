@@ -51,8 +51,8 @@ func (a UserServiceImpl) GetUserInfo(ctx context.Context, request *user.UserRequ
 	if err != nil {
 
 		resp = &user.UserResponse{
-			StatusCode: strings.AuthServiceInnerErrorCode,
-			StatusMsg:  strings.AuthServiceInnerError,
+			StatusCode: strings.UserServiceInnerErrorCode,
+			StatusMsg:  strings.UserServiceInnerError,
 		}
 		return
 	}
@@ -65,7 +65,7 @@ func (a UserServiceImpl) GetUserInfo(ctx context.Context, request *user.UserRequ
 		}
 		logger.WithFields(logrus.Fields{
 			"user": request.UserId,
-		})
+		}).Infof("Do not exist")
 		return
 	}
 
@@ -263,5 +263,47 @@ func (a UserServiceImpl) GetUserInfo(ctx context.Context, request *user.UserRequ
 		return
 	}
 
+	return
+}
+
+func (a UserServiceImpl) GetUserExistInformation(ctx context.Context, request *user.UserExistRequest) (resp *user.UserExistResponse, err error) {
+	ctx, span := tracing.Tracer.Start(ctx, "GetUserExisted")
+	defer span.End()
+	logger := logging.LogService("UserService.GetUserExisted").WithContext(ctx)
+
+	var userModel models.User
+	userModel.ID = request.UserId
+	ok, err := cached.ScanGet(ctx, "UserInfo", &userModel)
+
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"err": err,
+		}).Errorf("Error when selecting user info")
+		logging.SetSpanError(span, err)
+		resp = &user.UserExistResponse{
+			StatusCode: strings.UserServiceInnerErrorCode,
+			StatusMsg:  strings.UserServiceInnerError,
+			Existed:    false,
+		}
+		return
+	}
+
+	if !ok {
+		resp = &user.UserExistResponse{
+			StatusCode: strings.UserNotExistedCode,
+			StatusMsg:  strings.UserNotExisted,
+			Existed:    false,
+		}
+		logger.WithFields(logrus.Fields{
+			"user": request.UserId,
+		}).Infof("User do not exist")
+		return
+	}
+
+	resp = &user.UserExistResponse{
+		StatusCode: strings.ServiceOKCode,
+		StatusMsg:  strings.ServiceOK,
+		Existed:    true,
+	}
 	return
 }

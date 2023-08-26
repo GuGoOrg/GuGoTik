@@ -36,6 +36,13 @@ func ActionFavoriteHandler(c *gin.Context) {
 	}
 
 	actionType := uint32(req.ActionType)
+	if actionType != uint32(1) && actionType != uint32(2) {
+		c.JSON(http.StatusOK, models.ActionCommentRes{
+			StatusCode: strings.GateWayParamsErrorCode,
+			StatusMsg:  strings.GateWayParamsError,
+		})
+		return
+	}
 	res, err := Client.FavoriteAction(c.Request.Context(), &favorite.FavoriteRequest{
 		ActorId:    uint32(req.ActorId),
 		VideoId:    uint32(req.VideoId),

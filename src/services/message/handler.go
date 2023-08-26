@@ -39,9 +39,8 @@ func (c MessageServiceImpl) ChatAction(ctx context.Context, request *chat.Action
 		"content_text": request.Content,
 	}).Debugf("Process start")
 
-	userResponse, err := UserClient.GetUserInfo(ctx, &user.UserRequest{
-		ActorId: request.ActorId,
-		UserId:  request.UserId,
+	userResponse, err := UserClient.GetUserExistInformation(ctx, &user.UserExistRequest{
+		UserId: request.UserId,
 	})
 
 	if err != nil || userResponse.StatusCode != strings.ServiceOKCode {
@@ -89,6 +88,26 @@ func (c MessageServiceImpl) Chat(ctx context.Context, request *chat.ChatRequest)
 		"ActorId":      request.ActorId,
 		"pre_msg_time": request.PreMsgTime,
 	}).Debugf("Process start")
+
+	userResponse, err := UserClient.GetUserExistInformation(ctx, &user.UserExistRequest{
+		UserId: request.UserId,
+	})
+
+	if err != nil || userResponse.StatusCode != strings.ServiceOKCode {
+		logger.WithFields(logrus.Fields{
+			"err":     err,
+			"ActorId": request.ActorId,
+			"user_id": request.UserId,
+		}).Errorf("User service error")
+		logging.SetSpanError(span, err)
+
+		resp = &chat.ChatResponse{
+			StatusCode: strings.UnableToQueryMessageErrorCode,
+			StatusMsg:  strings.UnableToQueryMessageError,
+		}
+		return
+	}
+
 	toUserId := request.UserId
 	fromUserId := request.ActorId
 
@@ -98,7 +117,7 @@ func (c MessageServiceImpl) Chat(ctx context.Context, request *chat.ChatRequest)
 		conversationId = fmt.Sprintf("%d_%d", fromUserId, toUserId)
 	}
 	//这个地方应该取出多少条消息？
-	//TO DO 看怎么需要一下
+	//TO DO 看怎么需要改一下
 
 	var pMessageList []models.Message
 	result := database.Client.WithContext(ctx).

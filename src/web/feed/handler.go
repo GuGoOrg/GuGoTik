@@ -34,15 +34,19 @@ func ListVideosHandle(c *gin.Context) {
 			NextTime:   nil,
 			VideoList:  nil,
 		})
+		return
 	}
 
 	latestTime := req.LatestTime
+	actorId := uint32(req.ActorId)
 	res, err := Client.ListVideos(c.Request.Context(), &feed.ListFeedRequest{
 		LatestTime: &latestTime,
+		ActorId:    &actorId,
 	})
 	if err != nil {
 		logger.WithFields(logrus.Fields{
 			"LatestTime": latestTime,
+			"Err":        err,
 		}).Warnf("Error when trying to connect with FeedService")
 		c.JSON(http.StatusOK, models.ListVideosRes{
 			StatusCode: strings.FeedServiceInnerErrorCode,
@@ -53,10 +57,10 @@ func ListVideosHandle(c *gin.Context) {
 		return
 	}
 
-	logger.WithFields(logrus.Fields{
-		"LatestTime": latestTime,
-		"res":        res,
-	}).Infof("Feed List videos")
+	//logger.WithFields(logrus.Fields{
+	//	"LatestTime": latestTime,
+	//	"res":        res,
+	//}).Infof("Feed List videos")
 	c.Render(http.StatusOK, utils.CustomJSON{Data: res, Context: c})
 }
 

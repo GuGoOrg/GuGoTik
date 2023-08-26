@@ -19,6 +19,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 	stringsLib "strings"
 	"sync"
@@ -154,14 +155,23 @@ func (a AuthServiceImpl) Register(ctx context.Context, request *auth.RegisterReq
 
 	go func() {
 		defer wg.Done()
+		user.UserName = request.Username
 		if user.IsNameEmail() {
-			user.Avatar = getAvatarByEmail(ctx, user.UserName)
+			logger.WithFields(logrus.Fields{
+				"mail": request.Username,
+			}).Infof("Trying to get the user avatar")
+			user.Avatar = getAvatarByEmail(ctx, request.Username)
+		} else {
+			logger.WithFields(logrus.Fields{
+				"mail": request.Username,
+			}).Infof("Username is not the email, using default logic to fetch avatar")
+			user.Avatar = fmt.Sprintf("https://api.multiavatar.com/%s.png", url.QueryEscape(request.Username))
 		}
 	}()
 
 	wg.Wait()
 
-	user.UserName = request.Username
+	user.BackgroundImage = "https://i.mij.rip/2023/08/26/0caa1681f9ae3de38f7d8abcc3b849fc.jpeg"
 	user.Password = hashedPassword
 
 	result = database.Client.WithContext(ctx).Create(&user)

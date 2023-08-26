@@ -19,8 +19,9 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	FeedService_ListVideos_FullMethodName  = "/rpc.feed.FeedService/ListVideos"
-	FeedService_QueryVideos_FullMethodName = "/rpc.feed.FeedService/QueryVideos"
+	FeedService_ListVideos_FullMethodName        = "/rpc.feed.FeedService/ListVideos"
+	FeedService_QueryVideos_FullMethodName       = "/rpc.feed.FeedService/QueryVideos"
+	FeedService_QueryVideoExisted_FullMethodName = "/rpc.feed.FeedService/QueryVideoExisted"
 )
 
 // FeedServiceClient is the client API for FeedService service.
@@ -29,6 +30,7 @@ const (
 type FeedServiceClient interface {
 	ListVideos(ctx context.Context, in *ListFeedRequest, opts ...grpc.CallOption) (*ListFeedResponse, error)
 	QueryVideos(ctx context.Context, in *QueryVideosRequest, opts ...grpc.CallOption) (*QueryVideosResponse, error)
+	QueryVideoExisted(ctx context.Context, in *VideoExistRequest, opts ...grpc.CallOption) (*VideoExistResponse, error)
 }
 
 type feedServiceClient struct {
@@ -57,12 +59,22 @@ func (c *feedServiceClient) QueryVideos(ctx context.Context, in *QueryVideosRequ
 	return out, nil
 }
 
+func (c *feedServiceClient) QueryVideoExisted(ctx context.Context, in *VideoExistRequest, opts ...grpc.CallOption) (*VideoExistResponse, error) {
+	out := new(VideoExistResponse)
+	err := c.cc.Invoke(ctx, FeedService_QueryVideoExisted_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // FeedServiceServer is the server API for FeedService service.
 // All implementations must embed UnimplementedFeedServiceServer
 // for forward compatibility
 type FeedServiceServer interface {
 	ListVideos(context.Context, *ListFeedRequest) (*ListFeedResponse, error)
 	QueryVideos(context.Context, *QueryVideosRequest) (*QueryVideosResponse, error)
+	QueryVideoExisted(context.Context, *VideoExistRequest) (*VideoExistResponse, error)
 	mustEmbedUnimplementedFeedServiceServer()
 }
 
@@ -75,6 +87,9 @@ func (UnimplementedFeedServiceServer) ListVideos(context.Context, *ListFeedReque
 }
 func (UnimplementedFeedServiceServer) QueryVideos(context.Context, *QueryVideosRequest) (*QueryVideosResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method QueryVideos not implemented")
+}
+func (UnimplementedFeedServiceServer) QueryVideoExisted(context.Context, *VideoExistRequest) (*VideoExistResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method QueryVideoExisted not implemented")
 }
 func (UnimplementedFeedServiceServer) mustEmbedUnimplementedFeedServiceServer() {}
 
@@ -125,6 +140,24 @@ func _FeedService_QueryVideos_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _FeedService_QueryVideoExisted_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(VideoExistRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FeedServiceServer).QueryVideoExisted(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FeedService_QueryVideoExisted_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FeedServiceServer).QueryVideoExisted(ctx, req.(*VideoExistRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // FeedService_ServiceDesc is the grpc.ServiceDesc for FeedService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -139,6 +172,10 @@ var FeedService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "QueryVideos",
 			Handler:    _FeedService_QueryVideos_Handler,
+		},
+		{
+			MethodName: "QueryVideoExisted",
+			Handler:    _FeedService_QueryVideoExisted_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

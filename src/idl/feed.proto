@@ -37,7 +37,18 @@ message QueryVideosResponse {
   repeated Video video_list = 3;
 }
 
+message VideoExistRequest {
+  uint32 video_id = 1; // 用户id
+}
+
+message VideoExistResponse {
+  int32 status_code = 1; // 状态码，0-成功，其他值-失败
+  string status_msg = 2; // 返回状态描述
+  bool existed = 3;
+}
+
 service FeedService {
   rpc ListVideos(ListFeedRequest) returns (ListFeedResponse);
   rpc QueryVideos(QueryVideosRequest) returns (QueryVideosResponse);
+  rpc QueryVideoExisted(VideoExistRequest) returns (VideoExistResponse);
 }

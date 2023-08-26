@@ -30,6 +30,11 @@ func TokenAuthMiddleware() gin.HandlerFunc {
 			token = c.Query("token")
 		}
 
+		if token == "" && c.Request.URL.Path == "/douyin/feed/" {
+			c.Next()
+			return
+		}
+
 		ctx, span := tracing.Tracer.Start(c.Request.Context(), "AuthMiddleWare")
 		defer span.End()
 		span.SetAttributes(attribute.String("token", token))

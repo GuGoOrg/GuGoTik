@@ -34,13 +34,14 @@ func RegisterConsul(name string, port string) error {
 		return err
 	}
 	reg := &capi.AgentServiceRegistration{
-		ID:   fmt.Sprintf("%s-1", name),
-		Name: name,
-		Port: parsedPort,
+		ID:      fmt.Sprintf("%s-1", name),
+		Name:    name,
+		Address: config.EnvCfg.PodIpAddr,
+		Port:    parsedPort,
 		Check: &capi.AgentServiceCheck{
 			Interval:                       "5s",
 			Timeout:                        "5s",
-			GRPC:                           fmt.Sprintf("%s:%d/Heath", "127.0.0.1", parsedPort),
+			GRPC:                           fmt.Sprintf("%s:%d/Heath", config.EnvCfg.PodIpAddr, parsedPort),
 			DeregisterCriticalServiceAfter: "30s",
 		},
 	}

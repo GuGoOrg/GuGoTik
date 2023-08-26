@@ -1,0 +1,337 @@
+version: "3.9"
+services:
+  rdb:
+    container_name: "GuGoTik-Extra-PostgreSQL"
+    image: postgres
+    restart: always
+    environment:
+      POSTGRES_PASSWORD: gugotik123
+      POSTGRES_DB: gugodb
+      POSTGRES_USER: gugotik
+    ports:
+      - "5436:5432"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  pyroscope:
+    container_name: "GuGoTik-Extra-Pyroscope"
+    image: pyroscope/pyroscope
+    command:
+      - server
+    ports:
+      - "4040:4040"
+    stdin_open: true
+    tty: true
+    healthcheck:
+      test: [ "CMD-SHELL", "wget --spider -q http://localhost:4040/healthz || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+  consul:
+    container_name: "GuGoTik-Extra-Consul"
+    image: consul:1.15.4
+    command: [
+      "agent",
+      "-dev",
+      "-client=0.0.0.0"
+    ]
+    ports:
+      - "8500:8500"
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8500/v1/status/leader" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+  redis:
+    container_name: "GuGoTik-Extra-Redis"
+    image: redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+  jaeger:
+    container_name: "GuGoTik-Extra-Jaeger"
+    image: jaegertracing/all-in-one
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    ports:
+      - "16686:16686"
+      - "14268:14268"
+      - "14250:14250"
+      - "6831:6831"
+    healthcheck:
+      test: [ "CMD-SHELL", "wget --spider -q http://localhost:16686/search || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+  victoriametrics:
+    container_name: "GuGoTik-Extra-VictoriaMetrics"
+    image: victoriametrics/victoria-metrics
+    ports:
+      - "8428:8428"
+      - "8089:8089"
+      - "8089:8089/udp"
+      - "2003:2003"
+      - "2003:2003/udp"
+      - "4242:4242"
+    command:
+      - '--storageDataPath=/storage'
+      - '--graphiteListenAddr=:2003'
+      - '--opentsdbListenAddr=:4242'
+      - '--httpListenAddr=:8428'
+      - '--influxListenAddr=:8089'
+    restart: always
+  grafana:
+    container_name: "GuGoTik-Extra-Grafana"
+    image: grafana/grafana
+    environment:
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      - GF_AUTH_DISABLE_LOGIN_FORM=true
+    ports:
+      - "3000:3000"
+  rabbitmq:
+    container_name: "GuGoTik-Extra-RabbitMQ"
+    image: epicmo/rabbitmq-manager:1.0
+    ports:
+      - "15672:15672"
+      - "5672:5672"
+    healthcheck:
+      test: [ "CMD-SHELL", "rabbitmqctl status" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  prometheus:
+    container_name: "GuGoTik-Extra-Prometheus"
+    image:  bitnami/prometheus:latest
+    ports:
+      - "9090:9090"
+  auth:
+    container_name: "GuGoTik-AuthService"
+    build:
+      dockerfile: Dockerfile
+    ports:
+      - "37001:37001"
+    env_file:
+      - .env.docker.compose
+    command: ["/bin/sh", "-c", "export POD_IP=`hostname -i` && ./services/auth/AuthService"]
+    depends_on:
+      rdb:
+        condition: service_healthy
+      consul:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      jaeger:
+        condition: service_healthy
+  comment:
+    container_name: "GuGoTik-CommentService"
+    build:
+      dockerfile: Dockerfile
+    ports:
+      - "37003:37003"
+    env_file:
+      - .env.docker.compose
+    command: ["/bin/sh", "-c", "export POD_IP=`hostname -i` && ./services/comment/CommentService"]
+    depends_on:
+      rdb:
+        condition: service_healthy
+      consul:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      jaeger:
+        condition: service_healthy
+  favorite:
+    container_name: "GuGoTik-FavoriteService"
+    build:
+      dockerfile: Dockerfile
+    ports:
+      - "37006:37006"
+    env_file:
+      - .env.docker.compose
+    command: ["/bin/sh", "-c", "export POD_IP=`hostname -i` && ./services/favorite/FavoriteService"]
+    depends_on:
+      rdb:
+        condition: service_healthy
+      consul:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      jaeger:
+        condition: service_healthy
+  feed:
+    container_name: "GuGoTik-FeedService"
+    build:
+      dockerfile: Dockerfile
+    ports:
+      - "37004:37004"
+    env_file:
+      - .env.docker.compose
+    command: ["/bin/sh", "-c", "export POD_IP=`hostname -i` && ./services/feed/FeedService"]
+    depends_on:
+      rdb:
+        condition: service_healthy
+      consul:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      jaeger:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+  message:
+    container_name: "GuGoTik-MessageService"
+    build:
+      dockerfile: Dockerfile
+    ports:
+      - "37007:37007"
+    env_file:
+      - .env.docker.compose
+    command: ["/bin/sh", "-c", "export POD_IP=`hostname -i` && ./services/message/MessageService"]
+    depends_on:
+      rdb:
+        condition: service_healthy
+      consul:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      jaeger:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+  publish:
+    container_name: "GuGoTik-PublishService"
+    build:
+      dockerfile: Dockerfile
+    ports:
+      - "37005:37005"
+    env_file:
+      - .env.docker.compose
+    command: ["/bin/sh", "-c", "export POD_IP=`hostname -i` && ./services/publish/PublishService"]
+    volumes:
+      - share-volume:/var/tmp
+    depends_on:
+      rdb:
+        condition: service_healthy
+      consul:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      jaeger:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+  relation:
+    container_name: "GuGoTik-RelationService"
+    build:
+      dockerfile: Dockerfile
+    ports:
+      - "37008:37008"
+    env_file:
+      - .env.docker.compose
+    command: ["/bin/sh", "-c", "export POD_IP=`hostname -i` && ./services/relation/RelationService"]
+    depends_on:
+      rdb:
+        condition: service_healthy
+      consul:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      jaeger:
+        condition: service_healthy
+  user:
+    container_name: "GuGoTik-UserService"
+    build:
+      dockerfile: Dockerfile
+    ports:
+      - "37002:37002"
+    env_file:
+      - .env.docker.compose
+    command: ["/bin/sh", "-c", "export POD_IP=`hostname -i` && ./services/user/UserService"]
+    depends_on:
+      rdb:
+        condition: service_healthy
+      consul:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      jaeger:
+        condition: service_healthy
+  videoprocessor:
+    container_name: "GuGoTik-VideoProcessorService"
+    build:
+      dockerfile: Dockerfile
+    env_file:
+      - .env.docker.compose
+    command: ["/bin/sh", "-c", "export POD_IP=`hostname -i` && ./services/videoprocessor/VideoprocessorService"]
+    volumes:
+      - share-volume:/var/tmp
+    depends_on:
+      rdb:
+        condition: service_healthy
+      consul:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      jaeger:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+  msgconsumer:
+    container_name: "GuGoTik-MsgConsumerService"
+    build:
+      dockerfile: Dockerfile
+    env_file:
+      - .env.docker.compose
+    command: [ "/bin/sh", "-c", "export POD_IP=`hostname -i` && ./services/msgconsumer/MsgconsumerService" ]
+    depends_on:
+      rdb:
+        condition: service_healthy
+      consul:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      jaeger:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+  recommend:
+    container_name: "GuGoTik-RecommendService"
+    build:
+      dockerfile: Dockerfile
+    env_file:
+      - .env.docker.compose
+    command: [ "/bin/sh", "-c", "export POD_IP=`hostname -i` && ./services/recommend/RecommendService" ]
+    depends_on:
+      rdb:
+        condition: service_healthy
+      consul:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      jaeger:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+  gateway:
+    container_name: "GuGoTik-GateWay"
+    build:
+      dockerfile: Dockerfile
+    ports:
+      - "37000:37000"
+    env_file:
+      - .env.docker.compose
+    command: ["/bin/sh", "-c", "export POD_IP=`hostname -i` && ./gateway/Gateway"]
+    depends_on:
+      rdb:
+        condition: service_healthy
+      jaeger:
+        condition: service_healthy
+volumes:
+  share-volume:

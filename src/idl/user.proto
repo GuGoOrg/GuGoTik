@@ -13,6 +13,16 @@ message UserResponse {
   User user = 3; // 用户信息
 }
 
+message UserExistRequest {
+  uint32 user_id = 1; // 用户id
+}
+
+message UserExistResponse {
+  int32 status_code = 1; // 状态码，0-成功，其他值-失败
+  string status_msg = 2; // 返回状态描述
+  bool existed = 3;
+}
+
 message User {
   uint32 id = 1; // 用户id
   string name = 2; // 用户名称
@@ -29,4 +39,6 @@ message User {
 
 service UserService{
   rpc GetUserInfo(UserRequest) returns(UserResponse);
+
+  rpc GetUserExistInformation(UserExistRequest) returns(UserExistResponse);
 }

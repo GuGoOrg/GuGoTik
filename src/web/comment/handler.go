@@ -51,6 +51,12 @@ func ActionCommentHandler(c *gin.Context) {
 			ActionType: comment.ActionCommentType_ACTION_COMMENT_TYPE_DELETE,
 			Action:     &comment.ActionCommentRequest_CommentId{CommentId: uint32(req.CommentId)},
 		})
+	} else {
+		c.JSON(http.StatusOK, models.ActionCommentRes{
+			StatusCode: strings.GateWayParamsErrorCode,
+			StatusMsg:  strings.GateWayParamsError,
+		})
+		return
 	}
 
 	if err != nil {
