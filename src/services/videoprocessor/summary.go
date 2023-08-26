@@ -133,6 +133,24 @@ func SummaryConsume(channel *amqp.Channel) {
 				span.End()
 				continue
 			}
+
+			// Save audio_file_name to db
+			video := &models.Video{
+				ID:            raw.VideoId,
+				AudioFileName: audioFileName,
+			}
+			result := database.Client.Clauses(clause.OnConflict{
+				Columns:   []clause.Column{{Name: "id"}},
+				DoUpdates: clause.AssignmentColumns([]string{"audio_file_name"}),
+			}).Create(&video)
+			if result.Error != nil {
+				logger.WithFields(logrus.Fields{
+					"Err":           result.Error,
+					"ID":            raw.VideoId,
+					"AudioFileName": audioFileName,
+				}).Errorf("Error when updating audio file name to database")
+				logging.SetSpanError(span, result.Error)
+			}
 		} else {
 			logger.WithFields(logrus.Fields{
 				"VideoId": raw.VideoId,
