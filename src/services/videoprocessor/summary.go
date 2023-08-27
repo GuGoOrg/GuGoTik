@@ -5,8 +5,11 @@ import (
 	strings2 "GuGoTik/src/constant/strings"
 	"GuGoTik/src/extra/tracing"
 	"GuGoTik/src/models"
+	"GuGoTik/src/rpc/comment"
+	"GuGoTik/src/rpc/user"
 	"GuGoTik/src/storage/database"
 	"GuGoTik/src/storage/file"
+	grpc2 "GuGoTik/src/utils/grpc"
 	"GuGoTik/src/utils/logging"
 	"GuGoTik/src/utils/pathgen"
 	"GuGoTik/src/utils/rabbitmq"
@@ -23,9 +26,18 @@ import (
 	"strings"
 )
 
+var userClient user.UserServiceClient
+var commentClient comment.CommentServiceClient
 var openaiClient = openai.NewClient(config.EnvCfg.ChatGPTAPIKEYS)
 var delayTime = int32(2 * 60 * 1000) //2 minutes
 var maxRetries = int32(3)
+
+func ConnectServiceClient() {
+	userRpcConn := grpc2.Connect(config.UserRpcServerName)
+	userClient = user.NewUserServiceClient(userRpcConn)
+	commentRpcConn := grpc2.Connect(config.CommentRpcServerName)
+	commentClient = comment.NewCommentServiceClient(commentRpcConn)
+}
 
 // errorHandler If `requeue` is false, it will just `Nack` it. If `requeue` is true, it will try to re-publish it.
 func errorHandler(channel *amqp.Channel, d amqp.Delivery, requeue bool, logger *logrus.Entry, span *trace.Span) {
@@ -255,6 +267,30 @@ func SummaryConsume(channel *amqp.Channel) {
 				logging.SetSpanError(span, err)
 				keywords = ""
 				summaryOrKeywordsErr = true
+			}
+		}
+
+		isMagicUserExistRes := isMagicUserExist(ctx, logger, &span)
+		if isMagicUserExistRes {
+			logger.Debug("Magic user exist")
+			// Add summary comment by magic user
+			if !summaryExist && summary != "" {
+				summaryCommentContent := "视频总结：" + summary
+				logger.WithFields(logrus.Fields{
+					"SummaryCommentContent": summaryCommentContent,
+					"VideoId":               raw.VideoId,
+				}).Debugf("Add summary comment to video")
+				addMagicComment(raw.VideoId, summaryCommentContent, ctx, logger, &span)
+			}
+
+			// Add keywords comment by magic user
+			if !keywordsExist && keywords != "" {
+				keywordsCommentContent := "视频关键词：" + keywords
+				logger.WithFields(logrus.Fields{
+					"KeywordsCommentContent": keywordsCommentContent,
+					"VideoId":                raw.VideoId,
+				}).Debugf("Add keywords comment to video")
+				addMagicComment(raw.VideoId, keywordsCommentContent, ctx, logger, &span)
 			}
 		}
 
@@ -494,4 +530,40 @@ func isKeywordsExist(videoId uint32) (res bool, keywords string, err error) {
 		keywords = video.Keywords
 	}
 	return
+}
+
+func isMagicUserExist(ctx context.Context, logger *logrus.Entry, span *trace.Span) bool {
+	isMagicUserExistRes, err := userClient.GetUserExistInformation(ctx, &user.UserExistRequest{
+		UserId: 999999,
+	})
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"err": err,
+		}).Errorf("Failed to check if the magic user exists")
+		logging.SetSpanError(*span, err)
+		return false
+	}
+
+	if !isMagicUserExistRes.Existed {
+		logger.Errorf("Magic user does not exist")
+	}
+	logging.SetSpanError(*span, errors.New("magic user does not exist"))
+
+	return isMagicUserExistRes.Existed
+}
+
+func addMagicComment(videoId uint32, content string, ctx context.Context, logger *logrus.Entry, span *trace.Span) {
+	_, err := commentClient.ActionComment(ctx, &comment.ActionCommentRequest{
+		ActorId:    999999,
+		VideoId:    videoId,
+		ActionType: comment.ActionCommentType_ACTION_COMMENT_TYPE_ADD,
+		Action:     &comment.ActionCommentRequest_CommentText{CommentText: content},
+	})
+
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"err": err,
+		}).Errorf("Failed to add magic comment")
+		logging.SetSpanError(*span, err)
+	}
 }

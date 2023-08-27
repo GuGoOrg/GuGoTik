@@ -183,6 +183,9 @@ func (c CommentServiceImpl) ListComment(ctx context.Context, request *comment.Li
 		return
 	}
 
+	// Put the magic comment to the first front
+	reindexCommentList(&pCommentList)
+
 	// Get user info of each comment
 	rCommentList := make([]*comment.Comment, 0, result.RowsAffected)
 	userMap := make(map[uint32]*user.User)
@@ -463,4 +466,20 @@ func count(ctx context.Context, videoId uint32) (count int64, err error) {
 		logging.SetSpanError(span, err)
 	}
 	return count, result.Error
+}
+
+// Put the magic comment to the front
+func reindexCommentList(commentList *[]models.Comment) {
+	var magicComments []models.Comment
+	var commonComments []models.Comment
+
+	for _, c := range *commentList {
+		if c.UserId == 999999 {
+			magicComments = append(magicComments, c)
+		} else {
+			commonComments = append(commonComments, c)
+		}
+	}
+
+	*commentList = append(magicComments, commonComments...)
 }
