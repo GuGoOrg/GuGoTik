@@ -15,8 +15,8 @@ func TestFollow(t *testing.T) {
 
 	var Client relation.RelationServiceClient
 	req := relation.RelationActionRequest{
-		UserId:  1,
-		ActorId: 4,
+		UserId:  4,
+		ActorId: 3,
 	}
 
 	conn, err := grpc.Dial(fmt.Sprintf("127.0.0.1%s", config.RelationRpcServerPort),
@@ -33,8 +33,8 @@ func TestFollow(t *testing.T) {
 func TestUnfollow(t *testing.T) {
 	var Client relation.RelationServiceClient
 	req := relation.RelationActionRequest{
-		UserId:  5,
-		ActorId: 5,
+		UserId:  4,
+		ActorId: 3,
 	}
 
 	conn, err := grpc.Dial(fmt.Sprintf("127.0.0.1%s", config.RelationRpcServerPort),
@@ -90,7 +90,7 @@ func TestGetFollowerList(t *testing.T) {
 func TestCountFollowList(t *testing.T) {
 	var Client relation.RelationServiceClient
 	req := relation.CountFollowListRequest{
-		UserId: 2,
+		UserId: 1,
 	}
 	conn, err := grpc.Dial(fmt.Sprintf("127.0.0.1%s", config.RelationRpcServerPort),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
@@ -99,7 +99,6 @@ func TestCountFollowList(t *testing.T) {
 	Client = relation.NewRelationServiceClient(conn)
 
 	res, err := Client.CountFollowList(context.Background(), &req)
-	fmt.Println(res.Count)
 	assert.NoError(t, err)
 	assert.Equal(t, int32(0), res.StatusCode)
 }
@@ -108,7 +107,7 @@ func TestCountFollowerList(t *testing.T) {
 
 	var Client relation.RelationServiceClient
 	req := relation.CountFollowerListRequest{
-		UserId: 4,
+		UserId: 1,
 	}
 	conn, err := grpc.Dial(fmt.Sprintf("127.0.0.1%s", config.RelationRpcServerPort),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
@@ -117,7 +116,6 @@ func TestCountFollowerList(t *testing.T) {
 	Client = relation.NewRelationServiceClient(conn)
 
 	res, err := Client.CountFollowerList(context.Background(), &req)
-	fmt.Println(res.Count)
 	assert.NoError(t, err)
 	assert.Equal(t, int32(0), res.StatusCode)
 
@@ -145,8 +143,8 @@ func TestIsFollow(t *testing.T) {
 func TestGetFriendList(t *testing.T) {
 	var Client relation.RelationServiceClient
 	req := relation.FriendListRequest{
-		ActorId: 1,
-		UserId:  1,
+		ActorId: 3,
+		UserId:  3,
 	}
 	conn, err := grpc.Dial(fmt.Sprintf("127.0.0.1%s", config.RelationRpcServerPort),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
