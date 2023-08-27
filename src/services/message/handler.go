@@ -55,7 +55,7 @@ func (c MessageServiceImpl) ChatAction(ctx context.Context, request *chat.Action
 
 		return &chat.ActionResponse{
 			StatusCode: strings.UnableToAddMessageErrorCode,
-			StatusMsg:  strings.UnableToAddMessageRrror,
+			StatusMsg:  strings.UnableToAddMessageError,
 		}, err
 	}
 
@@ -185,7 +185,7 @@ func addMessage(ctx context.Context, fromUserId uint32, toUserId uint32, Context
 
 		resp = &chat.ActionResponse{
 			StatusCode: strings.UnableToAddMessageErrorCode,
-			StatusMsg:  strings.UnableToAddMessageRrror,
+			StatusMsg:  strings.UnableToAddMessageError,
 		}
 		return
 	}
