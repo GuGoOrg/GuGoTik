@@ -182,7 +182,10 @@ func (s FeedServiceImpl) ListVideos(ctx context.Context, request *feed.ListFeedR
 		}
 		return resp, err
 	}
+	wg := sync.WaitGroup{}
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		var videoLists []uint32
 		for _, item := range videos {
 			videoLists = append(videoLists, item.Id)
@@ -194,6 +197,7 @@ func (s FeedServiceImpl) ListVideos(ctx context.Context, request *feed.ListFeedR
 			Source:  config.FeedRpcServerName,
 		})
 	}()
+	wg.Wait()
 	resp = &feed.ListFeedResponse{
 		StatusCode: strings.ServiceOKCode,
 		StatusMsg:  strings.ServiceOK,

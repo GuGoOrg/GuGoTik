@@ -24,6 +24,7 @@ import (
 	"gorm.io/gorm/clause"
 	"os/exec"
 	"strings"
+	"sync"
 )
 
 var userClient user.UserServiceClient
@@ -32,11 +33,75 @@ var openaiClient = openai.NewClient(config.EnvCfg.ChatGPTAPIKEYS)
 var delayTime = int32(2 * 60 * 1000) //2 minutes
 var maxRetries = int32(3)
 
+var conn *amqp.Connection
+var channel *amqp.Channel
+
 func ConnectServiceClient() {
 	userRpcConn := grpc2.Connect(config.UserRpcServerName)
 	userClient = user.NewUserServiceClient(userRpcConn)
 	commentRpcConn := grpc2.Connect(config.CommentRpcServerName)
 	commentClient = comment.NewCommentServiceClient(commentRpcConn)
+
+	var err error
+
+	conn, err = amqp.Dial(rabbitmq.BuildMQConnAddr())
+	exitOnError(err)
+
+	channel, err = conn.Channel()
+	exitOnError(err)
+
+	err = channel.ExchangeDeclare(
+		strings2.EventExchange,
+		"topic",
+		true,
+		false,
+		false,
+		false,
+		nil,
+	)
+	exitOnError(err)
+}
+
+func CloseMQConn() {
+	if err := conn.Close(); err != nil {
+		panic(err)
+	}
+
+	if err := channel.Close(); err != nil {
+		panic(err)
+	}
+}
+
+func produceKeywords(ctx context.Context, event models.RecommendEvent) {
+	ctx, span := tracing.Tracer.Start(ctx, "KeywordsEventPublisher")
+	defer span.End()
+	logger := logging.LogService("VideoSummaryService.KeywordsEventPublisher").WithContext(ctx)
+	data, err := json.Marshal(event)
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"err": err,
+		}).Errorf("Error when marshal the event model")
+		logging.SetSpanError(span, err)
+		return
+	}
+
+	err = channel.Publish(
+		strings2.EventExchange,
+		strings2.FavoriteActionEvent,
+		false,
+		false,
+		amqp.Publishing{
+			ContentType: "text/plain",
+			Body:        data,
+		},
+	)
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"err": err,
+		}).Errorf("Error when publishing the event model")
+		logging.SetSpanError(span, err)
+		return
+	}
 }
 
 // errorHandler If `requeue` is false, it will just `Nack` it. If `requeue` is true, it will try to re-publish it.
@@ -270,6 +335,23 @@ func SummaryConsume(channel *amqp.Channel) {
 			}
 		}
 
+		// Publish keywords event
+		if !keywordsExist && keywords != "" {
+			wg := sync.WaitGroup{}
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				produceKeywords(ctx, models.RecommendEvent{
+					ActorId: raw.ActorId,
+					VideoId: []uint32{raw.VideoId},
+					Type:    3,
+					Source:  config.VideoProcessorRpcServiceName,
+				})
+			}()
+			wg.Wait()
+		}
+
+		// Add magic comments
 		isMagicUserExistRes := isMagicUserExist(ctx, logger, &span)
 		if isMagicUserExistRes {
 			logger.Debug("Magic user exist")

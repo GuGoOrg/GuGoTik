@@ -130,6 +130,7 @@ func main() {
 	logger.Infof(strings.VideoSummary + " is running now")
 
 	ConnectServiceClient()
+	defer CloseMQConn()
 
 	wg := sync.WaitGroup{}
 	wg.Add(1)
