@@ -322,6 +322,22 @@ func (r RelationServiceImpl) CountFollowList(ctx context.Context, request *relat
 	ctx, span := tracing.Tracer.Start(ctx, "CountFollowListService")
 	defer span.End()
 	logger := logging.LogService("RelationService.CountFollowList").WithContext(ctx)
+	//actor exists
+	userExist, err := userClient.GetUserExistInformation(ctx, &user.UserExistRequest{UserId: request.UserId})
+
+	if err != nil || userExist.StatusCode != strings.ServiceOKCode {
+		logger.WithFields(logrus.Fields{
+			"err":    err,
+			"UserId": request.UserId,
+		}).Errorf("not find the user:%v", request.UserId)
+		logging.SetSpanError(span, err)
+
+		resp = &relation.CountFollowListResponse{
+			StatusCode: strings.UnableToQueryUserErrorCode,
+			StatusMsg:  strings.UnableToQueryUserError,
+		}
+		return
+	}
 
 	cacheKey := fmt.Sprintf("follow_count_%d", request.UserId)
 	cachedCountString, ok, err := cached.Get(ctx, cacheKey)
@@ -395,8 +411,23 @@ func (r RelationServiceImpl) CountFollowerList(ctx context.Context, request *rel
 	defer span.End()
 	logger := logging.LogService("RelationService.CountFollowerList").WithContext(ctx)
 
-	cacheKey := fmt.Sprintf("follower_count_%d", request.UserId)
+	userExist, err := userClient.GetUserExistInformation(ctx, &user.UserExistRequest{UserId: request.UserId})
 
+	if err != nil || userExist.StatusCode != strings.ServiceOKCode {
+		logger.WithFields(logrus.Fields{
+			"err":    err,
+			"UserId": request.UserId,
+		}).Errorf("not find the user:%v", request.UserId)
+		logging.SetSpanError(span, err)
+
+		resp = &relation.CountFollowerListResponse{
+			StatusCode: strings.UnableToQueryUserErrorCode,
+			StatusMsg:  strings.UnableToQueryUserError,
+		}
+		return
+	}
+
+	cacheKey := fmt.Sprintf("follower_count_%d", request.UserId)
 	cachedCountString, ok, err := cached.Get(ctx, cacheKey)
 
 	if err != nil {
@@ -464,6 +495,15 @@ func (r RelationServiceImpl) GetFriendList(ctx context.Context, request *relatio
 	ctx, span := tracing.Tracer.Start(ctx, "GetFriendListService")
 	defer span.End()
 	logger := logging.LogService("RelationService.GetFriendList").WithContext(ctx)
+
+	ok, err := isUserExist(ctx, request.ActorId, request.UserId, span, logger)
+	if err != nil || !ok {
+		resp = &relation.FriendListResponse{
+			StatusCode: strings.UnableToQueryUserErrorCode,
+			StatusMsg:  strings.UnableToQueryUserError,
+		}
+		return
+	}
 
 	//followList
 	cacheKey := config.EnvCfg.RedisPrefix + fmt.Sprintf("follow_list_%d", request.UserId)
@@ -682,6 +722,15 @@ func (r RelationServiceImpl) GetFollowList(ctx context.Context, request *relatio
 	defer span.End()
 	logger := logging.LogService("RelationService.GetFollowList").WithContext(ctx)
 
+	ok, err := isUserExist(ctx, request.ActorId, request.UserId, span, logger)
+	if err != nil || !ok {
+		resp = &relation.FollowListResponse{
+			StatusCode: strings.UnableToQueryUserErrorCode,
+			StatusMsg:  strings.UnableToQueryUserError,
+		}
+		return
+	}
+
 	cacheKey := config.EnvCfg.RedisPrefix + fmt.Sprintf("follow_list_%d", request.UserId)
 	followIdList, err := redis2.Client.SMembers(ctx, cacheKey).Result()
 	followIdListInt := make([]uint32, 0, len(followIdList))
@@ -751,6 +800,15 @@ func (r RelationServiceImpl) GetFollowerList(ctx context.Context, request *relat
 	ctx, span := tracing.Tracer.Start(ctx, "GetFollowerListService")
 	defer span.End()
 	logger := logging.LogService("RelationService.GetFollowerList").WithContext(ctx)
+
+	ok, err := isUserExist(ctx, request.ActorId, request.UserId, span, logger)
+	if err != nil || !ok {
+		resp = &relation.FollowerListResponse{
+			StatusCode: strings.UnableToQueryUserErrorCode,
+			StatusMsg:  strings.UnableToQueryUserError,
+		}
+		return
+	}
 
 	cacheKey := config.EnvCfg.RedisPrefix + fmt.Sprintf("follower_list_%d", request.UserId)
 	followerIdList, err := redis2.Client.SMembers(ctx, cacheKey).Result()
@@ -1067,4 +1125,33 @@ func updateFollowerCountCache(ctx context.Context, userID uint32, followOp bool,
 	countString := strconv.FormatUint(uint64(count), 10)
 	cached.Write(ctx, cacheKey, countString, true)
 	return nil
+}
+
+func isUserExist(ctx context.Context, actorID uint32, userID uint32, span trace.Span, logger *logrus.Entry) (ok bool, err error) {
+
+	userExist, err := userClient.GetUserExistInformation(ctx, &user.UserExistRequest{UserId: actorID})
+
+	if err != nil || userExist.StatusCode != strings.ServiceOKCode {
+		logger.WithFields(logrus.Fields{
+			"err":    err,
+			"UserId": actorID,
+		}).Errorf("not find the user:%v", actorID)
+		logging.SetSpanError(span, err)
+		ok = false
+		return
+	}
+
+	userExist, err = userClient.GetUserExistInformation(ctx, &user.UserExistRequest{UserId: userID})
+
+	if err != nil || userExist.StatusCode != strings.ServiceOKCode {
+		logger.WithFields(logrus.Fields{
+			"err":    err,
+			"UserId": userID,
+		}).Errorf("not find the user:%v", userID)
+		logging.SetSpanError(span, err)
+		ok = false
+		return
+	}
+	ok = true
+	return
 }
