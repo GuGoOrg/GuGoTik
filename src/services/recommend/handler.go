@@ -22,3 +22,11 @@ func (a RecommendServiceImpl) GetRecommendInformation(ctx context.Context, reque
 	}
 	return
 }
+
+func (a RecommendServiceImpl) RegisterRecommendUser(ctx context.Context, request *recommend.RecommendRegisterRequest) (resp *recommend.RecommendRegisterResponse, err error) {
+	resp = &recommend.RecommendRegisterResponse{
+		StatusCode: strings.ServiceOKCode,
+		StatusMsg:  strings.ServiceOK,
+	}
+	return
+}

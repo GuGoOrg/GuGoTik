@@ -20,6 +20,7 @@ const _ = grpc.SupportPackageIsVersion7
 
 const (
 	RecommendService_GetRecommendInformation_FullMethodName = "/rpc.recommend.RecommendService/GetRecommendInformation"
+	RecommendService_RegisterRecommendUser_FullMethodName   = "/rpc.recommend.RecommendService/RegisterRecommendUser"
 )
 
 // RecommendServiceClient is the client API for RecommendService service.
@@ -27,6 +28,7 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type RecommendServiceClient interface {
 	GetRecommendInformation(ctx context.Context, in *RecommendRequest, opts ...grpc.CallOption) (*RecommendResponse, error)
+	RegisterRecommendUser(ctx context.Context, in *RecommendRegisterRequest, opts ...grpc.CallOption) (*RecommendRegisterResponse, error)
 }
 
 type recommendServiceClient struct {
@@ -46,11 +48,21 @@ func (c *recommendServiceClient) GetRecommendInformation(ctx context.Context, in
 	return out, nil
 }
 
+func (c *recommendServiceClient) RegisterRecommendUser(ctx context.Context, in *RecommendRegisterRequest, opts ...grpc.CallOption) (*RecommendRegisterResponse, error) {
+	out := new(RecommendRegisterResponse)
+	err := c.cc.Invoke(ctx, RecommendService_RegisterRecommendUser_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // RecommendServiceServer is the server API for RecommendService service.
 // All implementations must embed UnimplementedRecommendServiceServer
 // for forward compatibility
 type RecommendServiceServer interface {
 	GetRecommendInformation(context.Context, *RecommendRequest) (*RecommendResponse, error)
+	RegisterRecommendUser(context.Context, *RecommendRegisterRequest) (*RecommendRegisterResponse, error)
 	mustEmbedUnimplementedRecommendServiceServer()
 }
 
@@ -60,6 +72,9 @@ type UnimplementedRecommendServiceServer struct {
 
 func (UnimplementedRecommendServiceServer) GetRecommendInformation(context.Context, *RecommendRequest) (*RecommendResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetRecommendInformation not implemented")
+}
+func (UnimplementedRecommendServiceServer) RegisterRecommendUser(context.Context, *RecommendRegisterRequest) (*RecommendRegisterResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RegisterRecommendUser not implemented")
 }
 func (UnimplementedRecommendServiceServer) mustEmbedUnimplementedRecommendServiceServer() {}
 
@@ -92,6 +107,24 @@ func _RecommendService_GetRecommendInformation_Handler(srv interface{}, ctx cont
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RecommendService_RegisterRecommendUser_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RecommendRegisterRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RecommendServiceServer).RegisterRecommendUser(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RecommendService_RegisterRecommendUser_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RecommendServiceServer).RegisterRecommendUser(ctx, req.(*RecommendRegisterRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // RecommendService_ServiceDesc is the grpc.ServiceDesc for RecommendService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -102,6 +135,10 @@ var RecommendService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetRecommendInformation",
 			Handler:    _RecommendService_GetRecommendInformation_Handler,
+		},
+		{
+			MethodName: "RegisterRecommendUser",
+			Handler:    _RecommendService_RegisterRecommendUser_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
