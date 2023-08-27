@@ -52,9 +52,11 @@ const (
 	FavorivateServiceError           = "点赞服务内部出错"
 	UserServiceInnerErrorCode        = 50021
 	UserServiceInnerError            = "登录服务出现内部错误，请稍后重试！"
-	AlreadyFollowingErrorCode        = 50022
+	UnableToQueryVideoErrorCode      = 50022
+	UnableToQueryVideoError          = "无法查询到该视频"
+	AlreadyFollowingErrorCode        = 50023
 	AlreadyFollowingError            = "无法关注已关注的人"
-	UnableToGetFriendListErrorCode   = 50023
+	UnableToGetFriendListErrorCode   = 50024
 	UnableToGetFriendListError       = "无法查询到好友列表"
 )
 
