@@ -78,6 +78,10 @@ const (
 	FavorivateServiceDuplicateError = "不能重复点赞"
 	FavorivateServiceCancelCode     = 10009
 	FavorivateServiceCancelError    = "没有点赞,不能取消点赞"
-	FollowLimitedCode               = 10010
+	PublishVideoLimitedCode         = 10010
+	PublishVideoLimited             = "视频发布频繁，请稍后再试！"
+	ChatActionLimitedCode           = 10011
+	ChatActionLimitedError          = "发送消息频繁，请稍后再试！"
+	FollowLimitedCode               = 10012
 	FollowLimited                   = "关注频繁，请稍后再试！"
 )
