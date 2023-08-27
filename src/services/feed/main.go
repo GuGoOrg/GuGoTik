@@ -50,6 +50,7 @@ func main() {
 	var probe healthImpl.ProbeImpl
 	feed.RegisterFeedServiceServer(s, srv)
 	health.RegisterHealthServer(s, &probe)
+	defer CloseMQConn()
 	if err := consul.RegisterConsul(config.FeedRpcServerName, config.FeedRpcServerPort); err != nil {
 		log.Panicf("Rpc %s register consul hanpens error for: %v", config.FeedRpcServerName, err)
 	}

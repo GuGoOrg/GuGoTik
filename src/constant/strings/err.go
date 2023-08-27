@@ -48,8 +48,8 @@ const (
 	StringToIntError                 = "字符串转数字失败"
 	RelationServiceIntErrorCode      = 50019
 	RelationServiceIntError          = "关系服务出现内部错误"
-	FavorivateServiceErrorCode       = 50020
-	FavorivateServiceError           = "点赞服务内部出错"
+	FavoriteServiceErrorCode         = 50020
+	FavoriteServiceError             = "点赞服务内部出错"
 	UserServiceInnerErrorCode        = 50021
 	UserServiceInnerError            = "登录服务出现内部错误，请稍后重试！"
 	UnableToQueryVideoErrorCode      = 50022
@@ -85,5 +85,5 @@ const (
 	ChatActionLimitedCode           = 10011
 	ChatActionLimitedError          = "发送消息频繁，请稍后再试！"
 	FollowLimitedCode               = 10012
-	FollowLimited                   = "关注频繁，请稍后再试！"
+	FollowLimited                   = "关注频繁，请稍后再试! "
 )

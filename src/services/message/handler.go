@@ -8,10 +8,12 @@ import (
 	"GuGoTik/src/rpc/chat"
 	"GuGoTik/src/rpc/user"
 	"GuGoTik/src/storage/database"
+	"GuGoTik/src/storage/redis"
 	grpc2 "GuGoTik/src/utils/grpc"
 	"GuGoTik/src/utils/logging"
 	"context"
 	"fmt"
+	"github.com/go-redis/redis_rate/v10"
 
 	"github.com/sirupsen/logrus"
 )
@@ -27,6 +29,14 @@ func (c MessageServiceImpl) New() {
 	UserClient = user.NewUserServiceClient(userRpcConn)
 }
 
+var chatActionLimitKeyPrefix = config.EnvCfg.RedisPrefix + "chat_freq_limit"
+
+const chatActionMaxQPS = 3
+
+func chatActionLimitKey(userId uint32) string {
+	return fmt.Sprintf("%s-%d", chatActionLimitKeyPrefix, userId)
+}
+
 func (c MessageServiceImpl) ChatAction(ctx context.Context, request *chat.ActionRequest) (res *chat.ActionResponse, err error) {
 	ctx, span := tracing.Tracer.Start(ctx, "ChatActionService")
 	defer span.End()
@@ -38,6 +48,39 @@ func (c MessageServiceImpl) ChatAction(ctx context.Context, request *chat.Action
 		"action_type":  request.ActionType,
 		"content_text": request.Content,
 	}).Debugf("Process start")
+
+	// Rate limiting
+	limiter := redis_rate.NewLimiter(redis.Client)
+	limiterKey := chatActionLimitKey(request.ActorId)
+	limiterRes, err := limiter.Allow(ctx, limiterKey, redis_rate.PerSecond(chatActionMaxQPS))
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"ActorId":      request.ActorId,
+			"user_id":      request.UserId,
+			"action_type":  request.ActionType,
+			"content_text": request.Content,
+		}).Errorf("ChatAction limiter error")
+
+		res = &chat.ActionResponse{
+			StatusCode: strings.UnableToAddMessageErrorCode,
+			StatusMsg:  strings.UnableToAddMessageError,
+		}
+		return
+	}
+	if limiterRes.Allowed == 0 {
+		logger.WithFields(logrus.Fields{
+			"ActorId":      request.ActorId,
+			"user_id":      request.UserId,
+			"action_type":  request.ActionType,
+			"content_text": request.Content,
+		}).Errorf("Chat action query too frequently by user %d", request.ActorId)
+
+		res = &chat.ActionResponse{
+			StatusCode: strings.ChatActionLimitedCode,
+			StatusMsg:  strings.ChatActionLimitedError,
+		}
+		return
+	}
 
 	userResponse, err := UserClient.GetUserExistInformation(ctx, &user.UserExistRequest{
 		UserId: request.UserId,

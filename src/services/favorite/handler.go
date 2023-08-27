@@ -4,15 +4,20 @@ import (
 	"GuGoTik/src/constant/config"
 	"GuGoTik/src/constant/strings"
 	"GuGoTik/src/extra/tracing"
+	"GuGoTik/src/models"
 	"GuGoTik/src/rpc/favorite"
 	"GuGoTik/src/rpc/feed"
 	"GuGoTik/src/rpc/user"
 	redis2 "GuGoTik/src/storage/redis"
 	grpc2 "GuGoTik/src/utils/grpc"
 	"GuGoTik/src/utils/logging"
+	"GuGoTik/src/utils/rabbitmq"
 	"context"
+	"encoding/json"
 	"fmt"
+	"github.com/streadway/amqp"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -22,8 +27,18 @@ import (
 var feedClient feed.FeedServiceClient
 var userClient user.UserServiceClient
 
+var conn *amqp.Connection
+
+var channel *amqp.Channel
+
 type FavoriteServiceServerImpl struct {
 	favorite.FavoriteServiceServer
+}
+
+func exitOnError(err error) {
+	if err != nil {
+		panic(err)
+	}
 }
 
 func (c FavoriteServiceServerImpl) New() {
@@ -31,6 +46,67 @@ func (c FavoriteServiceServerImpl) New() {
 	feedClient = feed.NewFeedServiceClient(feedRpcConn)
 	userRpcConn := grpc2.Connect(config.UserRpcServerName)
 	userClient = user.NewUserServiceClient(userRpcConn)
+
+	var err error
+
+	conn, err = amqp.Dial(rabbitmq.BuildMQConnAddr())
+	exitOnError(err)
+
+	channel, err = conn.Channel()
+	exitOnError(err)
+
+	err = channel.ExchangeDeclare(
+		strings.EventExchange,
+		"topic",
+		true,
+		false,
+		false,
+		false,
+		nil,
+	)
+	exitOnError(err)
+}
+
+func CloseMQConn() {
+	if err := conn.Close(); err != nil {
+		panic(err)
+	}
+
+	if err := channel.Close(); err != nil {
+		panic(err)
+	}
+}
+
+func produceFavorite(ctx context.Context, event models.RecommendEvent) {
+	ctx, span := tracing.Tracer.Start(ctx, "FavoriteEventPublisher")
+	defer span.End()
+	logger := logging.LogService("FavoriteService.FavoriteEventPublisher").WithContext(ctx)
+	data, err := json.Marshal(event)
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"err": err,
+		}).Errorf("Error when marshal the event model")
+		logging.SetSpanError(span, err)
+		return
+	}
+
+	err = channel.Publish(
+		strings.EventExchange,
+		strings.FavoriteActionEvent,
+		false,
+		false,
+		amqp.Publishing{
+			ContentType: "text/plain",
+			Body:        data,
+		})
+
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"err": err,
+		}).Errorf("Error when publishing the event model")
+		logging.SetSpanError(span, err)
+		return
+	}
 }
 
 func (c FavoriteServiceServerImpl) FavoriteAction(ctx context.Context, req *favorite.FavoriteRequest) (resp *favorite.FavoriteResponse, err error) {
@@ -58,8 +134,8 @@ func (c FavoriteServiceServerImpl) FavoriteAction(ctx context.Context, req *favo
 		logging.SetSpanError(span, err)
 
 		return &favorite.FavoriteResponse{
-			StatusCode: strings.FavorivateServiceErrorCode,
-			StatusMsg:  strings.FavorivateServiceError,
+			StatusCode: strings.FavoriteServiceErrorCode,
+			StatusMsg:  strings.FavoriteServiceError,
 		}, err
 	}
 
@@ -88,8 +164,8 @@ func (c FavoriteServiceServerImpl) FavoriteAction(ctx context.Context, req *favo
 		//重复点赞
 		if value > 0 {
 			resp = &favorite.FavoriteResponse{
-				StatusCode: strings.FavorivateServiceDuplicateCode,
-				StatusMsg:  strings.FavorivateServiceDuplicateError,
+				StatusCode: strings.FavoriteServiceDuplicateCode,
+				StatusMsg:  strings.FavoriteServiceDuplicateError,
 			}
 			logger.WithFields(logrus.Fields{
 				"ActorId":  req.ActorId,
@@ -106,6 +182,18 @@ func (c FavoriteServiceServerImpl) FavoriteAction(ctx context.Context, req *favo
 				pipe.ZAdd(ctx, user_like_Id, redis.Z{Score: float64(time.Now().Unix()), Member: req.VideoId})
 				return nil
 			})
+			wg := sync.WaitGroup{}
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				produceFavorite(ctx, models.RecommendEvent{
+					ActorId: req.ActorId,
+					VideoId: []uint32{req.VideoId},
+					Type:    1,
+					Source:  config.FavoriteRpcServerName,
+				})
+			}()
+			wg.Wait()
 			if err == redis.Nil {
 				err = nil
 			}
@@ -114,8 +202,8 @@ func (c FavoriteServiceServerImpl) FavoriteAction(ctx context.Context, req *favo
 		//没有的点过赞
 		if value == 0 {
 			resp = &favorite.FavoriteResponse{
-				StatusCode: strings.FavorivateServiceCancelCode,
-				StatusMsg:  strings.FavorivateServiceCancelError,
+				StatusCode: strings.FavoriteServiceCancelCode,
+				StatusMsg:  strings.FavoriteServiceCancelError,
 			}
 
 			logger.WithFields(logrus.Fields{
@@ -150,8 +238,8 @@ func (c FavoriteServiceServerImpl) FavoriteAction(ctx context.Context, req *favo
 		logging.SetSpanError(span, err)
 
 		return &favorite.FavoriteResponse{
-			StatusCode: strings.FavorivateServiceErrorCode,
-			StatusMsg:  strings.FavorivateServiceError,
+			StatusCode: strings.FavoriteServiceErrorCode,
+			StatusMsg:  strings.FavoriteServiceError,
 		}, err
 	}
 	resp = &favorite.FavoriteResponse{
@@ -190,8 +278,8 @@ func (c FavoriteServiceServerImpl) FavoriteList(ctx context.Context, req *favori
 		logging.SetSpanError(span, err)
 
 		return &favorite.FavoriteListResponse{
-			StatusCode: strings.FavorivateServiceErrorCode,
-			StatusMsg:  strings.FavorivateServiceError,
+			StatusCode: strings.FavoriteServiceErrorCode,
+			StatusMsg:  strings.FavoriteServiceError,
 		}, err
 	}
 
@@ -205,8 +293,8 @@ func (c FavoriteServiceServerImpl) FavoriteList(ctx context.Context, req *favori
 		logging.SetSpanError(span, err)
 
 		return &favorite.FavoriteListResponse{
-			StatusCode: strings.FavorivateServiceErrorCode,
-			StatusMsg:  strings.FavorivateServiceError,
+			StatusCode: strings.FavoriteServiceErrorCode,
+			StatusMsg:  strings.FavoriteServiceError,
 		}, err
 	}
 	if len(arr) == 0 {
@@ -237,8 +325,8 @@ func (c FavoriteServiceServerImpl) FavoriteList(ctx context.Context, req *favori
 		}).Errorf("feed Service error")
 		logging.SetSpanError(span, err)
 		return &favorite.FavoriteListResponse{
-			StatusCode: strings.FavorivateServiceErrorCode,
-			StatusMsg:  strings.FavorivateServiceError,
+			StatusCode: strings.FavoriteServiceErrorCode,
+			StatusMsg:  strings.FavoriteServiceError,
 		}, err
 	}
 
@@ -273,8 +361,8 @@ func (c FavoriteServiceServerImpl) IsFavorite(ctx context.Context, req *favorite
 		}).Errorf("feed Service error")
 		logging.SetSpanError(span, err)
 		return &favorite.IsFavoriteResponse{
-			StatusCode: strings.FavorivateServiceErrorCode,
-			StatusMsg:  strings.FavorivateServiceError,
+			StatusCode: strings.FavoriteServiceErrorCode,
+			StatusMsg:  strings.FavoriteServiceError,
 		}, err
 	}
 
@@ -294,8 +382,8 @@ func (c FavoriteServiceServerImpl) IsFavorite(ctx context.Context, req *favorite
 		logging.SetSpanError(span, err)
 
 		return &favorite.IsFavoriteResponse{
-			StatusCode: strings.FavorivateServiceErrorCode,
-			StatusMsg:  strings.FavorivateServiceError,
+			StatusCode: strings.FavoriteServiceErrorCode,
+			StatusMsg:  strings.FavoriteServiceError,
 		}, err
 	}
 
@@ -340,8 +428,8 @@ func (c FavoriteServiceServerImpl) CountFavorite(ctx context.Context, req *favor
 		}).Errorf("feed Service error")
 		logging.SetSpanError(span, err)
 		return &favorite.CountFavoriteResponse{
-			StatusCode: strings.FavorivateServiceErrorCode,
-			StatusMsg:  strings.FavorivateServiceError,
+			StatusCode: strings.FavoriteServiceErrorCode,
+			StatusMsg:  strings.FavoriteServiceError,
 		}, err
 	}
 	videoId := fmt.Sprintf("%svideo_like_%d", config.EnvCfg.RedisPrefix, req.VideoId)
@@ -357,8 +445,8 @@ func (c FavoriteServiceServerImpl) CountFavorite(ctx context.Context, req *favor
 		logging.SetSpanError(span, err)
 
 		return &favorite.CountFavoriteResponse{
-			StatusCode: strings.FavorivateServiceErrorCode,
-			StatusMsg:  strings.FavorivateServiceError,
+			StatusCode: strings.FavoriteServiceErrorCode,
+			StatusMsg:  strings.FavoriteServiceError,
 		}, err
 	} else {
 		num, _ = strconv.Atoi(value)
@@ -398,8 +486,8 @@ func (c FavoriteServiceServerImpl) CountUserFavorite(ctx context.Context, req *f
 		logging.SetSpanError(span, err)
 
 		return &favorite.CountUserFavoriteResponse{
-			StatusCode: strings.FavorivateServiceErrorCode,
-			StatusMsg:  strings.FavorivateServiceError,
+			StatusCode: strings.FavoriteServiceErrorCode,
+			StatusMsg:  strings.FavoriteServiceError,
 		}, err
 	}
 	user_like_id := fmt.Sprintf("%suser_like_%d", config.EnvCfg.RedisPrefix, req.UserId)
@@ -416,8 +504,8 @@ func (c FavoriteServiceServerImpl) CountUserFavorite(ctx context.Context, req *f
 		logging.SetSpanError(span, err)
 
 		return &favorite.CountUserFavoriteResponse{
-			StatusCode: strings.FavorivateServiceErrorCode,
-			StatusMsg:  strings.FavorivateServiceError,
+			StatusCode: strings.FavoriteServiceErrorCode,
+			StatusMsg:  strings.FavoriteServiceError,
 		}, err
 	} else {
 		num = value
@@ -459,8 +547,8 @@ func (c FavoriteServiceServerImpl) CountUserTotalFavorited(ctx context.Context, 
 		logging.SetSpanError(span, err)
 
 		return &favorite.CountUserTotalFavoritedResponse{
-			StatusCode: strings.FavorivateServiceErrorCode,
-			StatusMsg:  strings.FavorivateServiceError,
+			StatusCode: strings.FavoriteServiceErrorCode,
+			StatusMsg:  strings.FavoriteServiceError,
 		}, err
 	}
 	user_liked_id := fmt.Sprintf("%suser_liked_%d", config.EnvCfg.RedisPrefix, req.UserId)
@@ -479,8 +567,8 @@ func (c FavoriteServiceServerImpl) CountUserTotalFavorited(ctx context.Context, 
 		logging.SetSpanError(span, err)
 
 		return &favorite.CountUserTotalFavoritedResponse{
-			StatusCode: strings.FavorivateServiceErrorCode,
-			StatusMsg:  strings.FavorivateServiceError,
+			StatusCode: strings.FavoriteServiceErrorCode,
+			StatusMsg:  strings.FavoriteServiceError,
 		}, err
 	} else {
 		num, _ = strconv.Atoi(value)

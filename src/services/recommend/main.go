@@ -4,21 +4,20 @@ import (
 	"GuGoTik/src/constant/config"
 	"GuGoTik/src/extra/profiling"
 	"GuGoTik/src/extra/tracing"
-	"GuGoTik/src/rpc/favorite"
 	"GuGoTik/src/rpc/health"
+	"GuGoTik/src/rpc/recommend"
 	healthImpl "GuGoTik/src/services/health"
 	"GuGoTik/src/utils/consul"
 	"GuGoTik/src/utils/logging"
 	"context"
-	"net"
-
 	"github.com/sirupsen/logrus"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
+	"net"
 )
 
 func main() {
-	tp, err := tracing.SetTraceProvider(config.FavoriteRpcServerName)
+	tp, err := tracing.SetTraceProvider(config.RecommendRpcServiceName)
 
 	if err != nil {
 		logging.Logger.WithFields(logrus.Fields{
@@ -34,34 +33,29 @@ func main() {
 	}()
 
 	// Configure Pyroscope
-	profiling.InitPyroscope("GuGoTik.LikeService")
+	profiling.InitPyroscope("GuGoTik.RecommendService")
 
 	s := grpc.NewServer(
 		grpc.UnaryInterceptor(otelgrpc.UnaryServerInterceptor()),
 	)
 
-	log := logging.LogService(config.FavoriteRpcServerName)
-
-	lis, err := net.Listen("tcp", config.EnvCfg.PodIpAddr+config.FavoriteRpcServerPort)
+	log := logging.LogService(config.RecommendRpcServiceName)
+	lis, err := net.Listen("tcp", config.EnvCfg.PodIpAddr+config.RecommendRpcServicePort)
 
 	if err != nil {
-		log.Panicf("Rpc %s listen happens error: %v", config.FavoriteRpcServerName, err)
+		log.Panicf("Rpc %s listen happens error: %v", config.RecommendRpcServiceName, err)
 	}
 
-	var srv FavoriteServiceServerImpl
+	var srv RecommendServiceImpl
 	var probe healthImpl.ProbeImpl
-
-	favorite.RegisterFavoriteServiceServer(s, srv)
-
+	recommend.RegisterRecommendServiceServer(s, srv)
 	health.RegisterHealthServer(s, &probe)
-	defer CloseMQConn()
-	if err := consul.RegisterConsul(config.FavoriteRpcServerName, config.FavoriteRpcServerPort); err != nil {
-		log.Panicf("Rpc %s register consul happens error for: %v", config.FavoriteRpcServerName, err)
+	if err := consul.RegisterConsul(config.RecommendRpcServiceName, config.RecommendRpcServicePort); err != nil {
+		log.Panicf("Rpc %s register consul happens error for: %v", config.RecommendRpcServiceName, err)
 	}
-
 	srv.New()
-	log.Infof("Rpc %s is running at %s now", config.FavoriteRpcServerName, config.FavoriteRpcServerPort)
+	log.Infof("Rpc %s is running at %s now", config.RecommendRpcServiceName, config.RecommendRpcServicePort)
 	if err := s.Serve(lis); err != nil {
-		log.Panicf("Rpc %s listen happens error for: %v", config.FavoriteRpcServerName, err)
+		log.Panicf("Rpc %s listen happens error for: %v", config.RecommendRpcServiceName, err)
 	}
 }
