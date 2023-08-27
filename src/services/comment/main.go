@@ -50,6 +50,7 @@ func main() {
 	var probe healthImpl.ProbeImpl
 	comment.RegisterCommentServiceServer(s, srv)
 	health.RegisterHealthServer(s, &probe)
+	defer CloseMQConn()
 	if err := consul.RegisterConsul(config.CommentRpcServerName, config.CommentRpcServerPort); err != nil {
 		log.Panicf("Rpc %s register consul happens error for: %v", config.CommentRpcServerName, err)
 	}

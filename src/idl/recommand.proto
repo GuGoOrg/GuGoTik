@@ -1,0 +1,17 @@
+syntax = "proto3";
+package rpc.recommend;
+option go_package = "GuGoTik/src/rpc/recommend";
+
+message RecommendRequest {
+  uint32 user_id = 1; // 用户id
+}
+
+message RecommendResponse {
+  int32 status_code = 1; // 状态码，0-成功，其他值-失败
+  string status_msg = 2; // 返回状态描述
+  repeated uint32 video_list = 3; // 视频 Id 列表
+}
+
+service RecommendService {
+  rpc GetRecommendInformation(RecommendRequest) returns (RecommendResponse) {}
+}

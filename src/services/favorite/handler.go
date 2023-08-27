@@ -4,14 +4,18 @@ import (
 	"GuGoTik/src/constant/config"
 	"GuGoTik/src/constant/strings"
 	"GuGoTik/src/extra/tracing"
+	"GuGoTik/src/models"
 	"GuGoTik/src/rpc/favorite"
 	"GuGoTik/src/rpc/feed"
 	"GuGoTik/src/rpc/user"
 	redis2 "GuGoTik/src/storage/redis"
 	grpc2 "GuGoTik/src/utils/grpc"
 	"GuGoTik/src/utils/logging"
+	"GuGoTik/src/utils/rabbitmq"
 	"context"
+	"encoding/json"
 	"fmt"
+	"github.com/streadway/amqp"
 	"strconv"
 	"time"
 
@@ -22,8 +26,18 @@ import (
 var feedClient feed.FeedServiceClient
 var userClient user.UserServiceClient
 
+var conn *amqp.Connection
+
+var channel *amqp.Channel
+
 type FavoriteServiceServerImpl struct {
 	favorite.FavoriteServiceServer
+}
+
+func exitOnError(err error) {
+	if err != nil {
+		panic(err)
+	}
 }
 
 func (c FavoriteServiceServerImpl) New() {
@@ -31,6 +45,67 @@ func (c FavoriteServiceServerImpl) New() {
 	feedClient = feed.NewFeedServiceClient(feedRpcConn)
 	userRpcConn := grpc2.Connect(config.UserRpcServerName)
 	userClient = user.NewUserServiceClient(userRpcConn)
+
+	var err error
+
+	conn, err = amqp.Dial(rabbitmq.BuildMQConnAddr())
+	exitOnError(err)
+
+	channel, err = conn.Channel()
+	exitOnError(err)
+
+	err = channel.ExchangeDeclare(
+		strings.EventExchange,
+		"topic",
+		true,
+		false,
+		false,
+		false,
+		nil,
+	)
+	exitOnError(err)
+}
+
+func CloseMQConn() {
+	if err := conn.Close(); err != nil {
+		panic(err)
+	}
+
+	if err := channel.Close(); err != nil {
+		panic(err)
+	}
+}
+
+func produceFavorite(ctx context.Context, event models.RecommendEvent) {
+	ctx, span := tracing.Tracer.Start(ctx, "FavoriteEventPublisher")
+	defer span.End()
+	logger := logging.LogService("FavoriteService.FavoriteEventPublisher").WithContext(ctx)
+	data, err := json.Marshal(event)
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"err": err,
+		}).Errorf("Error when marshal the event model")
+		logging.SetSpanError(span, err)
+		return
+	}
+
+	err = channel.Publish(
+		strings.EventExchange,
+		strings.FavoriteActionEvent,
+		false,
+		false,
+		amqp.Publishing{
+			ContentType: "text/plain",
+			Body:        data,
+		})
+
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"err": err,
+		}).Errorf("Error when publishing the event model")
+		logging.SetSpanError(span, err)
+		return
+	}
 }
 
 func (c FavoriteServiceServerImpl) FavoriteAction(ctx context.Context, req *favorite.FavoriteRequest) (resp *favorite.FavoriteResponse, err error) {
@@ -106,6 +181,14 @@ func (c FavoriteServiceServerImpl) FavoriteAction(ctx context.Context, req *favo
 				pipe.ZAdd(ctx, user_like_Id, redis.Z{Score: float64(time.Now().Unix()), Member: req.VideoId})
 				return nil
 			})
+			go func() {
+				produceFavorite(ctx, models.RecommendEvent{
+					ActorId: req.ActorId,
+					VideoId: []uint32{req.VideoId},
+					Type:    1,
+					Source:  config.FavoriteRpcServerName,
+				})
+			}()
 			if err == redis.Nil {
 				err = nil
 			}

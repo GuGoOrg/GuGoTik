@@ -152,6 +152,7 @@ func Consume(channel *amqp.Channel) {
 			logger.WithFields(logrus.Fields{
 				"err": err,
 			}).Errorf("Error when unmarshaling the prepare json body.")
+			return
 		}
 
 		// 截取封面

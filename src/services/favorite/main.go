@@ -54,7 +54,7 @@ func main() {
 	favorite.RegisterFavoriteServiceServer(s, srv)
 
 	health.RegisterHealthServer(s, &probe)
-
+	defer CloseMQConn()
 	if err := consul.RegisterConsul(config.FavoriteRpcServerName, config.FavoriteRpcServerPort); err != nil {
 		log.Panicf("Rpc %s register consul happens error for: %v", config.FavoriteRpcServerName, err)
 	}
