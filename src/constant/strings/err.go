@@ -52,6 +52,10 @@ const (
 	FavorivateServiceError           = "点赞服务内部出错"
 	UserServiceInnerErrorCode        = 50021
 	UserServiceInnerError            = "登录服务出现内部错误，请稍后重试！"
+	AlreadyFollowingErrorCode        = 50022
+	AlreadyFollowingError            = "无法关注已关注的人"
+	UnableToGetFriendListErrorCode   = 50023
+	UnableToGetFriendListError       = "无法查询到好友列表"
 )
 
 // Expected Error
@@ -74,4 +78,6 @@ const (
 	FavorivateServiceDuplicateError = "不能重复点赞"
 	FavorivateServiceCancelCode     = 10009
 	FavorivateServiceCancelError    = "没有点赞,不能取消点赞"
+	FollowLimitedCode               = 10010
+	FollowLimited                   = "关注频繁，请稍后再试！"
 )
