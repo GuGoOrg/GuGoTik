@@ -497,7 +497,6 @@ func (r RelationServiceImpl) GetFriendList(ctx context.Context, request *relatio
 				break
 			}
 			followingMap[uint32(idInt)] = true
-			fmt.Println(id)
 		}
 	}
 
@@ -560,7 +559,6 @@ func (r RelationServiceImpl) GetFriendList(ctx context.Context, request *relatio
 				break
 			}
 			followerIdListInt[index] = uint32(idInt)
-			fmt.Println(idInt)
 		}
 	}
 
@@ -634,10 +632,6 @@ func (r RelationServiceImpl) GetFriendList(ctx context.Context, request *relatio
 	}
 
 	wg.Wait()
-
-	for _, friend := range mutualFriends {
-		fmt.Println(friend.Id)
-	}
 
 	resp = &relation.FriendListResponse{
 		StatusCode: strings.ServiceOKCode,
@@ -723,6 +717,10 @@ func (r RelationServiceImpl) GetFollowList(ctx context.Context, request *relatio
 				"err": err,
 			}).Errorf("failed to convert string to int")
 			logging.SetSpanError(span, err)
+			resp = &relation.FollowListResponse{
+				StatusCode: strings.UnableToGetFollowListErrorCode,
+				StatusMsg:  strings.UnableToGetFollowListError,
+			}
 			return
 		}
 	}
@@ -746,10 +744,6 @@ func (r RelationServiceImpl) GetFollowList(ctx context.Context, request *relatio
 		UserList:   rFollowList,
 	}
 
-	for _, v := range rFollowList {
-		fmt.Println(v.Id)
-	}
-
 	return
 }
 
@@ -760,7 +754,6 @@ func (r RelationServiceImpl) GetFollowerList(ctx context.Context, request *relat
 
 	cacheKey := config.EnvCfg.RedisPrefix + fmt.Sprintf("follower_list_%d", request.UserId)
 	followerIdList, err := redis2.Client.SMembers(ctx, cacheKey).Result()
-	fmt.Println(len(followerIdList))
 	followerIdListInt := make([]uint32, 0, len(followerIdList))
 	var followerList []models.Relation
 
@@ -794,6 +787,10 @@ func (r RelationServiceImpl) GetFollowerList(ctx context.Context, request *relat
 				"err": err,
 			}).Errorf("failed to convert string to int")
 			logging.SetSpanError(span, err)
+			resp = &relation.FollowerListResponse{
+				StatusCode: strings.UnableToGetFollowerListErrorCode,
+				StatusMsg:  strings.UnableToGetFollowerListError,
+			}
 			return
 		}
 	}
@@ -815,12 +812,6 @@ func (r RelationServiceImpl) GetFollowerList(ctx context.Context, request *relat
 		StatusCode: strings.ServiceOKCode,
 		StatusMsg:  strings.ServiceOK,
 		UserList:   rFollowerList,
-	}
-
-	fmt.Println(len(rFollowerList))
-
-	for _, v := range rFollowerList {
-		fmt.Println(v.Id)
 	}
 
 	return
