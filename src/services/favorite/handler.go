@@ -133,8 +133,8 @@ func (c FavoriteServiceServerImpl) FavoriteAction(ctx context.Context, req *favo
 		logging.SetSpanError(span, err)
 
 		return &favorite.FavoriteResponse{
-			StatusCode: strings.FavorivateServiceErrorCode,
-			StatusMsg:  strings.FavorivateServiceError,
+			StatusCode: strings.FavoriteServiceErrorCode,
+			StatusMsg:  strings.FavoriteServiceError,
 		}, err
 	}
 
@@ -163,8 +163,8 @@ func (c FavoriteServiceServerImpl) FavoriteAction(ctx context.Context, req *favo
 		//重复点赞
 		if value > 0 {
 			resp = &favorite.FavoriteResponse{
-				StatusCode: strings.FavorivateServiceDuplicateCode,
-				StatusMsg:  strings.FavorivateServiceDuplicateError,
+				StatusCode: strings.FavoriteServiceDuplicateCode,
+				StatusMsg:  strings.FavoriteServiceDuplicateError,
 			}
 			logger.WithFields(logrus.Fields{
 				"ActorId":  req.ActorId,
@@ -197,8 +197,8 @@ func (c FavoriteServiceServerImpl) FavoriteAction(ctx context.Context, req *favo
 		//没有的点过赞
 		if value == 0 {
 			resp = &favorite.FavoriteResponse{
-				StatusCode: strings.FavorivateServiceCancelCode,
-				StatusMsg:  strings.FavorivateServiceCancelError,
+				StatusCode: strings.FavoriteServiceCancelCode,
+				StatusMsg:  strings.FavoriteServiceCancelError,
 			}
 
 			logger.WithFields(logrus.Fields{
@@ -233,8 +233,8 @@ func (c FavoriteServiceServerImpl) FavoriteAction(ctx context.Context, req *favo
 		logging.SetSpanError(span, err)
 
 		return &favorite.FavoriteResponse{
-			StatusCode: strings.FavorivateServiceErrorCode,
-			StatusMsg:  strings.FavorivateServiceError,
+			StatusCode: strings.FavoriteServiceErrorCode,
+			StatusMsg:  strings.FavoriteServiceError,
 		}, err
 	}
 	resp = &favorite.FavoriteResponse{
@@ -273,8 +273,8 @@ func (c FavoriteServiceServerImpl) FavoriteList(ctx context.Context, req *favori
 		logging.SetSpanError(span, err)
 
 		return &favorite.FavoriteListResponse{
-			StatusCode: strings.FavorivateServiceErrorCode,
-			StatusMsg:  strings.FavorivateServiceError,
+			StatusCode: strings.FavoriteServiceErrorCode,
+			StatusMsg:  strings.FavoriteServiceError,
 		}, err
 	}
 
@@ -288,8 +288,8 @@ func (c FavoriteServiceServerImpl) FavoriteList(ctx context.Context, req *favori
 		logging.SetSpanError(span, err)
 
 		return &favorite.FavoriteListResponse{
-			StatusCode: strings.FavorivateServiceErrorCode,
-			StatusMsg:  strings.FavorivateServiceError,
+			StatusCode: strings.FavoriteServiceErrorCode,
+			StatusMsg:  strings.FavoriteServiceError,
 		}, err
 	}
 	if len(arr) == 0 {
@@ -320,8 +320,8 @@ func (c FavoriteServiceServerImpl) FavoriteList(ctx context.Context, req *favori
 		}).Errorf("feed Service error")
 		logging.SetSpanError(span, err)
 		return &favorite.FavoriteListResponse{
-			StatusCode: strings.FavorivateServiceErrorCode,
-			StatusMsg:  strings.FavorivateServiceError,
+			StatusCode: strings.FavoriteServiceErrorCode,
+			StatusMsg:  strings.FavoriteServiceError,
 		}, err
 	}
 
@@ -356,8 +356,8 @@ func (c FavoriteServiceServerImpl) IsFavorite(ctx context.Context, req *favorite
 		}).Errorf("feed Service error")
 		logging.SetSpanError(span, err)
 		return &favorite.IsFavoriteResponse{
-			StatusCode: strings.FavorivateServiceErrorCode,
-			StatusMsg:  strings.FavorivateServiceError,
+			StatusCode: strings.FavoriteServiceErrorCode,
+			StatusMsg:  strings.FavoriteServiceError,
 		}, err
 	}
 
@@ -377,8 +377,8 @@ func (c FavoriteServiceServerImpl) IsFavorite(ctx context.Context, req *favorite
 		logging.SetSpanError(span, err)
 
 		return &favorite.IsFavoriteResponse{
-			StatusCode: strings.FavorivateServiceErrorCode,
-			StatusMsg:  strings.FavorivateServiceError,
+			StatusCode: strings.FavoriteServiceErrorCode,
+			StatusMsg:  strings.FavoriteServiceError,
 		}, err
 	}
 
@@ -423,8 +423,8 @@ func (c FavoriteServiceServerImpl) CountFavorite(ctx context.Context, req *favor
 		}).Errorf("feed Service error")
 		logging.SetSpanError(span, err)
 		return &favorite.CountFavoriteResponse{
-			StatusCode: strings.FavorivateServiceErrorCode,
-			StatusMsg:  strings.FavorivateServiceError,
+			StatusCode: strings.FavoriteServiceErrorCode,
+			StatusMsg:  strings.FavoriteServiceError,
 		}, err
 	}
 	videoId := fmt.Sprintf("%svideo_like_%d", config.EnvCfg.RedisPrefix, req.VideoId)
@@ -440,8 +440,8 @@ func (c FavoriteServiceServerImpl) CountFavorite(ctx context.Context, req *favor
 		logging.SetSpanError(span, err)
 
 		return &favorite.CountFavoriteResponse{
-			StatusCode: strings.FavorivateServiceErrorCode,
-			StatusMsg:  strings.FavorivateServiceError,
+			StatusCode: strings.FavoriteServiceErrorCode,
+			StatusMsg:  strings.FavoriteServiceError,
 		}, err
 	} else {
 		num, _ = strconv.Atoi(value)
@@ -481,8 +481,8 @@ func (c FavoriteServiceServerImpl) CountUserFavorite(ctx context.Context, req *f
 		logging.SetSpanError(span, err)
 
 		return &favorite.CountUserFavoriteResponse{
-			StatusCode: strings.FavorivateServiceErrorCode,
-			StatusMsg:  strings.FavorivateServiceError,
+			StatusCode: strings.FavoriteServiceErrorCode,
+			StatusMsg:  strings.FavoriteServiceError,
 		}, err
 	}
 	user_like_id := fmt.Sprintf("%suser_like_%d", config.EnvCfg.RedisPrefix, req.UserId)
@@ -499,8 +499,8 @@ func (c FavoriteServiceServerImpl) CountUserFavorite(ctx context.Context, req *f
 		logging.SetSpanError(span, err)
 
 		return &favorite.CountUserFavoriteResponse{
-			StatusCode: strings.FavorivateServiceErrorCode,
-			StatusMsg:  strings.FavorivateServiceError,
+			StatusCode: strings.FavoriteServiceErrorCode,
+			StatusMsg:  strings.FavoriteServiceError,
 		}, err
 	} else {
 		num = value
@@ -542,8 +542,8 @@ func (c FavoriteServiceServerImpl) CountUserTotalFavorited(ctx context.Context, 
 		logging.SetSpanError(span, err)
 
 		return &favorite.CountUserTotalFavoritedResponse{
-			StatusCode: strings.FavorivateServiceErrorCode,
-			StatusMsg:  strings.FavorivateServiceError,
+			StatusCode: strings.FavoriteServiceErrorCode,
+			StatusMsg:  strings.FavoriteServiceError,
 		}, err
 	}
 	user_liked_id := fmt.Sprintf("%suser_liked_%d", config.EnvCfg.RedisPrefix, req.UserId)
@@ -562,8 +562,8 @@ func (c FavoriteServiceServerImpl) CountUserTotalFavorited(ctx context.Context, 
 		logging.SetSpanError(span, err)
 
 		return &favorite.CountUserTotalFavoritedResponse{
-			StatusCode: strings.FavorivateServiceErrorCode,
-			StatusMsg:  strings.FavorivateServiceError,
+			StatusCode: strings.FavoriteServiceErrorCode,
+			StatusMsg:  strings.FavoriteServiceError,
 		}, err
 	} else {
 		num, _ = strconv.Atoi(value)

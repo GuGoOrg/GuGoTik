@@ -13,6 +13,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"github.com/golang/freetype/truetype"
 	"github.com/sirupsen/logrus"
 	"github.com/streadway/amqp"
 	"gorm.io/gorm/clause"
@@ -26,8 +27,6 @@ import (
 	"sync"
 
 	"github.com/golang/freetype"
-	"github.com/golang/freetype/truetype"
-	"golang.org/x/image/math/fixed"
 )
 
 func exitOnError(err error) {
@@ -129,6 +128,8 @@ func main() {
 	go SummaryConsume(ch)
 	logger = logging.LogService("VideoSummary")
 	logger.Infof(strings.VideoSummary + " is running now")
+
+	ConnectServiceClient()
 
 	wg := sync.WaitGroup{}
 	wg.Add(1)
@@ -288,8 +289,8 @@ func textWatermark(ctx context.Context, video *models.RawVideo) (string, error) 
 	fontSize := 40
 
 	// 设置图片大小
-	imgWidth := 400
-	imgHeight := 200
+	imgWidth := 800
+	imgHeight := 60
 
 	// 设置文本内容
 	var user models.User
@@ -304,7 +305,7 @@ func textWatermark(ctx context.Context, video *models.RawVideo) (string, error) 
 	text := user.UserName
 
 	// 设置文本颜色
-	textColor := color.RGBA{R: 255, G: 255, B: 255, A: 255}
+	textColor := color.RGBA{R: 255, G: 255, B: 255, A: 128}
 
 	// 创建一个新的RGBA图片
 	img := image.NewRGBA(image.Rect(0, 0, imgWidth, imgHeight))
@@ -321,13 +322,9 @@ func textWatermark(ctx context.Context, video *models.RawVideo) (string, error) 
 	c.SetDst(img)
 	c.SetSrc(image.NewUniform(textColor))
 
-	// 计算文本的宽度和高度
-	textWidth := int(c.PointToFixed(float64(fontSize)) >> 6)
-	textHeight := int(font.Bounds(fixed.Int26_6(fontSize)).Max.Y - font.Bounds(fixed.Int26_6(fontSize)).Min.Y)
-
 	// 计算文本的位置
-	textX := (imgWidth - textWidth) / 4
-	textY := (imgHeight - textHeight) / 2
+	textX := 10
+	textY := 50
 
 	// 在图片上绘制文本
 	pt := freetype.Pt(textX, textY)
@@ -376,7 +373,7 @@ func addWatermarkToVideo(ctx context.Context, video *models.RawVideo, WatermarkP
 	cmdArgs := []string{
 		"-i", RawFilePath,
 		"-i", WatermarkPath,
-		"-filter_complex", "[0:v][1:v]overlay=W-w-10:10",
+		"-filter_complex", "[0:v][1:v]overlay=10:10",
 		"-f", "matroska", "-",
 	}
 
