@@ -13,5 +13,5 @@ spec:
       targetPort: 37000
   selector:
     name: gugotik-http-service
-    branch: dev
+    branch: master
   type: ClusterIP
