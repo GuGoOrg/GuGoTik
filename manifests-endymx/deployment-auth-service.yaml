@@ -28,7 +28,7 @@ spec:
             imagePullPolicy: IfNotPresent
             name: gugotik-auth-service
             command:
-              - ./services/AuthService
+              - ./services/auth/AuthService
             envFrom:
               -   configMapRef:
                     name: env-config

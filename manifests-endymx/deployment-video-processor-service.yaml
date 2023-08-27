@@ -21,6 +21,10 @@ spec:
         dream-app: gugotik-video-service
         dream-unit: gugotik-video-service
     spec:
+      volumes:
+        - name: volume
+          persistentVolumeClaim:
+            claimName: storage
       imagePullSecrets:
         -   name: reg-cred
       containers:
@@ -47,4 +51,7 @@ spec:
               requests:
                 cpu: 100m
                 memory: 8Mi
+            volumeMounts:
+              - mountPath: /data/apps/gugotik-service-bundle/data
+                name: volume
       terminationGracePeriodSeconds: 30
