@@ -30,7 +30,7 @@ func init() {
 			PrepareStmt: true,
 			Logger:      gormLogrus,
 			NamingStrategy: schema.NamingStrategy{
-				TablePrefix: config.EnvCfg.PostgreSQLSchema,
+				TablePrefix: config.EnvCfg.PostgreSQLSchema + ".",
 			},
 		},
 	); err != nil {
