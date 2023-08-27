@@ -30,8 +30,8 @@ spec:
             command:
               - ./services/auth/AuthService
             envFrom:
-              -   configMapRef:
-                    name: env-config
+              - configMapRef:
+                  name: env-config
               - configMapRef:
                   name: gugotik-env
               - secretRef:
