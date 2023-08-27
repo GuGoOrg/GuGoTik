@@ -395,7 +395,10 @@ func addComment(ctx context.Context, logger *logrus.Entry, span trace.Span, pUse
 	// Rate comment
 	go rateComment(logger, span, pCommentText, rComment.ID)
 
+	wg := sync.WaitGroup{}
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		produceComment(ctx, models.RecommendEvent{
 			ActorId: pUser.Id,
 			VideoId: []uint32{pVideoID},
@@ -403,6 +406,8 @@ func addComment(ctx context.Context, logger *logrus.Entry, span trace.Span, pUse
 			Source:  config.CommentRpcServerName,
 		})
 	}()
+	wg.Wait()
+
 	resp = &comment.ActionCommentResponse{
 		StatusCode: strings.ServiceOKCode,
 		StatusMsg:  strings.ServiceOK,
@@ -556,7 +561,7 @@ func reindexCommentList(commentList *[]models.Comment) {
 	var commonComments []models.Comment
 
 	for _, c := range *commentList {
-		if c.UserId == 999999 {
+		if c.UserId == 1 {
 			magicComments = append(magicComments, c)
 		} else {
 			commonComments = append(commonComments, c)

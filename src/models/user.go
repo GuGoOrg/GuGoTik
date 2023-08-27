@@ -41,10 +41,10 @@ func init() {
 
 	// Create magic user (id = 0): show video summary and keywords, and act as ChatGPT
 	magicUser := User{
-		ID:              999999,
+		ID:              1,
 		UserName:        "ChatGPT",
 		Password:        "chatgpt",
-		Role:            0,
+		Role:            2,
 		Avatar:          "https://maples31-blog.oss-cn-beijing.aliyuncs.com/img/ChatGPT_logo.svg.png",
 		BackgroundImage: "https://maples31-blog.oss-cn-beijing.aliyuncs.com/img/ChatGPT.jpg",
 		Signature:       "GuGoTik 小助手",

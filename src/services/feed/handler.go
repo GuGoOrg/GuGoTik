@@ -182,7 +182,10 @@ func (s FeedServiceImpl) ListVideos(ctx context.Context, request *feed.ListFeedR
 		}
 		return resp, err
 	}
+	wg := sync.WaitGroup{}
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		var videoLists []uint32
 		for _, item := range videos {
 			videoLists = append(videoLists, item.Id)
@@ -194,6 +197,7 @@ func (s FeedServiceImpl) ListVideos(ctx context.Context, request *feed.ListFeedR
 			Source:  config.FeedRpcServerName,
 		})
 	}()
+	wg.Wait()
 	resp = &feed.ListFeedResponse{
 		StatusCode: strings.ServiceOKCode,
 		StatusMsg:  strings.ServiceOK,
@@ -269,8 +273,58 @@ func (s FeedServiceImpl) QueryVideoExisted(ctx context.Context, req *feed.VideoE
 	return
 }
 
-// QueryVideoSummaryAndKeywords TODO
 func (s FeedServiceImpl) QueryVideoSummaryAndKeywords(ctx context.Context, req *feed.QueryVideoSummaryAndKeywordsRequest) (resp *feed.QueryVideoSummaryAndKeywordsResponse, err error) {
+	ctx, span := tracing.Tracer.Start(ctx, "QueryVideoSummaryAndKeywordsService")
+	defer span.End()
+	logger := logging.LogService("FeedService.QueryVideoSummaryAndKeywords").WithContext(ctx)
+
+	videoExistRes, err := s.QueryVideoExisted(ctx, &feed.VideoExistRequest{
+		VideoId: req.VideoId,
+	})
+
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"VideoId": req.VideoId,
+		}).Errorf("Cannot check if the video exists")
+		logging.SetSpanError(span, err)
+
+		resp = &feed.QueryVideoSummaryAndKeywordsResponse{
+			StatusCode: strings.VideoServiceInnerErrorCode,
+			StatusMsg:  strings.VideoServiceInnerError,
+		}
+		return
+	}
+
+	if !videoExistRes.Existed {
+		resp = &feed.QueryVideoSummaryAndKeywordsResponse{
+			StatusCode: strings.UnableToQueryVideoErrorCode,
+			StatusMsg:  strings.UnableToQueryVideoError,
+		}
+		return
+	}
+
+	video := models.Video{}
+	result := database.Client.WithContext(ctx).Where("id = ?", req.VideoId).First(&video)
+	if result.Error != nil {
+		logger.WithFields(logrus.Fields{
+			"VideoId": req.VideoId,
+		}).Errorf("Cannot get video from database")
+		logging.SetSpanError(span, err)
+
+		resp = &feed.QueryVideoSummaryAndKeywordsResponse{
+			StatusCode: strings.VideoServiceInnerErrorCode,
+			StatusMsg:  strings.VideoServiceInnerError,
+		}
+		return
+	}
+
+	resp = &feed.QueryVideoSummaryAndKeywordsResponse{
+		StatusCode: strings.ServiceOKCode,
+		StatusMsg:  strings.ServiceOK,
+		Summary:    video.Summary,
+		Keywords:   video.Keywords,
+	}
+
 	return
 }
 

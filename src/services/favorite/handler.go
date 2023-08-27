@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"github.com/streadway/amqp"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -181,7 +182,10 @@ func (c FavoriteServiceServerImpl) FavoriteAction(ctx context.Context, req *favo
 				pipe.ZAdd(ctx, user_like_Id, redis.Z{Score: float64(time.Now().Unix()), Member: req.VideoId})
 				return nil
 			})
+			wg := sync.WaitGroup{}
+			wg.Add(1)
 			go func() {
+				defer wg.Done()
 				produceFavorite(ctx, models.RecommendEvent{
 					ActorId: req.ActorId,
 					VideoId: []uint32{req.VideoId},
@@ -189,6 +193,7 @@ func (c FavoriteServiceServerImpl) FavoriteAction(ctx context.Context, req *favo
 					Source:  config.FavoriteRpcServerName,
 				})
 			}()
+			wg.Wait()
 			if err == redis.Nil {
 				err = nil
 			}
