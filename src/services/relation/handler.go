@@ -24,7 +24,7 @@ import (
 
 var userClient user.UserServiceClient
 
-var actionRelationLimitKeyPrefix = config.EnvCfg.RedisPrefix + "comment_freq_limit"
+var actionRelationLimitKeyPrefix = config.EnvCfg.RedisPrefix + "relation_freq_limit"
 
 const actionRelationMaxQPS = 3
 

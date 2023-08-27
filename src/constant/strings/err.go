@@ -27,7 +27,7 @@ const (
 	UnableToDeleteCommentErrorCode   = 50008
 	UnableToDeleteCommentError       = "无法删除视频评论"
 	UnableToAddMessageErrorCode      = 50009
-	UnableToAddMessageRrror          = "发送消息出错"
+	UnableToAddMessageError          = "发送消息出错"
 	UnableToQueryMessageErrorCode    = 50010
 	UnableToQueryMessageError        = "查消息出错"
 	PublishServiceInnerErrorCode     = 50011
