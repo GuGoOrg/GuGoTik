@@ -534,7 +534,7 @@ func isKeywordsExist(videoId uint32) (res bool, keywords string, err error) {
 
 func isMagicUserExist(ctx context.Context, logger *logrus.Entry, span *trace.Span) bool {
 	isMagicUserExistRes, err := userClient.GetUserExistInformation(ctx, &user.UserExistRequest{
-		UserId: 999999,
+		UserId: 1,
 	})
 	if err != nil {
 		logger.WithFields(logrus.Fields{
@@ -554,7 +554,7 @@ func isMagicUserExist(ctx context.Context, logger *logrus.Entry, span *trace.Spa
 
 func addMagicComment(videoId uint32, content string, ctx context.Context, logger *logrus.Entry, span *trace.Span) {
 	_, err := commentClient.ActionComment(ctx, &comment.ActionCommentRequest{
-		ActorId:    999999,
+		ActorId:    1,
 		VideoId:    videoId,
 		ActionType: comment.ActionCommentType_ACTION_COMMENT_TYPE_ADD,
 		Action:     &comment.ActionCommentRequest_CommentText{CommentText: content},
