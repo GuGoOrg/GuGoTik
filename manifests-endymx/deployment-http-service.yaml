@@ -4,41 +4,41 @@ metadata:
   annotations:
     sidecar.jaegertracing.io/inject: 'false'
   labels:
-    app: gugotik-event-service
-  name: gugotik-event-service
+    app: gugotik-http-service
+  name: gugotik-http-service
   namespace: gugotik-service-bundle
 spec:
   selector:
     matchLabels:
-      name: gugotik-event-service
+      name: gugotik-http-service
   template:
     metadata:
       labels:
-        app: gugotik-event-service
+        app: gugotik-http-service
         branch: master
         version: ${BUILD_NUMBER}-${CI_COMMIT_ID}
-        name: gugotik-event-service
-        dream-app: gugotik-event-service
-        dream-unit: gugotik-event-service
+        name: gugotik-http-service
+        dream-app: gugotik-http-service
+        dream-unit: gugotik-http-service
     spec:
       imagePullSecrets:
-        -   name: regcred
+        -   name: reg-cred
       containers:
         -   image: ${IMAGE}
             imagePullPolicy: IfNotPresent
-            name: gugotik-event-service
+            name: gugotik-http-service
             command:
-              - ./services/event/EventService
+              - ./gateway/Gateway
             envFrom:
-              - configMapRef:
-                  name: env-config
+              -   configMapRef:
+                    name: env-config
               - configMapRef:
                   name: gugotik-env
               - secretRef:
                   name: gugotik-secret
             ports:
-              - name: grpc-37003
-                containerPort: 37003
+              - name: http-37000
+                containerPort: 37000
                 protocol: TCP
             resources:
               limits:
