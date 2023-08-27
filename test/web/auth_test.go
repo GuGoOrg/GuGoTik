@@ -36,7 +36,7 @@ func TestRegister(t *testing.T) {
 
 // This Test can only run once.
 func TestDisplayRegister(t *testing.T) {
-	url := "http://127.0.0.1:37000/douyin/user/register?username=epicmo&password=epicmo"
+	url := "http://127.0.0.1:37000/douyin/user/register?username=epicmo4&password=epicmo"
 	method := "POST"
 	client := &http.Client{}
 	req, err := http.NewRequest(method, url, nil)

@@ -9,12 +9,10 @@ import (
 	"GuGoTik/src/rpc/user"
 	"GuGoTik/src/storage/cached"
 	"GuGoTik/src/storage/database"
-	redis2 "GuGoTik/src/storage/redis"
 	grpc2 "GuGoTik/src/utils/grpc"
 	"GuGoTik/src/utils/logging"
 	"context"
 	"fmt"
-	"github.com/go-redis/redis_rate/v10"
 	"github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel/trace"
 	"strconv"
@@ -24,16 +22,21 @@ import (
 
 var userClient user.UserServiceClient
 
-var actionRelationLimitKeyPrefix = config.EnvCfg.RedisPrefix + "relation_freq_limit"
-
-const actionRelationMaxQPS = 3
-
 type RelationServiceImpl struct {
 	relation.RelationServiceServer
 }
 
-func actionRelationLimitKey(userId uint32) string {
-	return fmt.Sprintf("%s-%d", actionRelationLimitKeyPrefix, userId)
+type CacheRelationList struct {
+	rList []models.Relation
+}
+
+func (c *CacheRelationList) IsDirty() bool {
+	return c.rList != nil
+}
+
+// GetID :   use userid as key for cache
+func (c *CacheRelationList) GetID() uint32 {
+	return 0
 }
 
 func (r RelationServiceImpl) New() {
@@ -46,53 +49,6 @@ func (r RelationServiceImpl) Follow(ctx context.Context, request *relation.Relat
 	defer span.End()
 	logger := logging.LogService("RelationService.Follow").WithContext(ctx)
 
-	//限流
-	limiter := redis_rate.NewLimiter(redis2.Client)
-	limiterKey := actionRelationLimitKey(request.ActorId)
-	limiterRes, err := limiter.Allow(ctx, limiterKey, redis_rate.PerSecond(actionRelationMaxQPS))
-	if err != nil {
-		logger.WithFields(logrus.Fields{
-			"err":     err,
-			"ActorId": request.ActorId,
-		}).Errorf("ActionRelation limiter error")
-		logging.SetSpanError(span, err)
-
-		resp = &relation.RelationActionResponse{
-			StatusCode: strings.UnableToFollowErrorCode,
-			StatusMsg:  strings.UnableToFollowError,
-		}
-		return
-	}
-	if limiterRes.Allowed == 0 {
-		logger.WithFields(logrus.Fields{
-			"err":     err,
-			"ActorId": request.ActorId,
-		}).Infof("Follow query too frequently by user %d", request.ActorId)
-
-		resp = &relation.RelationActionResponse{
-			StatusCode: strings.FollowLimitedCode,
-			StatusMsg:  strings.FollowLimited,
-		}
-		return
-	}
-
-	//actor exists
-	userExist, err := userClient.GetUserExistInformation(ctx, &user.UserExistRequest{UserId: request.ActorId})
-
-	if err != nil || userExist.StatusCode != strings.ServiceOKCode {
-		logger.WithFields(logrus.Fields{
-			"err":     err,
-			"ActorId": request.ActorId,
-		}).Errorf("User service error")
-		logging.SetSpanError(span, err)
-
-		resp = &relation.RelationActionResponse{
-			StatusCode: strings.UnableToQueryUserErrorCode,
-			StatusMsg:  strings.UnableToQueryUserError,
-		}
-		return
-	}
-
 	if request.UserId == request.ActorId {
 		resp = &relation.RelationActionResponse{
 			StatusCode: strings.UnableToRelateYourselfErrorCode,
@@ -101,13 +57,16 @@ func (r RelationServiceImpl) Follow(ctx context.Context, request *relation.Relat
 		return
 	}
 
-	userExist, err = userClient.GetUserExistInformation(ctx, &user.UserExistRequest{UserId: request.UserId})
+	userResponse, err := userClient.GetUserInfo(ctx, &user.UserRequest{
+		UserId:  request.UserId,
+		ActorId: request.ActorId,
+	})
 
-	if err != nil || userExist.StatusCode != strings.ServiceOKCode {
+	if err != nil || userResponse.StatusCode != strings.ServiceOKCode {
 		logger.WithFields(logrus.Fields{
 			"err":     err,
 			"ActorId": request.ActorId,
-		}).Errorf("User service error")
+		}).Errorf("failed to get user info")
 		logging.SetSpanError(span, err)
 
 		resp = &relation.RelationActionResponse{
@@ -130,24 +89,6 @@ func (r RelationServiceImpl) Follow(ctx context.Context, request *relation.Relat
 		}
 		tx.Commit()
 	}()
-
-	// 检查是否已经存在相同的记录
-	var count int64
-	if err = tx.Model(&models.Relation{}).Where("actor_id = ? AND user_id = ?", rRelation.ActorId, rRelation.UserId).Count(&count).Error; err != nil {
-		resp = &relation.RelationActionResponse{
-			StatusCode: strings.UnableToFollowErrorCode,
-			StatusMsg:  strings.UnableToFollowError,
-		}
-		logging.SetSpanError(span, err)
-		return
-	}
-	if count > 0 {
-		resp = &relation.RelationActionResponse{
-			StatusCode: strings.AlreadyFollowingErrorCode,
-			StatusMsg:  strings.AlreadyFollowingError,
-		}
-		return
-	}
 
 	if err = tx.Create(&rRelation).Error; err != nil {
 		resp = &relation.RelationActionResponse{
@@ -201,23 +142,6 @@ func (r RelationServiceImpl) Unfollow(ctx context.Context, request *relation.Rel
 	defer span.End()
 	logger := logging.LogService("RelationService.Unfollow").WithContext(ctx)
 
-	//actor exists
-	userExist, err := userClient.GetUserExistInformation(ctx, &user.UserExistRequest{UserId: request.ActorId})
-
-	if err != nil || userExist.StatusCode != strings.ServiceOKCode {
-		logger.WithFields(logrus.Fields{
-			"err":     err,
-			"ActorId": request.ActorId,
-		}).Errorf("User service error")
-		logging.SetSpanError(span, err)
-
-		resp = &relation.RelationActionResponse{
-			StatusCode: strings.UnableToQueryUserErrorCode,
-			StatusMsg:  strings.UnableToQueryUserError,
-		}
-		return
-	}
-
 	if request.UserId == request.ActorId {
 		resp = &relation.RelationActionResponse{
 			StatusCode: strings.UnableToRelateYourselfErrorCode,
@@ -226,13 +150,16 @@ func (r RelationServiceImpl) Unfollow(ctx context.Context, request *relation.Rel
 		return
 	}
 
-	userExist, err = userClient.GetUserExistInformation(ctx, &user.UserExistRequest{UserId: request.UserId})
+	userResponse, err := userClient.GetUserInfo(ctx, &user.UserRequest{
+		UserId:  request.UserId,
+		ActorId: request.ActorId,
+	})
 
-	if err != nil || userExist.StatusCode != strings.ServiceOKCode {
+	if err != nil || userResponse.StatusCode != strings.ServiceOKCode {
 		logger.WithFields(logrus.Fields{
 			"err":     err,
 			"ActorId": request.ActorId,
-		}).Errorf("User service error")
+		}).Errorf("failed to get user info")
 		logging.SetSpanError(span, err)
 
 		resp = &relation.RelationActionResponse{
@@ -270,7 +197,7 @@ func (r RelationServiceImpl) Unfollow(ctx context.Context, request *relation.Rel
 		tx.Commit()
 	}()
 
-	if err = tx.Unscoped().Where(&rRelation).Delete(&rRelation).Error; err != nil {
+	if err = tx.Where(&rRelation).Delete(&rRelation).Error; err != nil {
 		resp = &relation.RelationActionResponse{
 			StatusCode: strings.UnableToUnFollowErrorCode,
 			StatusMsg:  strings.UnableToUnFollowError,
@@ -322,24 +249,8 @@ func (r RelationServiceImpl) CountFollowList(ctx context.Context, request *relat
 	ctx, span := tracing.Tracer.Start(ctx, "CountFollowListService")
 	defer span.End()
 	logger := logging.LogService("RelationService.CountFollowList").WithContext(ctx)
-	//actor exists
-	userExist, err := userClient.GetUserExistInformation(ctx, &user.UserExistRequest{UserId: request.UserId})
 
-	if err != nil || userExist.StatusCode != strings.ServiceOKCode {
-		logger.WithFields(logrus.Fields{
-			"err":    err,
-			"UserId": request.UserId,
-		}).Errorf("not find the user:%v", request.UserId)
-		logging.SetSpanError(span, err)
-
-		resp = &relation.CountFollowListResponse{
-			StatusCode: strings.UnableToQueryUserErrorCode,
-			StatusMsg:  strings.UnableToQueryUserError,
-		}
-		return
-	}
-
-	cacheKey := fmt.Sprintf("follow_count_%d", request.UserId)
+	cacheKey := fmt.Sprintf("follow_list_count_%d", request.UserId)
 	cachedCountString, ok, err := cached.Get(ctx, cacheKey)
 
 	if err != nil {
@@ -411,23 +322,8 @@ func (r RelationServiceImpl) CountFollowerList(ctx context.Context, request *rel
 	defer span.End()
 	logger := logging.LogService("RelationService.CountFollowerList").WithContext(ctx)
 
-	userExist, err := userClient.GetUserExistInformation(ctx, &user.UserExistRequest{UserId: request.UserId})
-
-	if err != nil || userExist.StatusCode != strings.ServiceOKCode {
-		logger.WithFields(logrus.Fields{
-			"err":    err,
-			"UserId": request.UserId,
-		}).Errorf("not find the user:%v", request.UserId)
-		logging.SetSpanError(span, err)
-
-		resp = &relation.CountFollowerListResponse{
-			StatusCode: strings.UnableToQueryUserErrorCode,
-			StatusMsg:  strings.UnableToQueryUserError,
-		}
-		return
-	}
-
 	cacheKey := fmt.Sprintf("follower_count_%d", request.UserId)
+
 	cachedCountString, ok, err := cached.Get(ctx, cacheKey)
 
 	if err != nil {
@@ -496,63 +392,28 @@ func (r RelationServiceImpl) GetFriendList(ctx context.Context, request *relatio
 	defer span.End()
 	logger := logging.LogService("RelationService.GetFriendList").WithContext(ctx)
 
-	ok, err := isUserExist(ctx, request.ActorId, request.UserId, span, logger)
-	if err != nil || !ok {
-		resp = &relation.FriendListResponse{
-			StatusCode: strings.UnableToQueryUserErrorCode,
-			StatusMsg:  strings.UnableToQueryUserError,
-		}
-		return
-	}
-
 	//followList
-	cacheKey := config.EnvCfg.RedisPrefix + fmt.Sprintf("follow_list_%d", request.UserId)
-	followIdList, err := redis2.Client.SMembers(ctx, cacheKey).Result()
-	var followRelationList []models.Relation
-	// 构建关注列表的用户 ID 映射
-	followingMap := make(map[uint32]bool)
-	//判断是否需要读db
-	db := false
-
+	cacheKey := fmt.Sprintf("follow_list_%d", request.UserId)
+	followList := CacheRelationList{}
+	ok, err := cached.CacheAndRedisGet(ctx, cacheKey, &followList)
 	if err != nil {
-		db = true
-	} else {
-		for _, id := range followIdList {
-			idInt, err := strconv.Atoi(id)
-			//redis存在不合法的id，删除redis中的整个set并重新读数据库，写redis缓存
-			if err != nil {
-				logger.WithFields(logrus.Fields{
-					"id":  id,
-					"err": err,
-				}).Errorf("Redis exists illegal id %s", id)
-				logging.SetSpanError(span, err)
-				_, err := redis2.Client.Del(ctx, cacheKey).Result()
-				if err != nil {
-					logger.WithFields(logrus.Fields{
-						"id":  id,
-						"err": err,
-					}).Errorf("Redis exists illegal id %s and delete redis failed", id)
-					logging.SetSpanError(span, err)
-				}
-				break
-			}
-			followingMap[uint32(idInt)] = true
-		}
-	}
-
-	if db {
 		logger.WithFields(logrus.Fields{
 			"error": err,
-		}).Errorf("Err when read Redis or no data in Redis")
+		}).Errorf("Err when read Redis")
 		logging.SetSpanError(span, err)
+	}
 
+	if ok {
+		logger.Infof("Cache hit for follow list for user %d", request.UserId)
+	} else {
 		followResult := database.Client.WithContext(ctx).
 			Where("actor_id = ?", request.UserId).
-			Find(&followRelationList)
+			Find(&followList.rList)
+
 		if followResult.Error != nil {
 			logger.WithFields(logrus.Fields{
 				"err": followResult.Error,
-			}).Errorf("GetFriendListService failed with dataBaseError")
+			}).Errorf("GetFriendListService failed with error")
 			logging.SetSpanError(span, followResult.Error)
 
 			resp = &relation.FriendListResponse{
@@ -561,60 +422,46 @@ func (r RelationServiceImpl) GetFriendList(ctx context.Context, request *relatio
 			}
 			return
 		}
-		for _, rel := range followRelationList {
-			followingMap[rel.UserId] = true
-		}
-		for _, rel := range followRelationList {
-			redis2.Client.SAdd(ctx, cacheKey, rel.UserId)
-		}
+	}
+	err = cached.ScanWriteCache(ctx, cacheKey, &followList, true)
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"err": err,
+			"key": cacheKey,
+		}).Errorf("failed to write cache for follow list")
+		logging.SetSpanError(span, err)
+	}
+
+	// 构建关注列表的用户 ID 映射
+	followingMap := make(map[uint32]bool)
+	for _, follow := range followList.rList {
+		followingMap[follow.UserId] = true
 	}
 
 	//followerList
-	cacheKey = config.EnvCfg.RedisPrefix + fmt.Sprintf("follower_list_%d", request.UserId)
-	followerIdList, err := redis2.Client.SMembers(ctx, cacheKey).Result()
-	var followerRelationList []models.Relation
-	followerIdListInt := make([]uint32, len(followerIdList))
-	db = false
-
+	cacheKey = fmt.Sprintf("follower_list_%d", request.UserId)
+	followerList := CacheRelationList{}
+	ok, err = cached.CacheAndRedisGet(ctx, cacheKey, &followerList)
 	if err != nil {
-		db = true
-	} else {
-		for index, id := range followerIdList {
-			idInt, err := strconv.Atoi(id)
-			//redis存在不合法的id，删除redis中的整个set并重新读数据库，写redis缓存
-			if err != nil {
-				logger.WithFields(logrus.Fields{
-					"id":  id,
-					"err": err,
-				}).Errorf("Redis exists illegal id %s", id)
-				logging.SetSpanError(span, err)
-				_, err := redis2.Client.Del(ctx, cacheKey).Result()
-				if err != nil {
-					logger.WithFields(logrus.Fields{
-						"id":  id,
-						"err": err,
-					}).Errorf("Redis exists illegal id %s and delete redis failed", id)
-					logging.SetSpanError(span, err)
-				}
-				break
-			}
-			followerIdListInt[index] = uint32(idInt)
-		}
-	}
-
-	if db {
 		logger.WithFields(logrus.Fields{
 			"error": err,
-		}).Errorf("Err when read Redis or no data in Redis")
+		}).Errorf("Err when read Redis")
 		logging.SetSpanError(span, err)
+	}
 
+	if ok {
+		logger.WithFields(logrus.Fields{
+			"userId": request.UserId,
+		}).Infof("Cache hit for follower list for user %d", request.UserId)
+	} else {
 		followerResult := database.Client.WithContext(ctx).
 			Where("user_id = ?", request.UserId).
-			Find(&followerRelationList)
+			Find(&followerList.rList)
+
 		if followerResult.Error != nil {
 			logger.WithFields(logrus.Fields{
 				"err": followerResult.Error,
-			}).Errorf("GetFriendListService failed with dataBaseError")
+			}).Errorf("GetFriendListService failed with error")
 			logging.SetSpanError(span, followerResult.Error)
 
 			resp = &relation.FriendListResponse{
@@ -623,12 +470,15 @@ func (r RelationServiceImpl) GetFriendList(ctx context.Context, request *relatio
 			}
 			return
 		}
-		for index, rel := range followerRelationList {
-			followerIdListInt[index] = rel.ActorId
-		}
-		for _, rel := range followerRelationList {
-			redis2.Client.SAdd(ctx, cacheKey, rel.ActorId)
-		}
+	}
+	err = cached.ScanWriteCache(ctx, cacheKey, &followerList, true)
+
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"err": err,
+			"key": cacheKey,
+		}).Errorf("failed to write cache for follower list")
+		logging.SetSpanError(span, err)
 	}
 
 	// 构建互相关注的用户列表（既关注了关注者又被关注者所关注的用户）
@@ -637,38 +487,29 @@ func (r RelationServiceImpl) GetFriendList(ctx context.Context, request *relatio
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 
-	for _, id := range followerIdListInt {
+	for _, follower := range followerList.rList {
 		wg.Add(1)
 
-		go func(id uint32) {
+		go func(follower models.Relation) {
 			defer wg.Done()
 
-			if followingMap[id] {
-
+			if followingMap[follower.ActorId] {
 				userResponse, err := userClient.GetUserInfo(ctx, &user.UserRequest{
-					UserId:  id,
+					UserId:  follower.ActorId,
 					ActorId: request.ActorId,
 				})
-
 				if err != nil || userResponse.StatusCode != strings.ServiceOKCode {
 					logger.WithFields(logrus.Fields{
-						"err":        err,
-						"followerId": id,
+						"err":      err,
+						"follower": follower,
 					}).Errorf("Unable to get information about users who follow each other")
 					logging.SetSpanError(span, err)
-					resp = &relation.FriendListResponse{
-						StatusCode: strings.UnableToGetFriendListErrorCode,
-						StatusMsg:  strings.UnableToGetFriendListError,
-						UserList:   nil,
-					}
-				} else {
 					mu.Lock()
 					mutualFriends = append(mutualFriends, userResponse.User)
 					mu.Unlock()
 				}
-
 			}
-		}(id)
+		}(follower)
 	}
 
 	wg.Wait()
@@ -722,59 +563,75 @@ func (r RelationServiceImpl) GetFollowList(ctx context.Context, request *relatio
 	defer span.End()
 	logger := logging.LogService("RelationService.GetFollowList").WithContext(ctx)
 
-	ok, err := isUserExist(ctx, request.ActorId, request.UserId, span, logger)
-	if err != nil || !ok {
+	cacheKey := fmt.Sprintf("follow_list_%d", request.UserId)
+	cachedFollowList := CacheRelationList{}
+
+	// cache and redis
+	ok, err := cached.CacheAndRedisGet(ctx, cacheKey, &cachedFollowList)
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"error": err,
+		}).Errorf("Err when read Redis")
+		logging.SetSpanError(span, err)
+	}
+
+	var rFollowList []*user.User
+	if ok {
+		logger.Infof("Cache hit, retrieving follow list for user %d", request.UserId)
+
+		rFollowList, err = r.fetchUserListInfo(ctx, cachedFollowList.rList, request.ActorId, logger, span)
+		if err != nil {
+			resp = &relation.FollowListResponse{
+				StatusCode: strings.UnableToGetFollowListErrorCode,
+				StatusMsg:  strings.UnableToGetFollowListError,
+				UserList:   nil,
+			}
+			logger.WithFields(logrus.Fields{
+				"err": err,
+			}).Errorf("failed to convert relation to user")
+			logging.SetSpanError(span, err)
+			return
+		}
+
 		resp = &relation.FollowListResponse{
-			StatusCode: strings.UnableToQueryUserErrorCode,
-			StatusMsg:  strings.UnableToQueryUserError,
+			StatusCode: strings.ServiceOKCode,
+			StatusMsg:  strings.ServiceOK,
+			UserList:   rFollowList,
 		}
 		return
 	}
 
-	cacheKey := config.EnvCfg.RedisPrefix + fmt.Sprintf("follow_list_%d", request.UserId)
-	followIdList, err := redis2.Client.SMembers(ctx, cacheKey).Result()
-	followIdListInt := make([]uint32, 0, len(followIdList))
+	//database
 	var followList []models.Relation
+	result := database.Client.WithContext(ctx).
+		Where("actor_id = ?", request.UserId).
+		Order("created_at desc").
+		Find(&followList)
 
+	if result.Error != nil {
+		logger.WithFields(logrus.Fields{
+			"err": result.Error,
+		}).Errorf("Failed to retrieve follow list")
+		logging.SetSpanError(span, err)
+
+		resp = &relation.FollowListResponse{
+			StatusCode: strings.UnableToGetFollowListErrorCode,
+			StatusMsg:  strings.UnableToGetFollowListError,
+		}
+		return
+	}
+	cachedFollowList.rList = followList
+
+	err = cached.ScanWriteCache(ctx, cacheKey, &cachedFollowList, true)
 	if err != nil {
-		result := database.Client.WithContext(ctx).
-			Where("actor_id = ?", request.UserId).
-			Order("created_at desc").
-			Find(&followList)
-
-		if result.Error != nil {
-			logger.WithFields(logrus.Fields{
-				"err": result.Error,
-			}).Errorf("Failed to retrieve follow list")
-			logging.SetSpanError(span, err)
-
-			resp = &relation.FollowListResponse{
-				StatusCode: strings.UnableToGetFollowListErrorCode,
-				StatusMsg:  strings.UnableToGetFollowListError,
-			}
-			return
-		}
-
-		for index, rel := range followList {
-			redis2.Client.SAdd(ctx, cacheKey, rel.UserId)
-			followIdListInt[index] = rel.UserId
-		}
-	} else {
-		followIdListInt, err = string2Int(followIdList, logger, span)
-		if err != nil {
-			logger.WithFields(logrus.Fields{
-				"err": err,
-			}).Errorf("failed to convert string to int")
-			logging.SetSpanError(span, err)
-			resp = &relation.FollowListResponse{
-				StatusCode: strings.UnableToGetFollowListErrorCode,
-				StatusMsg:  strings.UnableToGetFollowListError,
-			}
-			return
-		}
+		logger.WithFields(logrus.Fields{
+			"err": err,
+			"key": cacheKey,
+		}).Errorf("failed to write cache for follow list")
+		logging.SetSpanError(span, err)
 	}
 
-	rFollowList, err := r.idList2UserList(ctx, followIdListInt, request.ActorId, logger, span)
+	rFollowList, err = r.fetchUserListInfo(ctx, followList, request.ActorId, logger, span)
 	if err != nil {
 		resp = &relation.FollowListResponse{
 			StatusCode: strings.UnableToGetFollowListErrorCode,
@@ -801,59 +658,73 @@ func (r RelationServiceImpl) GetFollowerList(ctx context.Context, request *relat
 	defer span.End()
 	logger := logging.LogService("RelationService.GetFollowerList").WithContext(ctx)
 
-	ok, err := isUserExist(ctx, request.ActorId, request.UserId, span, logger)
-	if err != nil || !ok {
+	cacheKey := fmt.Sprintf("follower_list_%d", request.UserId)
+	cachedFollowerList := CacheRelationList{}
+
+	ok, err := cached.CacheAndRedisGet(ctx, cacheKey, &cachedFollowerList)
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"error": err,
+		}).Errorf("Err when read Redis")
+		logging.SetSpanError(span, err)
+	}
+
+	var rFollowerList []*user.User
+	if ok {
+		logger.Infof("Cache hit, retrieving follower list for user %d", request.UserId)
+
+		rFollowerList, err = r.fetchUserListInfo(ctx, cachedFollowerList.rList, request.ActorId, logger, span)
+		if err != nil {
+			resp = &relation.FollowerListResponse{
+				StatusCode: strings.UnableToGetFollowerListErrorCode,
+				StatusMsg:  strings.UnableToGetFollowerListError,
+				UserList:   nil,
+			}
+			logger.WithFields(logrus.Fields{
+				"err": err,
+			}).Errorf("failed to convert relation to user")
+			logging.SetSpanError(span, err)
+			return
+		}
+
 		resp = &relation.FollowerListResponse{
-			StatusCode: strings.UnableToQueryUserErrorCode,
-			StatusMsg:  strings.UnableToQueryUserError,
+			StatusCode: strings.ServiceOKCode,
+			StatusMsg:  strings.ServiceOK,
+			UserList:   rFollowerList,
 		}
 		return
 	}
 
-	cacheKey := config.EnvCfg.RedisPrefix + fmt.Sprintf("follower_list_%d", request.UserId)
-	followerIdList, err := redis2.Client.SMembers(ctx, cacheKey).Result()
-	followerIdListInt := make([]uint32, 0, len(followerIdList))
 	var followerList []models.Relation
+	result := database.Client.WithContext(ctx).
+		Where("user_id = ?", request.UserId).
+		Order("created_at desc").
+		Find(&followerList)
 
-	if err != nil {
-		result := database.Client.WithContext(ctx).
-			Where("user_id = ?", request.UserId).
-			Order("created_at desc").
-			Find(&followerList)
+	if result.Error != nil {
+		logger.WithFields(logrus.Fields{
+			"err": result.Error,
+		}).Errorf("Failed to retrieve follower list")
+		logging.SetSpanError(span, err)
 
-		if result.Error != nil {
-			logger.WithFields(logrus.Fields{
-				"err": result.Error,
-			}).Errorf("Failed to retrieve follower list")
-			logging.SetSpanError(span, err)
-
-			resp = &relation.FollowerListResponse{
-				StatusCode: strings.UnableToGetFollowerListErrorCode,
-				StatusMsg:  strings.UnableToGetFollowerListError,
-			}
-			return
+		resp = &relation.FollowerListResponse{
+			StatusCode: strings.UnableToGetFollowerListErrorCode,
+			StatusMsg:  strings.UnableToGetFollowerListError,
 		}
-
-		for index, rel := range followerList {
-			redis2.Client.SAdd(ctx, cacheKey, rel.UserId)
-			followerIdListInt[index] = rel.UserId
-		}
-	} else {
-		followerIdListInt, err = string2Int(followerIdList, logger, span)
-		if err != nil {
-			logger.WithFields(logrus.Fields{
-				"err": err,
-			}).Errorf("failed to convert string to int")
-			logging.SetSpanError(span, err)
-			resp = &relation.FollowerListResponse{
-				StatusCode: strings.UnableToGetFollowerListErrorCode,
-				StatusMsg:  strings.UnableToGetFollowerListError,
-			}
-			return
-		}
+		return
 	}
 
-	rFollowerList, err := r.idList2UserList(ctx, followerIdListInt, request.ActorId, logger, span)
+	cachedFollowerList.rList = followerList
+	err = cached.ScanWriteCache(ctx, cacheKey, &cachedFollowerList, true)
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"err": err,
+			"key": cacheKey,
+		}).Errorf("failed to write cache for follower list")
+		logging.SetSpanError(span, err)
+	}
+
+	rFollowerList, err = r.fetchUserListInfo(ctx, followerList, request.ActorId, logger, span)
 	if err != nil {
 		resp = &relation.FollowerListResponse{
 			StatusCode: strings.UnableToGetFollowerListErrorCode,
@@ -875,8 +746,7 @@ func (r RelationServiceImpl) GetFollowerList(ctx context.Context, request *relat
 	return
 }
 
-func (r RelationServiceImpl) idList2UserList(ctx context.Context, idList []uint32, actorID uint32, logger *logrus.Entry, span trace.Span) ([]*user.User, error) {
-
+func (r RelationServiceImpl) fetchUserListInfo(ctx context.Context, userList []models.Relation, actorID uint32, logger *logrus.Entry, span trace.Span) ([]*user.User, error) {
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	var wgErrors []error
@@ -885,24 +755,24 @@ func (r RelationServiceImpl) idList2UserList(ctx context.Context, idList []uint3
 	maxRetries := 3
 	retryInterval := 1
 
-	rUserList := make([]*user.User, 0, len(idList))
+	rUserList := make([]*user.User, 0, len(userList))
 
-	for _, id := range idList {
+	for _, r := range userList {
 		wg.Add(1)
-		go func(id uint32) {
+		go func(relation models.Relation) {
 			defer wg.Done()
 
 			retryCount := 0
 			for retryCount < maxRetries {
 				userResponse, err := userClient.GetUserInfo(ctx, &user.UserRequest{
-					UserId:  id,
+					UserId:  relation.UserId,
 					ActorId: actorID,
 				})
 
 				if err != nil || userResponse.StatusCode != strings.ServiceOKCode {
 					logger.WithFields(logrus.Fields{
-						"err":    err,
-						"userId": id,
+						"err":      err,
+						"relation": relation,
 					}).Errorf("Unable to get user information")
 					retryCount++
 					time.Sleep(time.Duration(retryInterval) * time.Second)
@@ -918,7 +788,7 @@ func (r RelationServiceImpl) idList2UserList(ctx context.Context, idList []uint3
 			if retryCount >= maxRetries {
 				logging.SetSpanError(span, err)
 			}
-		}(id)
+		}(r)
 	}
 
 	wg.Wait()
@@ -933,61 +803,104 @@ func (r RelationServiceImpl) idList2UserList(ctx context.Context, idList []uint3
 	return rUserList, nil
 }
 
-func string2Int(s []string, logger *logrus.Entry, span trace.Span) (i []uint32, err error) {
-
-	i = make([]uint32, len(s))
-
-	for index, v := range s {
-		var idInt int
-		idInt, err = strconv.Atoi(v)
-		if err != nil {
-			logger.WithFields(logrus.Fields{
-				"err": err,
-			}).Errorf("failed to convert string to int")
-			logging.SetSpanError(span, err)
-			return
-		}
-		i[index] = uint32(idInt)
-	}
-	return
-}
-
 // followOp = true  ->  follow
 // followOp = false ->  unfollow
-func updateFollowListCache(ctx context.Context, actorID uint32, relation models.Relation, followOp bool, span trace.Span, logger *logrus.Entry) (err error) {
+func updateFollowListCache(ctx context.Context, actorID uint32, relation models.Relation, followOp bool, span trace.Span, logger *logrus.Entry) error {
 
-	cacheKey := config.EnvCfg.RedisPrefix + fmt.Sprintf("follow_list_%d", actorID)
+	cacheKey := fmt.Sprintf("follow_list_%d", actorID)
+	cachedRelationList := CacheRelationList{}
+
+	ok, err := cached.CacheAndRedisGet(ctx, cacheKey, &cachedRelationList)
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"error": err,
+		}).Errorf("Redis error when find struct")
+		logging.SetSpanError(span, err)
+		return err
+	}
+
+	if !ok {
+		result := database.Client.WithContext(ctx).
+			Where("actor_id = ?", actorID).
+			Find(&cachedRelationList.rList)
+		if result.Error != nil {
+			logger.WithFields(logrus.Fields{
+				"err": result.Error,
+			}).Errorf("GetFollowList from database failed: %v", result.Error)
+			logging.SetSpanError(span, result.Error)
+			return result.Error
+		}
+	}
 
 	if followOp {
-		_, err = redis2.Client.SAdd(ctx, cacheKey, relation.UserId).Result()
+		cachedRelationList.rList = append(cachedRelationList.rList, relation)
 	} else {
-		_, err = redis2.Client.SRem(ctx, cacheKey, relation.UserId).Result()
+		for i, r := range cachedRelationList.rList {
+			if r.UserId == relation.UserId {
+				cachedRelationList.rList = append(cachedRelationList.rList[:i], cachedRelationList.rList[i+1:]...)
+				break
+			}
+		}
 	}
+
+	err = cached.ScanWriteCache(ctx, cacheKey, &cachedRelationList, true)
 	if err != nil {
 		logger.WithFields(logrus.Fields{
 			"err": err,
-		}).Errorf("update FollowList redis failed")
+		}).Errorf("ScanWriteCache failed")
 		logging.SetSpanError(span, err)
+		return err
 	}
-	return
+
+	return nil
 }
 
-func updateFollowerListCache(ctx context.Context, userID uint32, relation models.Relation, followOp bool, span trace.Span, logger *logrus.Entry) (err error) {
-	cacheKey := config.EnvCfg.RedisPrefix + fmt.Sprintf("follower_list_%d", userID)
+func updateFollowerListCache(ctx context.Context, userID uint32, relation models.Relation, followOp bool, span trace.Span, logger *logrus.Entry) error {
+	cacheKey := fmt.Sprintf("follower_list_%d", userID)
+	cachedRelationList := CacheRelationList{}
+
+	ok, err := cached.CacheAndRedisGet(ctx, cacheKey, &cachedRelationList)
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"error": err,
+		}).Errorf("Redis error when find struct")
+		logging.SetSpanError(span, err)
+		return err
+	}
+
+	if !ok {
+		result := database.Client.WithContext(ctx).
+			Where("user_id = ?", userID).
+			Find(&cachedRelationList.rList)
+		if result.Error != nil {
+			logger.WithFields(logrus.Fields{
+				"err": result.Error,
+			}).Errorf("GetFollowerList from database failed: %v", result.Error)
+			logging.SetSpanError(span, result.Error)
+			return result.Error
+		}
+	}
 
 	if followOp {
-		_, err = redis2.Client.SAdd(ctx, cacheKey, relation.ActorId).Result()
-
+		cachedRelationList.rList = append(cachedRelationList.rList, relation)
 	} else {
-		_, err = redis2.Client.SRem(ctx, cacheKey, relation.ActorId).Result()
+		for i, r := range cachedRelationList.rList {
+			if r.ActorId == relation.ActorId {
+				cachedRelationList.rList = append(cachedRelationList.rList[:i], cachedRelationList.rList[i+1:]...)
+				break
+			}
+		}
 	}
+
+	err = cached.ScanWriteCache(ctx, cacheKey, &cachedRelationList, true)
 	if err != nil {
 		logger.WithFields(logrus.Fields{
 			"err": err,
-		}).Errorf("update FollowerList redis failed")
+		}).Errorf("ScanWriteCache failed")
 		logging.SetSpanError(span, err)
+		return err
 	}
-	return
+	return nil
 }
 
 func updateFollowCountCache(ctx context.Context, actorID uint32, followOp bool, span trace.Span, logger *logrus.Entry) error {
@@ -1030,18 +943,6 @@ func updateFollowCountCache(ctx context.Context, actorID uint32, followOp bool, 
 			Model(&models.Relation{}).
 			Where("actor_id = ?", actorID).
 			Count(&dbCount)
-
-		if !followOp {
-			// unfollow
-			if dbCount > 0 {
-				dbCount = dbCount - 1
-			} else {
-				dbCount = 0
-			}
-		} else {
-			// follow
-			dbCount = dbCount + 1
-		}
 
 		if result.Error != nil {
 			logger.WithFields(logrus.Fields{
@@ -1100,17 +1001,6 @@ func updateFollowerCountCache(ctx context.Context, userID uint32, followOp bool,
 			Model(&models.Relation{}).
 			Where("user_id = ?", userID).
 			Count(&dbCount)
-		if !followOp {
-			// unfollow
-			if dbCount > 0 {
-				dbCount = dbCount - 1
-			} else {
-				dbCount = 0
-			}
-		} else {
-			// follow
-			dbCount = dbCount + 1
-		}
 
 		if result.Error != nil {
 			logger.WithFields(logrus.Fields{
@@ -1125,33 +1015,4 @@ func updateFollowerCountCache(ctx context.Context, userID uint32, followOp bool,
 	countString := strconv.FormatUint(uint64(count), 10)
 	cached.Write(ctx, cacheKey, countString, true)
 	return nil
-}
-
-func isUserExist(ctx context.Context, actorID uint32, userID uint32, span trace.Span, logger *logrus.Entry) (ok bool, err error) {
-
-	userExist, err := userClient.GetUserExistInformation(ctx, &user.UserExistRequest{UserId: actorID})
-
-	if err != nil || userExist.StatusCode != strings.ServiceOKCode {
-		logger.WithFields(logrus.Fields{
-			"err":    err,
-			"UserId": actorID,
-		}).Errorf("not find the user:%v", actorID)
-		logging.SetSpanError(span, err)
-		ok = false
-		return
-	}
-
-	userExist, err = userClient.GetUserExistInformation(ctx, &user.UserExistRequest{UserId: userID})
-
-	if err != nil || userExist.StatusCode != strings.ServiceOKCode {
-		logger.WithFields(logrus.Fields{
-			"err":    err,
-			"UserId": userID,
-		}).Errorf("not find the user:%v", userID)
-		logging.SetSpanError(span, err)
-		ok = false
-		return
-	}
-	ok = true
-	return
 }
