@@ -54,6 +54,10 @@ const (
 	UserServiceInnerError            = "登录服务出现内部错误，请稍后重试！"
 	UnableToQueryVideoErrorCode      = 50022
 	UnableToQueryVideoError          = "无法查询到该视频"
+	AlreadyFollowingErrorCode        = 50023
+	AlreadyFollowingError            = "无法关注已关注的人"
+	UnableToGetFriendListErrorCode   = 50024
+	UnableToGetFriendListError       = "无法查询到好友列表"
 )
 
 // Expected Error
@@ -80,4 +84,6 @@ const (
 	PublishVideoLimited           = "视频发布频繁，请稍后再试！"
 	ChatActionLimitedCode         = 10011
 	ChatActionLimitedError        = "发送消息频繁，请稍后再试！"
+	FollowLimitedCode             = 10012
+	FollowLimited                 = "关注频繁，请稍后再试！"
 )
