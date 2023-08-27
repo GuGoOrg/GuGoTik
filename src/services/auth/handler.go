@@ -1,16 +1,21 @@
 package main
 
 import (
+	"GuGoTik/src/constant/config"
 	"GuGoTik/src/constant/strings"
 	"GuGoTik/src/extra/tracing"
 	"GuGoTik/src/models"
 	"GuGoTik/src/rpc/auth"
+	"GuGoTik/src/rpc/relation"
+	user2 "GuGoTik/src/rpc/user"
 	"GuGoTik/src/storage/cached"
 	"GuGoTik/src/storage/database"
+	grpc2 "GuGoTik/src/utils/grpc"
 	"GuGoTik/src/utils/logging"
 	"context"
 	"crypto/md5"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
@@ -25,12 +30,18 @@ import (
 	"sync"
 )
 
+var relationClient relation.RelationServiceClient
+var userClient user2.UserServiceClient
+
 type AuthServiceImpl struct {
 	auth.AuthServiceServer
 }
 
 func (a AuthServiceImpl) New() {
-
+	relationConn := grpc2.Connect(config.RelationRpcServerName)
+	relationClient = relation.NewRelationServiceClient(relationConn)
+	userRpcConn := grpc2.Connect(config.UserRpcServerName)
+	userClient = user2.NewUserServiceClient(userRpcConn)
 }
 
 func (a AuthServiceImpl) Authenticate(ctx context.Context, request *auth.AuthenticateRequest) (resp *auth.AuthenticateResponse, err error) {
@@ -206,6 +217,9 @@ func (a AuthServiceImpl) Register(ctx context.Context, request *auth.RegisterReq
 	resp.UserId = user.ID
 	resp.StatusCode = strings.ServiceOKCode
 	resp.StatusMsg = strings.ServiceOK
+
+	addMagicUserFriend(ctx, &span, user.ID)
+
 	return
 }
 
@@ -384,4 +398,56 @@ func getEmailMD5(ctx context.Context, email string) (md5String string) {
 	md5Bytes := hashed.Sum(nil)
 	md5String = hex.EncodeToString(md5Bytes)
 	return
+}
+
+func addMagicUserFriend(ctx context.Context, span *trace.Span, userId uint32) {
+	logger := logging.LogService("AuthService.Register.AddMagicUserFriend").WithContext(ctx)
+
+	isMagicUserExist, err := userClient.GetUserExistInformation(ctx, &user2.UserExistRequest{
+		UserId: 1,
+	})
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"UserId": userId,
+			"Err":    err,
+		}).Errorf("Failed to check if the magic user exists")
+		logging.SetSpanError(*span, err)
+		return
+	}
+
+	if !isMagicUserExist.Existed {
+		logger.WithFields(logrus.Fields{
+			"UserId": userId,
+		}).Errorf("Magic user does not exist")
+		logging.SetSpanError(*span, errors.New("magic user does not exist"))
+		return
+	}
+
+	// User follow magic user
+	_, err = relationClient.Follow(ctx, &relation.RelationActionRequest{
+		ActorId: userId,
+		UserId:  1,
+	})
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"UserId": userId,
+			"Err":    err,
+		}).Errorf("Failed to follow magic user")
+		logging.SetSpanError(*span, err)
+		return
+	}
+
+	// Magic user follow user
+	_, err = relationClient.Follow(ctx, &relation.RelationActionRequest{
+		ActorId: 1,
+		UserId:  userId,
+	})
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"UserId": userId,
+			"Err":    err,
+		}).Errorf("Magic user failed to follow user")
+		logging.SetSpanError(*span, err)
+		return
+	}
 }

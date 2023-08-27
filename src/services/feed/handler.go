@@ -13,8 +13,11 @@ import (
 	"GuGoTik/src/storage/file"
 	grpc2 "GuGoTik/src/utils/grpc"
 	"GuGoTik/src/utils/logging"
+	"GuGoTik/src/utils/rabbitmq"
 	"context"
+	"encoding/json"
 	"errors"
+	"github.com/streadway/amqp"
 	"gorm.io/gorm"
 	"strconv"
 	"sync"
@@ -35,6 +38,16 @@ var UserClient user.UserServiceClient
 var CommentClient comment.CommentServiceClient
 var FavoriteClient favorite.FavoriteServiceClient
 
+var conn *amqp.Connection
+
+var channel *amqp.Channel
+
+func exitOnError(err error) {
+	if err != nil {
+		panic(err)
+	}
+}
+
 func (s FeedServiceImpl) New() {
 	userRpcConn := grpc2.Connect(config.UserRpcServerName)
 	UserClient = user.NewUserServiceClient(userRpcConn)
@@ -42,6 +55,67 @@ func (s FeedServiceImpl) New() {
 	CommentClient = comment.NewCommentServiceClient(commentRpcConn)
 	favoriteRpcConn := grpc2.Connect(config.FavoriteRpcServerName)
 	FavoriteClient = favorite.NewFavoriteServiceClient(favoriteRpcConn)
+
+	var err error
+
+	conn, err = amqp.Dial(rabbitmq.BuildMQConnAddr())
+	exitOnError(err)
+
+	channel, err = conn.Channel()
+	exitOnError(err)
+
+	err = channel.ExchangeDeclare(
+		strings.EventExchange,
+		"topic",
+		true,
+		false,
+		false,
+		false,
+		nil,
+	)
+	exitOnError(err)
+}
+
+func CloseMQConn() {
+	if err := conn.Close(); err != nil {
+		panic(err)
+	}
+
+	if err := channel.Close(); err != nil {
+		panic(err)
+	}
+}
+
+func produceFeed(ctx context.Context, event models.RecommendEvent) {
+	ctx, span := tracing.Tracer.Start(ctx, "FeedPublisher")
+	defer span.End()
+	logger := logging.LogService("FeedService.FeedPublisher").WithContext(ctx)
+	data, err := json.Marshal(event)
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"err": err,
+		}).Errorf("Error when marshal the event model")
+		logging.SetSpanError(span, err)
+		return
+	}
+
+	err = channel.Publish(
+		strings.EventExchange,
+		strings.VideoGetEvent,
+		false,
+		false,
+		amqp.Publishing{
+			ContentType: "text/plain",
+			Body:        data,
+		})
+
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"err": err,
+		}).Errorf("Error when publishing the event model")
+		logging.SetSpanError(span, err)
+		return
+	}
 }
 
 func (s FeedServiceImpl) ListVideos(ctx context.Context, request *feed.ListFeedRequest) (resp *feed.ListFeedResponse, err error) {
@@ -108,6 +182,22 @@ func (s FeedServiceImpl) ListVideos(ctx context.Context, request *feed.ListFeedR
 		}
 		return resp, err
 	}
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		var videoLists []uint32
+		for _, item := range videos {
+			videoLists = append(videoLists, item.Id)
+		}
+		produceFeed(ctx, models.RecommendEvent{
+			ActorId: *request.ActorId,
+			VideoId: videoLists,
+			Type:    1,
+			Source:  config.FeedRpcServerName,
+		})
+	}()
+	wg.Wait()
 	resp = &feed.ListFeedResponse{
 		StatusCode: strings.ServiceOKCode,
 		StatusMsg:  strings.ServiceOK,
@@ -180,6 +270,61 @@ func (s FeedServiceImpl) QueryVideoExisted(ctx context.Context, req *feed.VideoE
 		StatusMsg:  strings.ServiceOK,
 		Existed:    true,
 	}
+	return
+}
+
+func (s FeedServiceImpl) QueryVideoSummaryAndKeywords(ctx context.Context, req *feed.QueryVideoSummaryAndKeywordsRequest) (resp *feed.QueryVideoSummaryAndKeywordsResponse, err error) {
+	ctx, span := tracing.Tracer.Start(ctx, "QueryVideoSummaryAndKeywordsService")
+	defer span.End()
+	logger := logging.LogService("FeedService.QueryVideoSummaryAndKeywords").WithContext(ctx)
+
+	videoExistRes, err := s.QueryVideoExisted(ctx, &feed.VideoExistRequest{
+		VideoId: req.VideoId,
+	})
+
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"VideoId": req.VideoId,
+		}).Errorf("Cannot check if the video exists")
+		logging.SetSpanError(span, err)
+
+		resp = &feed.QueryVideoSummaryAndKeywordsResponse{
+			StatusCode: strings.VideoServiceInnerErrorCode,
+			StatusMsg:  strings.VideoServiceInnerError,
+		}
+		return
+	}
+
+	if !videoExistRes.Existed {
+		resp = &feed.QueryVideoSummaryAndKeywordsResponse{
+			StatusCode: strings.UnableToQueryVideoErrorCode,
+			StatusMsg:  strings.UnableToQueryVideoError,
+		}
+		return
+	}
+
+	video := models.Video{}
+	result := database.Client.WithContext(ctx).Where("id = ?", req.VideoId).First(&video)
+	if result.Error != nil {
+		logger.WithFields(logrus.Fields{
+			"VideoId": req.VideoId,
+		}).Errorf("Cannot get video from database")
+		logging.SetSpanError(span, err)
+
+		resp = &feed.QueryVideoSummaryAndKeywordsResponse{
+			StatusCode: strings.VideoServiceInnerErrorCode,
+			StatusMsg:  strings.VideoServiceInnerError,
+		}
+		return
+	}
+
+	resp = &feed.QueryVideoSummaryAndKeywordsResponse{
+		StatusCode: strings.ServiceOKCode,
+		StatusMsg:  strings.ServiceOK,
+		Summary:    video.Summary,
+		Keywords:   video.Keywords,
+	}
+
 	return
 }
 

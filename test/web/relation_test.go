@@ -192,8 +192,8 @@ func TestGetFriendList(t *testing.T) {
 	req, err := http.NewRequest(method, url, nil)
 	q := req.URL.Query()
 	q.Add("token", "93b9e0bf-ebd3-4d35-801d-ac9076a1d6e5")
-	q.Add("actor_id", "1")
-	q.Add("user_id", "1")
+	q.Add("actor_id", "3")
+	q.Add("user_id", "3")
 	req.URL.RawQuery = q.Encode()
 
 	assert.Empty(t, err)

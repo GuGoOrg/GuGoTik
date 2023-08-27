@@ -147,6 +147,8 @@ services:
         condition: service_healthy
       jaeger:
         condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
   favorite:
     container_name: "GuGoTik-FavoriteService"
     build:
@@ -164,6 +166,8 @@ services:
       redis:
         condition: service_healthy
       jaeger:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
   feed:
     container_name: "GuGoTik-FeedService"
@@ -305,9 +309,29 @@ services:
     container_name: "GuGoTik-RecommendService"
     build:
       dockerfile: Dockerfile
+    ports:
+      - "37009:37009"
     env_file:
       - .env.docker.compose
     command: [ "/bin/sh", "-c", "export POD_IP=`hostname -i` && ./services/recommend/RecommendService" ]
+    depends_on:
+      rdb:
+        condition: service_healthy
+      consul:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      jaeger:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+  event:
+    container_name: "GuGoTik-EventService"
+    build:
+      dockerfile: Dockerfile
+    env_file:
+      - .env.docker.compose
+    command: [ "/bin/sh", "-c", "export POD_IP=`hostname -i` && ./services/event/EventService" ]
     depends_on:
       rdb:
         condition: service_healthy

@@ -13,11 +13,11 @@ type envConfig struct {
 	LoggerLevel           string `env:"LOGGER_LEVEL" envDefault:"INFO"`
 	LoggerWithTraceState  string `env:"LOGGER_OUT_TRACING" envDefault:"disable"`
 	TiedLogging           string `env:"TIED" envDefault:"NONE"`
-	PostgreSQLHost        string `env:"POSTGRESQL_HOST" envDefault:"127.0.0.1"`
-	PostgreSQLPort        string `env:"POSTGRESQL_PORT" envDefault:"5432"`
-	PostgreSQLUser        string `env:"POSTGRESQL_USER" envDefault:"postgres"`
-	PostgreSQLPassword    string `env:"POSTGRESQL_PASSWORD" envDefault:"1092"`
-	PostgreSQLDataBase    string `env:"POSTGRESQL_DATABASE" envDefault:"Gugo"`
+	PostgreSQLHost        string `env:"POSTGRESQL_HOST"`
+	PostgreSQLPort        string `env:"POSTGRESQL_PORT"`
+	PostgreSQLUser        string `env:"POSTGRESQL_USER"`
+	PostgreSQLPassword    string `env:"POSTGRESQL_PASSWORD"`
+	PostgreSQLDataBase    string `env:"POSTGRESQL_DATABASE"`
 	StorageType           string `env:"STORAGE_TYPE" envDefault:"fs"`
 	FileSystemStartPath   string `env:"FS_PATH" envDefault:"/tmp"`
 	FileSystemBaseUrl     string `env:"FS_BASEURL" envDefault:"http://localhost/"`
@@ -27,7 +27,7 @@ type envConfig struct {
 	TracingEndPoint       string `env:"TRACING_ENDPOINT"`
 	PyroscopeState        string `env:"PYROSCOPE_STATE" envDefault:"false"`
 	PyroscopeAddr         string `env:"PYROSCOPE_ADDR"`
-	RedisPrefix           string `env:"REDIS_PREFIX" envDefault:"GUGUo"`
+	RedisPrefix           string `env:"REDIS_PREFIX" envDefault:"GUGUTIK"`
 	PostgreSQLSchema      string `env:"POSTGRESQL_SCHEMA"`
 	RedisMaster           string `env:"REDIS_MASTER"`
 	ConsulAnonymityPrefix string `env:"CONSUL_ANONYMITY_NAME" envDefault:""`
@@ -37,7 +37,7 @@ type envConfig struct {
 	RabbitMQPort          string `env:"RABBITMQ_PORT" envDefault:"5672"`
 	RabbitMQVhostPrefix   string `env:"RABBITMQ_VHOST_PREFIX" envDefault:""`
 	ChatGPTAPIKEYS        string `env:"CHATGPT_API_KEYS"`
-	PodIpAddr             string `env:"POD_IP" envDefault:"127.0.0.1"`
+	PodIpAddr             string `env:"POD_IP" envDefault:"localhost"`
 }
 
 func init() {
