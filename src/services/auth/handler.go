@@ -218,7 +218,7 @@ func (a AuthServiceImpl) Register(ctx context.Context, request *auth.RegisterReq
 		"username": request.Username,
 	}).Infof("User register success!")
 
-	recommendResp, err := recommendClient.RegisterRecommendUser(ctx, &recommend.RecommendRegisterRequest{UserId: user.ID})
+	recommendResp, err := recommendClient.RegisterRecommendUser(ctx, &recommend.RecommendRegisterRequest{UserId: user.ID, Username: request.Username})
 	if err != nil || recommendResp.StatusCode != strings.ServiceOKCode {
 		resp = &auth.RegisterResponse{
 			StatusCode: strings.AuthServiceInnerErrorCode,

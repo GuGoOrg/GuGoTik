@@ -107,7 +107,7 @@ func (a RecommendServiceImpl) RegisterRecommendUser(ctx context.Context, request
 	_, err = gorseClient.InsertUsers(ctx, []gorse.User{
 		{
 			UserId:  strconv.Itoa(int(request.UserId)),
-			Comment: strconv.Itoa(int(request.UserId)),
+			Comment: request.Username,
 		},
 	})
 

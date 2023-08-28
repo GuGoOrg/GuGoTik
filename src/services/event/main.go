@@ -132,7 +132,7 @@ func Consume(ch *amqp.Channel, queueName string) {
 					FeedbackType: types,
 					UserId:       strconv.Itoa(int(raw.ActorId)),
 					ItemId:       strconv.Itoa(int(id)),
-					Timestamp:    time.UTC.String(),
+					Timestamp:    time.Now().UTC().Format(time.RFC3339),
 				})
 			}
 
@@ -162,7 +162,7 @@ func Consume(ch *amqp.Channel, queueName string) {
 					FeedbackType: types,
 					UserId:       strconv.Itoa(int(raw.ActorId)),
 					ItemId:       strconv.Itoa(int(id)),
-					Timestamp:    time.UTC.String(),
+					Timestamp:    time.Now().UTC().Format(time.RFC3339),
 				})
 			}
 
@@ -186,7 +186,7 @@ func Consume(ch *amqp.Channel, queueName string) {
 					IsHidden:   false,
 					Labels:     raw.Tag,
 					Categories: raw.Category,
-					Timestamp:  time.UTC.String(),
+					Timestamp:  time.Now().UTC().Format(time.RFC3339),
 					Comment:    raw.Title,
 				})
 			}
@@ -198,7 +198,9 @@ func Consume(ch *amqp.Channel, queueName string) {
 				logging.SetSpanError(span, err)
 			}
 			logger.WithFields(logrus.Fields{
-				"ids": raw.VideoId,
+				"ids":     raw.VideoId,
+				"tag":     raw.Tag,
+				"comment": raw.Title,
 			}).Infof("Event dealt with type 3")
 			span.End()
 			err = d.Ack(false)
