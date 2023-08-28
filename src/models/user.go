@@ -39,9 +39,9 @@ func init() {
 		panic(err)
 	}
 
-	// Create magic user (id = 0): show video summary and keywords, and act as ChatGPT
+	// Create magic user (id = 1): show video summary and keywords, and act as ChatGPT
 	magicUser := User{
-		ID:              1,
+		//ID:              1,
 		UserName:        "ChatGPT",
 		Password:        "chatgpt",
 		Role:            2,
@@ -50,7 +50,8 @@ func init() {
 		Signature:       "GuGoTik 小助手",
 	}
 	result := database.Client.Clauses(clause.OnConflict{
-		UpdateAll: true,
+		Columns:   []clause.Column{{Name: "user_name"}},
+		DoUpdates: clause.AssignmentColumns([]string{"password", "role", "avatar", "background_image", "signature"}),
 	}).Create(&magicUser)
 
 	if result.Error != nil {

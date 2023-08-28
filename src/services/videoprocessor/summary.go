@@ -629,8 +629,8 @@ func isMagicUserExist(ctx context.Context, logger *logrus.Entry, span *trace.Spa
 
 	if !isMagicUserExistRes.Existed {
 		logger.Errorf("Magic user does not exist")
+		logging.SetSpanError(*span, errors.New("magic user does not exist"))
 	}
-	logging.SetSpanError(*span, errors.New("magic user does not exist"))
 
 	return isMagicUserExistRes.Existed
 }
