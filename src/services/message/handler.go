@@ -361,6 +361,6 @@ func sendMagicMessage() {
 			"UserId":  friend.Id,
 			"VideoId": videoId,
 			"Content": content,
-		}).Errorf("Successfully send the magic message")
+		}).Infof("Successfully send the magic message")
 	}
 }

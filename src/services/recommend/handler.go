@@ -91,6 +91,10 @@ func (a RecommendServiceImpl) GetRecommendInformation(ctx context.Context, reque
 		videoIds = append(videoIds, uint32(parseUint))
 	}
 
+	logger.WithFields(logrus.Fields{
+		"offset":   offset,
+		"videoIds": videoIds,
+	}).Infof("Get recommend with offset")
 	resp = &recommend.RecommendResponse{
 		StatusCode: strings.ServiceOKCode,
 		StatusMsg:  strings.ServiceOK,
