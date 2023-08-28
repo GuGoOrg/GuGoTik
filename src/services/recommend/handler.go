@@ -32,38 +32,28 @@ func (a RecommendServiceImpl) GetRecommendInformation(ctx context.Context, reque
 
 	var offset int
 	if request.Offset == -1 {
-		res := redis.Client.Get(ctx, fmt.Sprintf("%s-RecommendUserOffset-%d", config.EnvCfg.RedisPrefix, request.UserId))
-		if res.Err() != nil {
-			if res.Err() == redis2.Nil {
-				redis.Client.Set(ctx, fmt.Sprintf("%s-RecommendUserOffset-%d", config.EnvCfg.RedisPrefix, request.UserId), 0, redis2.KeepTTL)
-				offset = 0
-			} else {
-				logger.WithFields(logrus.Fields{
-					"err": err,
-				}).Errorf("Error when operate redis")
-				resp = &recommend.RecommendResponse{
-					StatusCode: strings.RecommendServiceInnerErrorCode,
-					StatusMsg:  strings.RecommendServiceInnerError,
-					VideoList:  nil,
-				}
-				return
+		ids, err := getVideoIds(ctx, strconv.Itoa(int(request.UserId)), int(request.Number))
+
+		if err != nil {
+			logger.WithFields(logrus.Fields{
+				"err": err,
+			}).Errorf("Error when getting recommend user item with default logic")
+			logging.SetSpanError(span, err)
+			resp = &recommend.RecommendResponse{
+				StatusCode: strings.RecommendServiceInnerErrorCode,
+				StatusMsg:  strings.RecommendServiceInnerError,
+				VideoList:  nil,
 			}
-		} else {
-			offset, err = strconv.Atoi(res.Val())
-			if err != nil {
-				logger.WithFields(logrus.Fields{
-					"err": err,
-				}).Errorf("Error when operate redis")
-				resp = &recommend.RecommendResponse{
-					StatusCode: strings.RecommendServiceInnerErrorCode,
-					StatusMsg:  strings.RecommendServiceInnerError,
-					VideoList:  nil,
-				}
-				return
-			}
-			offset += int(request.Number)
-			redis.Client.Set(ctx, fmt.Sprintf("%s-RecommendUserOffset-%d", config.EnvCfg.RedisPrefix, request.UserId), offset, redis2.KeepTTL)
+			return nil, err
 		}
+
+		resp = &recommend.RecommendResponse{
+			StatusCode: strings.ServiceOKCode,
+			StatusMsg:  strings.ServiceOK,
+			VideoList:  ids,
+		}
+		return resp, nil
+
 	} else {
 		offset = int(request.Offset)
 	}
@@ -74,6 +64,7 @@ func (a RecommendServiceImpl) GetRecommendInformation(ctx context.Context, reque
 		logger.WithFields(logrus.Fields{
 			"err": err,
 		}).Errorf("Error when getting recommend user item")
+		logging.SetSpanError(span, err)
 		resp = &recommend.RecommendResponse{
 			StatusCode: strings.RecommendServiceInnerErrorCode,
 			StatusMsg:  strings.RecommendServiceInnerError,
@@ -86,6 +77,10 @@ func (a RecommendServiceImpl) GetRecommendInformation(ctx context.Context, reque
 	for _, id := range videos {
 		parseUint, err := strconv.ParseUint(id, 10, 32)
 		if err != nil {
+			logger.WithFields(logrus.Fields{
+				"err": err,
+			}).Errorf("Error when getting recommend user item")
+			logging.SetSpanError(span, err)
 			resp = &recommend.RecommendResponse{
 				StatusCode: strings.RecommendServiceInnerErrorCode,
 				StatusMsg:  strings.RecommendServiceInnerError,
@@ -95,6 +90,7 @@ func (a RecommendServiceImpl) GetRecommendInformation(ctx context.Context, reque
 		}
 		videoIds = append(videoIds, uint32(parseUint))
 	}
+
 	resp = &recommend.RecommendResponse{
 		StatusCode: strings.ServiceOKCode,
 		StatusMsg:  strings.ServiceOK,
@@ -119,6 +115,7 @@ func (a RecommendServiceImpl) RegisterRecommendUser(ctx context.Context, request
 		logger.WithFields(logrus.Fields{
 			"err": err,
 		}).Errorf("Error when creating recommend user")
+		logging.SetSpanError(span, err)
 		resp = &recommend.RecommendRegisterResponse{
 			StatusCode: strings.RecommendServiceInnerErrorCode,
 			StatusMsg:  strings.RecommendServiceInnerError,
@@ -129,6 +126,71 @@ func (a RecommendServiceImpl) RegisterRecommendUser(ctx context.Context, request
 	resp = &recommend.RecommendRegisterResponse{
 		StatusCode: strings.ServiceOKCode,
 		StatusMsg:  strings.ServiceOK,
+	}
+	return
+}
+
+func getVideoIds(ctx context.Context, actorId string, num int) (ids []uint32, err error) {
+	ctx, span := tracing.Tracer.Start(ctx, "GetRecommendAutoService")
+	defer span.End()
+	logger := logging.LogService("RecommendService.GetRecommendAuto").WithContext(ctx)
+	key := fmt.Sprintf("%s-RecommendAutoService-%s", config.EnvCfg.RedisPrefix, actorId)
+	offset := 0
+
+	for len(ids) < num {
+		vIds, err := gorseClient.GetItemRecommend(ctx, actorId, []string{}, "read", "5m", num, offset)
+		if err != nil {
+			logger.WithFields(logrus.Fields{
+				"err":     err,
+				"actorId": actorId,
+				"num":     num,
+			}).Errorf("Error when getting item recommend")
+			return nil, err
+		}
+
+		for _, id := range vIds {
+			res := redis.Client.SIsMember(ctx, key, id)
+			if res.Err() != nil && res.Err() != redis2.Nil {
+				logger.WithFields(logrus.Fields{
+					"err":     err,
+					"actorId": actorId,
+					"num":     num,
+				}).Errorf("Error when getting item recommend")
+				return nil, err
+			}
+
+			if res.Val() {
+				uintId, err := strconv.ParseUint(id, 10, 32)
+				if err != nil {
+					logger.WithFields(logrus.Fields{
+						"err":     err,
+						"actorId": actorId,
+						"num":     num,
+						"uint":    id,
+					}).Errorf("Error when parsing uint")
+					return nil, err
+				}
+				ids = append(ids, uint32(uintId))
+			}
+		}
+
+		res := redis.Client.SAdd(ctx, key, ids)
+		if res.Err() != nil {
+			if err != nil {
+				logger.WithFields(logrus.Fields{
+					"err":     err,
+					"actorId": actorId,
+					"num":     num,
+					"ids":     ids,
+				}).Errorf("Error when locking redis ids read state")
+				return nil, err
+			}
+		}
+
+		if len(vIds) != num {
+			break
+		}
+		offset += num
 	}
 	return
 }
