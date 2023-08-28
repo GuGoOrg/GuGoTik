@@ -352,35 +352,35 @@ func (s FeedServiceImpl) QueryVideoSummaryAndKeywords(ctx context.Context, req *
 	return
 }
 
-func findVideos(ctx context.Context, latestTime int64) ([]*models.Video, time.Time, error) {
-	logger := logging.LogService("ListVideos.findVideos").WithContext(ctx)
-
-	nextTime := time.Unix(latestTime, 0)
-
-	var videos []*models.Video
-	result := database.Client.Where("created_at < ?", time.Unix(latestTime, 0)).
-		Order("created_at DESC").
-		Limit(VideoCount).
-		Find(&videos)
-
-	if result.Error != nil {
-		logger.WithFields(logrus.Fields{
-			"videos": videos,
-		}).Warnf("database.Client.Where meet trouble")
-		return nil, nextTime, result.Error
-	}
-
-	if len(videos) != 0 {
-		nextTime = videos[len(videos)-1].CreatedAt
-	}
-
-	logger.WithFields(logrus.Fields{
-		"latestTime":  time.Unix(latestTime, 0),
-		"VideosCount": len(videos),
-		"NextTime":    nextTime,
-	}).Debugf("Find videos")
-	return videos, nextTime, nil
-}
+//func findVideos(ctx context.Context, latestTime int64) ([]*models.Video, time.Time, error) {
+//	logger := logging.LogService("ListVideos.findVideos").WithContext(ctx)
+//
+//	nextTime := time.Unix(latestTime, 0)
+//
+//	var videos []*models.Video
+//	result := database.Client.Where("created_at < ?", time.Unix(latestTime, 0)).
+//		Order("created_at DESC").
+//		Limit(VideoCount).
+//		Find(&videos)
+//
+//	if result.Error != nil {
+//		logger.WithFields(logrus.Fields{
+//			"videos": videos,
+//		}).Warnf("database.Client.Where meet trouble")
+//		return nil, nextTime, result.Error
+//	}
+//
+//	if len(videos) != 0 {
+//		nextTime = videos[len(videos)-1].CreatedAt
+//	}
+//
+//	logger.WithFields(logrus.Fields{
+//		"latestTime":  time.Unix(latestTime, 0),
+//		"VideosCount": len(videos),
+//		"NextTime":    nextTime,
+//	}).Debugf("Find videos")
+//	return videos, nextTime, nil
+//}
 
 func findRecommendVideos(ctx context.Context, recommendVideoId []uint32) ([]*models.Video, error) {
 	logger := logging.LogService("ListVideos.findVideos").WithContext(ctx)
