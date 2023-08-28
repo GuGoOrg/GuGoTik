@@ -187,7 +187,7 @@ func getVideoIds(ctx context.Context, actorId string, num int) (ids []uint32, er
 					"err":     err,
 					"actorId": actorId,
 					"num":     num,
-					"ids":     ids,
+					"ids":     idsStr,
 				}).Errorf("Error when locking redis ids read state")
 				return nil, err
 			}
