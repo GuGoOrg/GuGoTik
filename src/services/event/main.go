@@ -116,7 +116,7 @@ func Consume(ch *amqp.Channel, queueName string) {
 				"err": err,
 			}).Errorf("Error when unmarshaling the prepare json body.")
 			logging.SetSpanError(span, err)
-			return
+			continue
 		}
 
 		switch raw.Type {
@@ -147,7 +147,6 @@ func Consume(ch *amqp.Channel, queueName string) {
 			}).Infof("Event dealt with type 1")
 			span.End()
 			err = d.Ack(false)
-			return
 		case 2:
 			var types string
 			switch raw.Source {
@@ -177,7 +176,6 @@ func Consume(ch *amqp.Channel, queueName string) {
 			}).Infof("Event dealt with type 2")
 			span.End()
 			err = d.Ack(false)
-			return
 		case 3:
 			var items []gorse.Item
 			for _, id := range raw.VideoId {
@@ -204,7 +202,6 @@ func Consume(ch *amqp.Channel, queueName string) {
 			}).Infof("Event dealt with type 3")
 			span.End()
 			err = d.Ack(false)
-			return
 		}
 	}
 }
