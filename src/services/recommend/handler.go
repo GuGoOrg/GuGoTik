@@ -143,6 +143,10 @@ func getVideoIds(ctx context.Context, actorId string, num int) (ids []uint32, er
 
 	for len(ids) < num {
 		vIds, err := gorseClient.GetItemRecommend(ctx, actorId, []string{}, "read", "5m", num, offset)
+		logger.WithFields(logrus.Fields{
+			"vIds": vIds,
+		}).Debugf("Fetch data from Gorse")
+
 		if err != nil {
 			logger.WithFields(logrus.Fields{
 				"err":     err,
@@ -163,7 +167,12 @@ func getVideoIds(ctx context.Context, actorId string, num int) (ids []uint32, er
 				return nil, err
 			}
 
-			if res.Val() {
+			logger.WithFields(logrus.Fields{
+				"id":  id,
+				"res": res,
+			}).Debugf("Get id in redis information")
+
+			if !res.Val() {
 				uintId, err := strconv.ParseUint(id, 10, 32)
 				if err != nil {
 					logger.WithFields(logrus.Fields{
@@ -178,22 +187,29 @@ func getVideoIds(ctx context.Context, actorId string, num int) (ids []uint32, er
 			}
 		}
 
-		var idsStr []string
+		var idsStr []interface{}
 
 		for _, id := range ids {
 			idsStr = append(idsStr, strconv.FormatUint(uint64(id), 10))
 		}
 
-		res := redis.Client.SAdd(ctx, key, idsStr)
-		if res.Err() != nil {
-			if err != nil {
-				logger.WithFields(logrus.Fields{
-					"err":     err,
-					"actorId": actorId,
-					"num":     num,
-					"ids":     idsStr,
-				}).Errorf("Error when locking redis ids read state")
-				return nil, err
+		logger.WithFields(logrus.Fields{
+			"actorId": actorId,
+			"ids":     idsStr,
+		}).Infof("Get recommend information")
+
+		if len(idsStr) != 0 {
+			res := redis.Client.SAdd(ctx, key, idsStr)
+			if res.Err() != nil {
+				if err != nil {
+					logger.WithFields(logrus.Fields{
+						"err":     err,
+						"actorId": actorId,
+						"num":     num,
+						"ids":     idsStr,
+					}).Errorf("Error when locking redis ids read state")
+					return nil, err
+				}
 			}
 		}
 

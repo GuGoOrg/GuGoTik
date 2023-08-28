@@ -32,7 +32,7 @@ type FeedServiceImpl struct {
 }
 
 const (
-	VideoCount = 30
+	VideoCount = 3
 )
 
 var UserClient user.UserServiceClient
