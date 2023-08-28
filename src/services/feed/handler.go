@@ -8,6 +8,7 @@ import (
 	"GuGoTik/src/rpc/comment"
 	"GuGoTik/src/rpc/favorite"
 	"GuGoTik/src/rpc/feed"
+	"GuGoTik/src/rpc/recommend"
 	"GuGoTik/src/rpc/user"
 	"GuGoTik/src/storage/database"
 	"GuGoTik/src/storage/file"
@@ -37,6 +38,7 @@ const (
 var UserClient user.UserServiceClient
 var CommentClient comment.CommentServiceClient
 var FavoriteClient favorite.FavoriteServiceClient
+var RecommendClient recommend.RecommendServiceClient
 
 var conn *amqp.Connection
 
@@ -55,6 +57,8 @@ func (s FeedServiceImpl) New() {
 	CommentClient = comment.NewCommentServiceClient(commentRpcConn)
 	favoriteRpcConn := grpc2.Connect(config.FavoriteRpcServerName)
 	FavoriteClient = favorite.NewFavoriteServiceClient(favoriteRpcConn)
+	recommendRpcConn := grpc2.Connect(config.RecommendRpcServiceName)
+	RecommendClient = recommend.NewRecommendServiceClient(recommendRpcConn)
 
 	var err error
 
@@ -137,13 +141,33 @@ func (s FeedServiceImpl) ListVideos(ctx context.Context, request *feed.ListFeedR
 			logging.SetSpanError(span, errors.New("the latestTime is not a unit timestamp"))
 		}
 	}
+	recommendResponse, err := RecommendClient.GetRecommendInformation(ctx, &recommend.RecommendRequest{
+		UserId: *request.ActorId,
+		Offset: -1,
+		Number: VideoCount,
+	})
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"err":             err,
+			"recommenVideoId": recommendResponse.VideoList,
+		}).Errorf("Error when trying to connect with RecommendService")
+		logging.SetSpanError(span, err)
+		resp = &feed.ListFeedResponse{
+			StatusCode: strings.RecommendServiceInnerErrorCode,
+			StatusMsg:  strings.RecommendServiceInnerError,
+			NextTime:   nil,
+			VideoList:  nil,
+		}
+		return resp, err
+	}
+	recommendVideoId := recommendResponse.VideoList
+	find, err := findRecommendVideos(ctx, recommendVideoId)
 
-	find, nextTime, err := findVideos(ctx, latestTime)
-	nextTimeStamp := uint32(nextTime.Unix())
+	nextTimeStamp := uint32(latestTime)
 	if err != nil {
 		logger.WithFields(logrus.Fields{
 			"find": find,
-		}).Warnf("func findVideos meet trouble.")
+		}).Warnf("func findRecommendVideos meet trouble.")
 		logging.SetSpanError(span, err)
 
 		resp = &feed.ListFeedResponse{
@@ -328,34 +352,53 @@ func (s FeedServiceImpl) QueryVideoSummaryAndKeywords(ctx context.Context, req *
 	return
 }
 
-func findVideos(ctx context.Context, latestTime int64) ([]*models.Video, time.Time, error) {
+//func findVideos(ctx context.Context, latestTime int64) ([]*models.Video, time.Time, error) {
+//	logger := logging.LogService("ListVideos.findVideos").WithContext(ctx)
+//
+//	nextTime := time.Unix(latestTime, 0)
+//
+//	var videos []*models.Video
+//	result := database.Client.Where("created_at < ?", time.Unix(latestTime, 0)).
+//		Order("created_at DESC").
+//		Limit(VideoCount).
+//		Find(&videos)
+//
+//	if result.Error != nil {
+//		logger.WithFields(logrus.Fields{
+//			"videos": videos,
+//		}).Warnf("database.Client.Where meet trouble")
+//		return nil, nextTime, result.Error
+//	}
+//
+//	if len(videos) != 0 {
+//		nextTime = videos[len(videos)-1].CreatedAt
+//	}
+//
+//	logger.WithFields(logrus.Fields{
+//		"latestTime":  time.Unix(latestTime, 0),
+//		"VideosCount": len(videos),
+//		"NextTime":    nextTime,
+//	}).Debugf("Find videos")
+//	return videos, nextTime, nil
+//}
+
+func findRecommendVideos(ctx context.Context, recommendVideoId []uint32) ([]*models.Video, error) {
 	logger := logging.LogService("ListVideos.findVideos").WithContext(ctx)
-
-	nextTime := time.Unix(latestTime, 0)
-
 	var videos []*models.Video
-	result := database.Client.Where("created_at < ?", time.Unix(latestTime, 0)).
-		Order("created_at DESC").
-		Limit(VideoCount).
-		Find(&videos)
+	var ids []interface{}
+	for _, id := range recommendVideoId {
+		ids = append(ids, id)
+	}
+	result := database.Client.WithContext(ctx).Where("video_id IN ?", ids).Find(&videos)
 
 	if result.Error != nil {
 		logger.WithFields(logrus.Fields{
 			"videos": videos,
 		}).Warnf("database.Client.Where meet trouble")
-		return nil, nextTime, result.Error
+		return nil, result.Error
 	}
 
-	if len(videos) != 0 {
-		nextTime = videos[len(videos)-1].CreatedAt
-	}
-
-	logger.WithFields(logrus.Fields{
-		"latestTime":  time.Unix(latestTime, 0),
-		"VideosCount": len(videos),
-		"NextTime":    nextTime,
-	}).Debugf("Find videos")
-	return videos, nextTime, nil
+	return videos, nil
 }
 
 func queryDetailed(ctx context.Context, logger *logrus.Entry, actorId uint32, videos []*models.Video) (respVideoList []*feed.Video) {
