@@ -62,5 +62,5 @@ func init() {
 	config.EnvCfg.MagicUserId = magicUser.ID
 	logging.Logger.WithFields(logrus.Fields{
 		"MagicUserId": magicUser.ID,
-	}).Debugf("Successfully create the magic user")
+	}).Infof("Successfully create the magic user")
 }
