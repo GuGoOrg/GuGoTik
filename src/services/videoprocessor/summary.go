@@ -346,6 +346,7 @@ func SummaryConsume(channel *amqp.Channel) {
 					VideoId: []uint32{raw.VideoId},
 					Type:    3,
 					Source:  config.VideoProcessorRpcServiceName,
+					Title:   raw.Title,
 				})
 			}()
 			wg.Wait()
