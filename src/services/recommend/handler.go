@@ -61,7 +61,7 @@ func (a RecommendServiceImpl) GetRecommendInformation(ctx context.Context, reque
 				}
 				return
 			}
-			offset += 30
+			offset += int(request.Number)
 			redis.Client.Set(ctx, fmt.Sprintf("%s-RecommendUserOffset-%d", config.EnvCfg.RedisPrefix, request.UserId), offset, redis2.KeepTTL)
 		}
 	} else {
@@ -69,7 +69,7 @@ func (a RecommendServiceImpl) GetRecommendInformation(ctx context.Context, reque
 	}
 
 	videos, err :=
-		gorseClient.GetItemRecommend(ctx, strconv.Itoa(int(request.UserId)), []string{}, "read", "5m", 30, offset)
+		gorseClient.GetItemRecommend(ctx, strconv.Itoa(int(request.UserId)), []string{}, "read", "5m", int(request.Number), offset)
 	if err != nil {
 		logger.WithFields(logrus.Fields{
 			"err": err,
