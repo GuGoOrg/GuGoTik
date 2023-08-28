@@ -189,7 +189,7 @@ func (c FavoriteServiceServerImpl) FavoriteAction(ctx context.Context, req *favo
 				produceFavorite(ctx, models.RecommendEvent{
 					ActorId: req.ActorId,
 					VideoId: []uint32{req.VideoId},
-					Type:    1,
+					Type:    2,
 					Source:  config.FavoriteRpcServerName,
 				})
 			}()
