@@ -13,5 +13,5 @@ spec:
       targetPort: 37004
   selector:
     name: gugotik-feed-service
-    branch: dev
+    branch: master
   type: ClusterIP

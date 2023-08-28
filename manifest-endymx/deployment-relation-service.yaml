@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   annotations:
-    sidecar.jaegertracing.io/inject: 'true'
+    sidecar.jaegertracing.io/inject: 'false'
   labels:
     app: gugotik-relation-service
   name: gugotik-relation-service
@@ -28,10 +28,14 @@ spec:
             imagePullPolicy: IfNotPresent
             name: gugotik-relation-service
             command:
-              - ./services/RelationService
+              - ./services/relation/RelationService
             envFrom:
               -   configMapRef:
                     name: env-config
+              - configMapRef:
+                  name: gugotik-env
+              - secretRef:
+                  name: gugotik-secret
             ports:
               - name: grpc-37008
                 containerPort: 37008

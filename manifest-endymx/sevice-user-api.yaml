@@ -13,5 +13,5 @@ spec:
       targetPort: 37002
   selector:
     name: gugotik-user-service
-    branch: dev
+    branch: master
   type: ClusterIP

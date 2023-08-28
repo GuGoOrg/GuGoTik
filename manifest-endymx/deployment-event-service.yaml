@@ -4,41 +4,41 @@ metadata:
   annotations:
     sidecar.jaegertracing.io/inject: 'false'
   labels:
-    app: gugotik-message-service
-  name: gugotik-message-service
+    app: gugotik-event-service
+  name: gugotik-event-service
   namespace: gugotik-service-bundle
 spec:
   selector:
     matchLabels:
-      name: gugotik-message-service
+      name: gugotik-event-service
   template:
     metadata:
       labels:
-        app: gugotik-message-service
+        app: gugotik-event-service
         branch: master
         version: ${BUILD_NUMBER}-${CI_COMMIT_ID}
-        name: gugotik-message-service
-        dream-app: gugotik-message-service
-        dream-unit: gugotik-message-service
+        name: gugotik-event-service
+        dream-app: gugotik-event-service
+        dream-unit: gugotik-event-service
     spec:
       imagePullSecrets:
-        -   name: reg-cred
+        -   name: regcred
       containers:
         -   image: ${IMAGE}
             imagePullPolicy: IfNotPresent
-            name: gugotik-message-service
+            name: gugotik-event-service
             command:
-              - ./services/message/MessageService
+              - ./services/event/EventService
             envFrom:
-              -   configMapRef:
-                    name: env-config
+              - configMapRef:
+                  name: env-config
               - configMapRef:
                   name: gugotik-env
               - secretRef:
                   name: gugotik-secret
             ports:
-              - name: grpc-37007
-                containerPort: 37007
+              - name: grpc-37003
+                containerPort: 37003
                 protocol: TCP
             resources:
               limits:
