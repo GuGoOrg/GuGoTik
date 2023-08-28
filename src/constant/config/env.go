@@ -38,6 +38,8 @@ type envConfig struct {
 	RabbitMQVhostPrefix   string `env:"RABBITMQ_VHOST_PREFIX" envDefault:""`
 	ChatGPTAPIKEYS        string `env:"CHATGPT_API_KEYS"`
 	PodIpAddr             string `env:"POD_IP" envDefault:"localhost"`
+	GorseAddr             string `env:"GORSE_ADDR"`
+	GorseApiKey           string `env:"GORSE_APIKEY"`
 }
 
 func init() {

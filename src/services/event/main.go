@@ -3,6 +3,7 @@ package main
 import (
 	"GuGoTik/src/constant/config"
 	"GuGoTik/src/constant/strings"
+	"GuGoTik/src/extra/gorse"
 	"GuGoTik/src/extra/tracing"
 	"GuGoTik/src/models"
 	"GuGoTik/src/utils/logging"
@@ -11,7 +12,9 @@ import (
 	"encoding/json"
 	"github.com/sirupsen/logrus"
 	"github.com/streadway/amqp"
+	"strconv"
 	"sync"
+	"time"
 )
 
 func exitOnError(err error) {
@@ -89,6 +92,12 @@ func main() {
 	wg.Wait()
 }
 
+var gorseClient *gorse.GorseClient
+
+func init() {
+	gorseClient = gorse.NewGorseClient(config.EnvCfg.GorseAddr, config.EnvCfg.GorseApiKey)
+}
+
 func Consume(ch *amqp.Channel, queueName string) {
 	msg, err := ch.Consume(queueName, "", false, false, false, false, nil)
 	if err != nil {
@@ -110,5 +119,72 @@ func Consume(ch *amqp.Channel, queueName string) {
 			return
 		}
 
+		switch raw.Type {
+		case 1:
+			var types string
+			switch raw.Source {
+			case config.FeedRpcServerName:
+				types = "read"
+			}
+			var feedbacks []gorse.Feedback
+			for _, id := range raw.VideoId {
+				feedbacks = append(feedbacks, gorse.Feedback{
+					FeedbackType: types,
+					UserId:       strconv.Itoa(int(raw.ActorId)),
+					ItemId:       strconv.Itoa(int(id)),
+					Timestamp:    time.UTC.String(),
+				})
+			}
+
+			if _, err := gorseClient.InsertFeedback(ctx, feedbacks); err != nil {
+				logger.WithFields(logrus.Fields{
+					"err": err,
+				}).Errorf("Error when insert the feedback")
+			}
+			return
+		case 2:
+			var types string
+			switch raw.Source {
+			case config.CommentRpcServerName:
+				types = "comment"
+			case config.FavoriteRpcServerName:
+				types = "favorite"
+			}
+			var feedbacks []gorse.Feedback
+			for _, id := range raw.VideoId {
+				feedbacks = append(feedbacks, gorse.Feedback{
+					FeedbackType: types,
+					UserId:       strconv.Itoa(int(raw.ActorId)),
+					ItemId:       strconv.Itoa(int(id)),
+					Timestamp:    time.UTC.String(),
+				})
+			}
+
+			if _, err := gorseClient.InsertFeedback(ctx, feedbacks); err != nil {
+				logger.WithFields(logrus.Fields{
+					"err": err,
+				}).Errorf("Error when insert the feedback")
+			}
+			return
+		case 3:
+			var items []gorse.Item
+			for _, id := range raw.VideoId {
+				items = append(items, gorse.Item{
+					ItemId:     strconv.Itoa(int(id)),
+					IsHidden:   false,
+					Labels:     raw.Tag,
+					Categories: raw.Category,
+					Timestamp:  time.UTC.String(),
+					Comment:    raw.Title,
+				})
+			}
+
+			if _, err := gorseClient.InsertItems(ctx, items); err != nil {
+				logger.WithFields(logrus.Fields{
+					"err": err,
+				}).Errorf("Error when insert the items")
+			}
+			return
+		}
 	}
 }
