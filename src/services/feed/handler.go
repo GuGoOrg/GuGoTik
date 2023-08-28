@@ -122,12 +122,7 @@ func produceFeed(ctx context.Context, event models.RecommendEvent) {
 	}
 }
 
-// ListVideosByRecommend TODO
 func (s FeedServiceImpl) ListVideosByRecommend(ctx context.Context, request *feed.ListFeedRequest) (resp *feed.ListFeedResponse, err error) {
-	return
-}
-
-func (s FeedServiceImpl) ListVideos(ctx context.Context, request *feed.ListFeedRequest) (resp *feed.ListFeedResponse, err error) {
 	ctx, span := tracing.Tracer.Start(ctx, "ListVideosService")
 	defer span.End()
 	logger := logging.LogService("FeedService.ListVideos").WithContext(ctx)
@@ -173,6 +168,95 @@ func (s FeedServiceImpl) ListVideos(ctx context.Context, request *feed.ListFeedR
 		logger.WithFields(logrus.Fields{
 			"find": find,
 		}).Warnf("func findRecommendVideos meet trouble.")
+		logging.SetSpanError(span, err)
+
+		resp = &feed.ListFeedResponse{
+			StatusCode: strings.FeedServiceInnerErrorCode,
+			StatusMsg:  strings.FeedServiceInnerError,
+			NextTime:   &nextTimeStamp,
+			VideoList:  nil,
+		}
+		return resp, err
+	}
+	if len(find) == 0 {
+		resp = &feed.ListFeedResponse{
+			StatusCode: strings.ServiceOKCode,
+			StatusMsg:  strings.ServiceOK,
+			NextTime:   nil,
+			VideoList:  nil,
+		}
+		return resp, err
+	}
+
+	var actorId uint32 = 0
+	if request.ActorId != nil {
+		actorId = *request.ActorId
+	}
+	videos := queryDetailed(ctx, logger, actorId, find)
+	if videos == nil {
+		logger.WithFields(logrus.Fields{
+			"videos": videos,
+		}).Warnf("func queryDetailed meet trouble.")
+		logging.SetSpanError(span, err)
+		resp = &feed.ListFeedResponse{
+			StatusCode: strings.FeedServiceInnerErrorCode,
+			StatusMsg:  strings.FeedServiceInnerError,
+			NextTime:   nil,
+			VideoList:  nil,
+		}
+		return resp, err
+	}
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		var videoLists []uint32
+		for _, item := range videos {
+			videoLists = append(videoLists, item.Id)
+		}
+		produceFeed(ctx, models.RecommendEvent{
+			ActorId: *request.ActorId,
+			VideoId: videoLists,
+			Type:    1,
+			Source:  config.FeedRpcServerName,
+		})
+	}()
+	wg.Wait()
+	resp = &feed.ListFeedResponse{
+		StatusCode: strings.ServiceOKCode,
+		StatusMsg:  strings.ServiceOK,
+		NextTime:   &nextTimeStamp,
+		VideoList:  videos,
+	}
+	return resp, err
+}
+
+func (s FeedServiceImpl) ListVideos(ctx context.Context, request *feed.ListFeedRequest) (resp *feed.ListFeedResponse, err error) {
+	ctx, span := tracing.Tracer.Start(ctx, "ListVideosService")
+	defer span.End()
+	logger := logging.LogService("FeedService.ListVideos").WithContext(ctx)
+
+	now := time.Now().Unix()
+	latestTime := now
+	if request.LatestTime != nil && *request.LatestTime != "" {
+		// Check if request.LatestTime is a timestamp
+		t, ok := isUnixTimestamp(*request.LatestTime)
+		if ok {
+			latestTime = t
+		} else {
+			logger.WithFields(logrus.Fields{
+				"latestTime": request.LatestTime,
+			}).Errorf("The latestTime is not a unix timestamp")
+			logging.SetSpanError(span, errors.New("the latestTime is not a unit timestamp"))
+		}
+	}
+
+	find, nextTime, err := findVideos(ctx, latestTime)
+	nextTimeStamp := uint32(nextTime.Unix())
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"find": find,
+		}).Warnf("func findVideos meet trouble.")
 		logging.SetSpanError(span, err)
 
 		resp = &feed.ListFeedResponse{
@@ -357,35 +441,35 @@ func (s FeedServiceImpl) QueryVideoSummaryAndKeywords(ctx context.Context, req *
 	return
 }
 
-//func findVideos(ctx context.Context, latestTime int64) ([]*models.Video, time.Time, error) {
-//	logger := logging.LogService("ListVideos.findVideos").WithContext(ctx)
-//
-//	nextTime := time.Unix(latestTime, 0)
-//
-//	var videos []*models.Video
-//	result := database.Client.Where("created_at < ?", time.Unix(latestTime, 0)).
-//		Order("created_at DESC").
-//		Limit(VideoCount).
-//		Find(&videos)
-//
-//	if result.Error != nil {
-//		logger.WithFields(logrus.Fields{
-//			"videos": videos,
-//		}).Warnf("database.Client.Where meet trouble")
-//		return nil, nextTime, result.Error
-//	}
-//
-//	if len(videos) != 0 {
-//		nextTime = videos[len(videos)-1].CreatedAt
-//	}
-//
-//	logger.WithFields(logrus.Fields{
-//		"latestTime":  time.Unix(latestTime, 0),
-//		"VideosCount": len(videos),
-//		"NextTime":    nextTime,
-//	}).Debugf("Find videos")
-//	return videos, nextTime, nil
-//}
+func findVideos(ctx context.Context, latestTime int64) ([]*models.Video, time.Time, error) {
+	logger := logging.LogService("ListVideos.findVideos").WithContext(ctx)
+
+	nextTime := time.Unix(latestTime, 0)
+
+	var videos []*models.Video
+	result := database.Client.Where("created_at < ?", time.Unix(latestTime, 0)).
+		Order("created_at DESC").
+		Limit(VideoCount).
+		Find(&videos)
+
+	if result.Error != nil {
+		logger.WithFields(logrus.Fields{
+			"videos": videos,
+		}).Warnf("database.Client.Where meet trouble")
+		return nil, nextTime, result.Error
+	}
+
+	if len(videos) != 0 {
+		nextTime = videos[len(videos)-1].CreatedAt
+	}
+
+	logger.WithFields(logrus.Fields{
+		"latestTime":  time.Unix(latestTime, 0),
+		"VideosCount": len(videos),
+		"NextTime":    nextTime,
+	}).Debugf("Find videos")
+	return videos, nextTime, nil
+}
 
 func findRecommendVideos(ctx context.Context, recommendVideoId []uint32) ([]*models.Video, error) {
 	logger := logging.LogService("ListVideos.findVideos").WithContext(ctx)
@@ -394,7 +478,7 @@ func findRecommendVideos(ctx context.Context, recommendVideoId []uint32) ([]*mod
 	for _, id := range recommendVideoId {
 		ids = append(ids, id)
 	}
-	result := database.Client.WithContext(ctx).Where("video_id IN ?", ids).Find(&videos)
+	result := database.Client.WithContext(ctx).Where("id IN ?", ids).Find(&videos)
 
 	if result.Error != nil {
 		logger.WithFields(logrus.Fields{

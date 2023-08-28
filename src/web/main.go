@@ -69,7 +69,7 @@ func main() {
 	}
 	feed := rootPath.Group("/feed")
 	{
-		feed.GET("/", feed2.ListVideosHandle)
+		feed.GET("/", feed2.ListVideosByRecommendHandle)
 	}
 	comment := rootPath.Group("/comment")
 	{

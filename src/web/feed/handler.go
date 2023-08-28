@@ -17,9 +17,9 @@ import (
 
 var Client feed.FeedServiceClient
 
-func ListVideosHandle(c *gin.Context) {
+func ListVideosByRecommendHandle(c *gin.Context) {
 	var req models.ListVideosReq
-	_, span := tracing.Tracer.Start(c.Request.Context(), "Feed-ListVideoHandle")
+	_, span := tracing.Tracer.Start(c.Request.Context(), "Feed-ListVideosByRecommendHandle")
 	defer span.End()
 	logger := logging.LogService("GateWay.Videos").WithContext(c.Request.Context())
 
@@ -56,11 +56,6 @@ func ListVideosHandle(c *gin.Context) {
 		})
 		return
 	}
-
-	//logger.WithFields(logrus.Fields{
-	//	"LatestTime": latestTime,
-	//	"res":        res,
-	//}).Infof("Feed List videos")
 	c.Render(http.StatusOK, utils.CustomJSON{Data: res, Context: c})
 }
 
