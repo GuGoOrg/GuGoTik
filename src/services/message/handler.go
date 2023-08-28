@@ -280,13 +280,13 @@ func sendMagicMessage() {
 
 	// Get all friends of magic user
 	friendsResponse, err := relationClient.GetFriendList(ctx, &relation.FriendListRequest{
-		ActorId: 1,
-		UserId:  1,
+		ActorId: config.EnvCfg.MagicUserId,
+		UserId:  config.EnvCfg.MagicUserId,
 	})
 
 	if err != nil {
 		logger.WithFields(logrus.Fields{
-			"ActorId": 1,
+			"ActorId": config.EnvCfg.MagicUserId,
 			"Err":     err,
 		}).Errorf("Cannot get friend list of magic user")
 		logging.SetSpanError(span, err)
@@ -318,7 +318,7 @@ func sendMagicMessage() {
 		video, ok := videoMap[videoId]
 		if !ok {
 			videoQueryResponse, err := feedClient.QueryVideos(ctx, &feed.QueryVideosRequest{
-				ActorId:  1,
+				ActorId:  config.EnvCfg.MagicUserId,
 				VideoIds: []uint32{videoId},
 			})
 			if err != nil {
@@ -337,7 +337,7 @@ func sendMagicMessage() {
 		// Chat to every friend
 		content := fmt.Sprintf("今日视频推荐：%s；\n视频链接：%s", video.Title, video.PlayUrl)
 		_, err = chatClient.ChatAction(ctx, &chat.ActionRequest{
-			ActorId:    1,
+			ActorId:    config.EnvCfg.MagicUserId,
 			UserId:     friend.Id,
 			ActionType: 1,
 			Content:    content,
