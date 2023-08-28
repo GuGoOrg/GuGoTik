@@ -50,10 +50,13 @@ func (c MessageServiceImpl) New() {
 	chatClient = chat.NewChatServiceClient(chatRpcConn)
 
 	cronRunner := cron.New(cron.WithSeconds())
-	_, err := cronRunner.AddFunc("0 0 18 * * ?", sendMagicMessage)
+	_, err := cronRunner.AddFunc("0 0 18 * * *", sendMagicMessage) // execute every 18:00
+	//_, err := cronRunner.AddFunc("@every 1m", sendMagicMessage) // execute every minute [for test]
 
 	if err != nil {
-		logging.Logger.Errorf("Cannot start SendMagicMessage cron job")
+		logging.Logger.WithFields(logrus.Fields{
+			"err": err,
+		}).Errorf("Cannot start SendMagicMessage cron job")
 	}
 
 	cronRunner.Start()
@@ -300,7 +303,7 @@ func sendMagicMessage() {
 		// Get recommend video id
 		recommendResponse, err := recommendClient.GetRecommendInformation(ctx, &recommend.RecommendRequest{
 			UserId: friend.Id,
-			Offset: -1,
+			Offset: 0,
 			Number: 1,
 		})
 

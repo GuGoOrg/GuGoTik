@@ -87,7 +87,7 @@ func produceKeywords(ctx context.Context, event models.RecommendEvent) {
 
 	err = channel.Publish(
 		strings2.EventExchange,
-		strings2.FavoriteActionEvent,
+		strings2.VideoPublishEvent,
 		false,
 		false,
 		amqp.Publishing{
