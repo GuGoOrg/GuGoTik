@@ -138,7 +138,7 @@ services:
     ports:
       - "8099:8099"
     command: >
-      --master-host master --master-port 8086 
+      --master-host gorse-master --master-port 8086 
       --http-host 0.0.0.0 --http-port 8099
       --log-path /var/log/gorse/worker.log 
       --cache-path /var/lib/gorse/worker_cache.data
@@ -150,7 +150,7 @@ services:
     ports:
       - "8087:8087"
     command: >
-      --master-host master --master-port 8086 
+      --master-host gorse-master --master-port 8086 
       --http-host 0.0.0.0 --http-port 8087
       --log-path /var/log/gorse/server.log 
       --cache-path /var/lib/gorse/server_cache.data
