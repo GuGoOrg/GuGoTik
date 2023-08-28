@@ -16,6 +16,7 @@ message RecommendResponse {
 
 message RecommendRegisterRequest {
   uint32 user_id = 1; // 用户id
+  string username = 2;
 }
 
 message RecommendRegisterResponse {

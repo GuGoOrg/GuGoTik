@@ -1,5 +1,10 @@
 package main
 
+import (
+	"fmt"
+	"time"
+)
+
 func main() {
-	select {}
+	fmt.Println(time.Now().UTC().Format(time.RFC3339))
 }
