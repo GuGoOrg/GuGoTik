@@ -385,8 +385,11 @@ func findVideos(ctx context.Context, latestTime int64) ([]*models.Video, time.Ti
 func findRecommendVideos(ctx context.Context, recommendVideoId []uint32) ([]*models.Video, error) {
 	logger := logging.LogService("ListVideos.findVideos").WithContext(ctx)
 	var videos []*models.Video
-	result := database.Client.WithContext(ctx).Where("video_id = ?", recommendVideoId).
-		Find(&videos)
+	var ids []interface{}
+	for _, id := range recommendVideoId {
+		ids = append(ids, id)
+	}
+	result := database.Client.WithContext(ctx).Where("video_id IN ?", ids).Find(&videos)
 
 	if result.Error != nil {
 		logger.WithFields(logrus.Fields{
