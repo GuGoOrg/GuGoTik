@@ -6,6 +6,7 @@ import (
 	"GuGoTik/src/extra/tracing"
 	"GuGoTik/src/models"
 	"GuGoTik/src/rpc/auth"
+	"GuGoTik/src/rpc/recommend"
 	"GuGoTik/src/rpc/relation"
 	user2 "GuGoTik/src/rpc/user"
 	"GuGoTik/src/storage/cached"
@@ -32,6 +33,7 @@ import (
 
 var relationClient relation.RelationServiceClient
 var userClient user2.UserServiceClient
+var recommendClient recommend.RecommendServiceClient
 
 type AuthServiceImpl struct {
 	auth.AuthServiceServer
@@ -42,6 +44,8 @@ func (a AuthServiceImpl) New() {
 	relationClient = relation.NewRelationServiceClient(relationConn)
 	userRpcConn := grpc2.Connect(config.UserRpcServerName)
 	userClient = user2.NewUserServiceClient(userRpcConn)
+	recommendRpcConn := grpc2.Connect(config.RecommendRpcServiceName)
+	recommendClient = recommend.NewRecommendServiceClient(recommendRpcConn)
 }
 
 func (a AuthServiceImpl) Authenticate(ctx context.Context, request *auth.AuthenticateRequest) (resp *auth.AuthenticateResponse, err error) {
@@ -213,6 +217,15 @@ func (a AuthServiceImpl) Register(ctx context.Context, request *auth.RegisterReq
 	logger.WithFields(logrus.Fields{
 		"username": request.Username,
 	}).Infof("User register success!")
+
+	recommendResp, err := recommendClient.RegisterRecommendUser(ctx, &recommend.RecommendRegisterRequest{UserId: user.ID})
+	if err != nil || recommendResp.StatusCode != strings.ServiceOKCode {
+		resp = &auth.RegisterResponse{
+			StatusCode: strings.AuthServiceInnerErrorCode,
+			StatusMsg:  strings.AuthServiceInnerError,
+		}
+		return
+	}
 
 	resp.UserId = user.ID
 	resp.StatusCode = strings.ServiceOKCode
