@@ -417,7 +417,7 @@ func addMagicUserFriend(ctx context.Context, span *trace.Span, userId uint32) {
 	logger := logging.LogService("AuthService.Register.AddMagicUserFriend").WithContext(ctx)
 
 	isMagicUserExist, err := userClient.GetUserExistInformation(ctx, &user2.UserExistRequest{
-		UserId: 1,
+		UserId: config.EnvCfg.MagicUserId,
 	})
 	if err != nil {
 		logger.WithFields(logrus.Fields{
@@ -439,7 +439,7 @@ func addMagicUserFriend(ctx context.Context, span *trace.Span, userId uint32) {
 	// User follow magic user
 	_, err = relationClient.Follow(ctx, &relation.RelationActionRequest{
 		ActorId: userId,
-		UserId:  1,
+		UserId:  config.EnvCfg.MagicUserId,
 	})
 	if err != nil {
 		logger.WithFields(logrus.Fields{
@@ -452,7 +452,7 @@ func addMagicUserFriend(ctx context.Context, span *trace.Span, userId uint32) {
 
 	// Magic user follow user
 	_, err = relationClient.Follow(ctx, &relation.RelationActionRequest{
-		ActorId: 1,
+		ActorId: config.EnvCfg.MagicUserId,
 		UserId:  userId,
 	})
 	if err != nil {

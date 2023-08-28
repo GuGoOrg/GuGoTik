@@ -1,8 +1,10 @@
 package models
 
 import (
+	"GuGoTik/src/constant/config"
 	"GuGoTik/src/storage/database"
 	"GuGoTik/src/utils/logging"
+	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"regexp"
@@ -39,9 +41,8 @@ func init() {
 		panic(err)
 	}
 
-	// Create magic user (id = 0): show video summary and keywords, and act as ChatGPT
+	// Create magic user: show video summary and keywords, and act as ChatGPT
 	magicUser := User{
-		ID:              1,
 		UserName:        "ChatGPT",
 		Password:        "chatgpt",
 		Role:            2,
@@ -50,10 +51,16 @@ func init() {
 		Signature:       "GuGoTik 小助手",
 	}
 	result := database.Client.Clauses(clause.OnConflict{
-		UpdateAll: true,
+		Columns:   []clause.Column{{Name: "user_name"}},
+		DoUpdates: clause.AssignmentColumns([]string{"password", "role", "avatar", "background_image", "signature"}),
 	}).Create(&magicUser)
 
 	if result.Error != nil {
 		logging.Logger.Errorf("Cannot create magic user because of %s", result.Error)
 	}
+
+	config.EnvCfg.MagicUserId = magicUser.ID
+	logging.Logger.WithFields(logrus.Fields{
+		"MagicUserId": magicUser.ID,
+	}).Debugf("Successfully create the magic user")
 }

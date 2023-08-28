@@ -122,6 +122,11 @@ func produceFeed(ctx context.Context, event models.RecommendEvent) {
 	}
 }
 
+// ListVideosByRecommend TODO
+func (s FeedServiceImpl) ListVideosByRecommend(ctx context.Context, request *feed.ListFeedRequest) (resp *feed.ListFeedResponse, err error) {
+	return
+}
+
 func (s FeedServiceImpl) ListVideos(ctx context.Context, request *feed.ListFeedRequest) (resp *feed.ListFeedResponse, err error) {
 	ctx, span := tracing.Tracer.Start(ctx, "ListVideosService")
 	defer span.End()

@@ -60,6 +60,7 @@ message QueryVideoSummaryAndKeywordsResponse {
 }
 
 service FeedService {
+  rpc ListVideosByRecommend(ListFeedRequest) returns (ListFeedResponse);
   rpc ListVideos(ListFeedRequest) returns (ListFeedResponse);
   rpc QueryVideos(QueryVideosRequest) returns (QueryVideosResponse);
   rpc QueryVideoExisted(VideoExistRequest) returns (VideoExistResponse);

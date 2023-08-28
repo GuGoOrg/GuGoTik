@@ -66,7 +66,7 @@ func main() {
 	exitOnError(err)
 
 	q, err := ch.QueueDeclare(
-		"",
+		"event_queue",
 		true,
 		false,
 		false,

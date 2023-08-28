@@ -561,7 +561,7 @@ func reindexCommentList(commentList *[]models.Comment) {
 	var commonComments []models.Comment
 
 	for _, c := range *commentList {
-		if c.UserId == 1 {
+		if c.UserId == config.EnvCfg.MagicUserId {
 			magicComments = append(magicComments, c)
 		} else {
 			commonComments = append(commonComments, c)
