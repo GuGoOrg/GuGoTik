@@ -80,7 +80,7 @@ func main() {
 
 	err = ch.QueueBind(
 		q.Name,
-		strings.FavoriteActionEvent,
+		"video.#",
 		strings.EventExchange,
 		false,
 		nil)
