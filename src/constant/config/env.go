@@ -40,7 +40,7 @@ type envConfig struct {
 	PodIpAddr             string `env:"POD_IP" envDefault:"localhost"`
 	GorseAddr             string `env:"GORSE_ADDR"`
 	GorseApiKey           string `env:"GORSE_APIKEY"`
-	MagicUserId           uint32 `env:"MAGIC_USER_ID"`
+	MagicUserId           uint32 `env:"MAGIC_USER_ID" envDefault:"1"`
 }
 
 func init() {
