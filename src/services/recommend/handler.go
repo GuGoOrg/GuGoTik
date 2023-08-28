@@ -174,7 +174,13 @@ func getVideoIds(ctx context.Context, actorId string, num int) (ids []uint32, er
 			}
 		}
 
-		res := redis.Client.SAdd(ctx, key, ids)
+		var idsStr []string
+
+		for _, id := range ids {
+			idsStr = append(idsStr, strconv.FormatUint(uint64(id), 10))
+		}
+
+		res := redis.Client.SAdd(ctx, key, idsStr)
 		if res.Err() != nil {
 			if err != nil {
 				logger.WithFields(logrus.Fields{
