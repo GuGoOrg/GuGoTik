@@ -32,7 +32,7 @@ type FeedServiceImpl struct {
 }
 
 const (
-	VideoCount = 30
+	VideoCount = 3
 )
 
 var UserClient user.UserServiceClient
@@ -394,7 +394,7 @@ func findRecommendVideos(ctx context.Context, recommendVideoId []uint32) ([]*mod
 	for _, id := range recommendVideoId {
 		ids = append(ids, id)
 	}
-	result := database.Client.WithContext(ctx).Where("video_id IN ?", ids).Find(&videos)
+	result := database.Client.WithContext(ctx).Where("id IN ?", ids).Find(&videos)
 
 	if result.Error != nil {
 		logger.WithFields(logrus.Fields{
