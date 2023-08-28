@@ -140,7 +140,13 @@ func Consume(ch *amqp.Channel, queueName string) {
 				logger.WithFields(logrus.Fields{
 					"err": err,
 				}).Errorf("Error when insert the feedback")
+				logging.SetSpanError(span, err)
 			}
+			logger.WithFields(logrus.Fields{
+				"ids": raw.VideoId,
+			}).Infof("Event dealt with type 1")
+			span.End()
+			err = d.Ack(false)
 			return
 		case 2:
 			var types string
@@ -164,7 +170,13 @@ func Consume(ch *amqp.Channel, queueName string) {
 				logger.WithFields(logrus.Fields{
 					"err": err,
 				}).Errorf("Error when insert the feedback")
+				logging.SetSpanError(span, err)
 			}
+			logger.WithFields(logrus.Fields{
+				"ids": raw.VideoId,
+			}).Infof("Event dealt with type 2")
+			span.End()
+			err = d.Ack(false)
 			return
 		case 3:
 			var items []gorse.Item
@@ -183,7 +195,13 @@ func Consume(ch *amqp.Channel, queueName string) {
 				logger.WithFields(logrus.Fields{
 					"err": err,
 				}).Errorf("Error when insert the items")
+				logging.SetSpanError(span, err)
 			}
+			logger.WithFields(logrus.Fields{
+				"ids": raw.VideoId,
+			}).Infof("Event dealt with type 3")
+			span.End()
+			err = d.Ack(false)
 			return
 		}
 	}
