@@ -11,4 +11,6 @@ const (
 	VideoGetEvent       = "video.get.action"
 	VideoCommentEvent   = "video.comment.action"
 	VideoPublishEvent   = "video.publish.action"
+
+	MessageActionEvent = "message_send"
 )

@@ -11,9 +11,13 @@ import (
 	"GuGoTik/src/storage/redis"
 	grpc2 "GuGoTik/src/utils/grpc"
 	"GuGoTik/src/utils/logging"
+	"GuGoTik/src/utils/rabbitmq"
 	"context"
+	"encoding/json"
 	"fmt"
+
 	"github.com/go-redis/redis_rate/v10"
+	"github.com/streadway/amqp"
 
 	"github.com/sirupsen/logrus"
 )
@@ -24,10 +28,51 @@ type MessageServiceImpl struct {
 	chat.ChatServiceServer
 }
 
+// 连接
+var conn *amqp.Connection
+var channel *amqp.Channel
+
+//输出
+
+func failOnError(err error, msg string) {
+	//打日志
+	logging.Logger.Errorf("err %s", msg)
+
+}
+
 func (c MessageServiceImpl) New() {
 	userRpcConn := grpc2.Connect(config.UserRpcServerName)
 	UserClient = user.NewUserServiceClient(userRpcConn)
+	var err error
+	conn, err = amqp.Dial(rabbitmq.BuildMQConnAddr())
+	if err != nil {
+		failOnError(err, "Fialed to conenct to RabbitMQ")
+	}
+	channel, err = conn.Channel()
+	if err != nil {
+		failOnError(err, "Failed to open a channel")
+	}
+	_, err = channel.QueueDeclare(
+		strings.MessageActionEvent,
+		true, false, false, false,
+		nil,
+	)
+	if err != nil {
+		failOnError(err, "Failed to define queue")
+	}
+
 }
+
+func CloseMQConn() {
+	if err := channel.Close(); err != nil {
+		failOnError(err, "close channel error")
+	}
+	if err := conn.Close(); err != nil {
+		failOnError(err, "close conn error")
+	}
+}
+
+//发送消息
 
 var chatActionLimitKeyPrefix = config.EnvCfg.RedisPrefix + "chat_freq_limit"
 
@@ -82,25 +127,25 @@ func (c MessageServiceImpl) ChatAction(ctx context.Context, request *chat.Action
 		return
 	}
 
-	userResponse, err := UserClient.GetUserExistInformation(ctx, &user.UserExistRequest{
-		UserId: request.UserId,
-	})
+	/* 	userResponse, err := UserClient.GetUserExistInformation(ctx, &user.UserExistRequest{
+	   		UserId: request.UserId,
+	   	})
 
-	if err != nil || userResponse.StatusCode != strings.ServiceOKCode {
-		logger.WithFields(logrus.Fields{
-			"err":          err,
-			"ActorId":      request.ActorId,
-			"user_id":      request.UserId,
-			"action_type":  request.ActionType,
-			"content_text": request.Content,
-		}).Errorf("User service error")
-		logging.SetSpanError(span, err)
+	   	if err != nil || userResponse.StatusCode != strings.ServiceOKCode {
+	   		logger.WithFields(logrus.Fields{
+	   			"err":          err,
+	   			"ActorId":      request.ActorId,
+	   			"user_id":      request.UserId,
+	   			"action_type":  request.ActionType,
+	   			"content_text": request.Content,
+	   		}).Errorf("User service error")
+	   		logging.SetSpanError(span, err)
 
-		return &chat.ActionResponse{
-			StatusCode: strings.UnableToAddMessageErrorCode,
-			StatusMsg:  strings.UnableToAddMessageError,
-		}, err
-	}
+	   		return &chat.ActionResponse{
+	   			StatusCode: strings.UnableToAddMessageErrorCode,
+	   			StatusMsg:  strings.UnableToAddMessageError,
+	   		}, err
+	   	} */
 
 	res, err = addMessage(ctx, request.ActorId, request.UserId, request.Content)
 	if err != nil {
@@ -132,25 +177,25 @@ func (c MessageServiceImpl) Chat(ctx context.Context, request *chat.ChatRequest)
 		"pre_msg_time": request.PreMsgTime,
 	}).Debugf("Process start")
 
-	userResponse, err := UserClient.GetUserExistInformation(ctx, &user.UserExistRequest{
-		UserId: request.UserId,
-	})
+	/* 	userResponse, err := UserClient.GetUserExistInformation(ctx, &user.UserExistRequest{
+	   		UserId: request.UserId,
+	   	})
 
-	if err != nil || userResponse.StatusCode != strings.ServiceOKCode {
-		logger.WithFields(logrus.Fields{
-			"err":     err,
-			"ActorId": request.ActorId,
-			"user_id": request.UserId,
-		}).Errorf("User service error")
-		logging.SetSpanError(span, err)
+	   	if err != nil || userResponse.StatusCode != strings.ServiceOKCode {
+	   		logger.WithFields(logrus.Fields{
+	   			"err":     err,
+	   			"ActorId": request.ActorId,
+	   			"user_id": request.UserId,
+	   		}).Errorf("User service error")
+	   		logging.SetSpanError(span, err)
 
-		resp = &chat.ChatResponse{
-			StatusCode: strings.UnableToQueryMessageErrorCode,
-			StatusMsg:  strings.UnableToQueryMessageError,
-		}
-		return
-	}
-
+	   		resp = &chat.ChatResponse{
+	   			StatusCode: strings.UnableToQueryMessageErrorCode,
+	   			StatusMsg:  strings.UnableToQueryMessageError,
+	   		}
+	   		return
+	   	}
+	*/
 	toUserId := request.UserId
 	fromUserId := request.ActorId
 
@@ -222,10 +267,28 @@ func addMessage(ctx context.Context, fromUserId uint32, toUserId uint32, Context
 	}
 
 	//TO_DO 后面写mq？
-	result := database.Client.WithContext(ctx).Create(&message)
 
-	if result.Error != nil {
+	body, err := json.Marshal(message)
 
+	if err != nil {
+		resp = &chat.ActionResponse{
+			StatusCode: strings.UnableToAddMessageErrorCode,
+			StatusMsg:  strings.UnableToAddMessageError,
+		}
+		return
+	}
+	headers := rabbitmq.InjectAMQPHeaders(ctx)
+	err = channel.Publish("", "strings.MessageActionEvent", false, false,
+		amqp.Publishing{
+			DeliveryMode: amqp.Persistent,
+			ContentType:  "text/json",
+			Body:         body,
+			Headers:      headers,
+		})
+
+	// result := database.Client.WithContext(ctx).Create(&message)
+
+	if err != nil {
 		resp = &chat.ActionResponse{
 			StatusCode: strings.UnableToAddMessageErrorCode,
 			StatusMsg:  strings.UnableToAddMessageError,
