@@ -39,7 +39,7 @@ func ListVideosByRecommendHandle(c *gin.Context) {
 
 	latestTime := req.LatestTime
 	actorId := uint32(req.ActorId)
-	res, err := Client.ListVideos(c.Request.Context(), &feed.ListFeedRequest{
+	res, err := Client.ListVideosByRecommend(c.Request.Context(), &feed.ListFeedRequest{
 		LatestTime: &latestTime,
 		ActorId:    &actorId,
 	})
