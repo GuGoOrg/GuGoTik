@@ -18,13 +18,19 @@ var client auth.AuthServiceClient
 
 func TokenAuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if c.Request.URL.Path == "/douyin/user/login" || c.Request.URL.Path == "/douyin/user/register" {
+		if c.Request.URL.Path == "/douyin/user/login/" ||
+			c.Request.URL.Path == "/douyin/user/register/" ||
+			c.Request.URL.Path == "/douyin/comment/list/" ||
+			c.Request.URL.Path == "/douyin/relation/follow/list/" ||
+			c.Request.URL.Path == "/douyin/publish/list/" ||
+			c.Request.URL.Path == "/douyin/favorite/list/" ||
+			c.Request.URL.Path == "/douyin/relation/follower/list/" {
 			c.Next()
 			return
 		}
 
 		var token string
-		if c.Request.URL.Path == "/douyin/publish/action" {
+		if c.Request.URL.Path == "/douyin/publish/action/" {
 			token = c.PostForm("token")
 		} else {
 			token = c.Query("token")
@@ -44,7 +50,7 @@ func TokenAuthMiddleware() gin.HandlerFunc {
 		if err != nil {
 			logger.WithFields(logrus.Fields{
 				"err": err,
-			}).Errorf("Gatewat Auth meet trouble")
+			}).Errorf("Gateway Auth meet trouble")
 			span.RecordError(err)
 			c.JSON(http.StatusOK, gin.H{
 				"status_code": strings.GateWayErrorCode,

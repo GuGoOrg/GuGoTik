@@ -2,16 +2,16 @@ apiVersion: v1
 kind: Service
 metadata:
   labels:
-    app: gugotik-http-service
-  name: gugotik-http-service
+    app: gugotik-recommend-service
+  name: gugotik-recommend-service
   namespace: gugotik-service-bundle
 spec:
   ports:
-    - name: http
-      port: 37000
+    - name: grpc
+      port: 37004
       protocol: TCP
-      targetPort: 37000
+      targetPort: 37004
   selector:
-    name: gugotik-http-service
+    name: gugotik-recommend-service
     branch: master
   type: ClusterIP

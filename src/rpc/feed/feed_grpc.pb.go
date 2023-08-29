@@ -19,6 +19,7 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
+	FeedService_ListVideosByRecommend_FullMethodName        = "/rpc.feed.FeedService/ListVideosByRecommend"
 	FeedService_ListVideos_FullMethodName                   = "/rpc.feed.FeedService/ListVideos"
 	FeedService_QueryVideos_FullMethodName                  = "/rpc.feed.FeedService/QueryVideos"
 	FeedService_QueryVideoExisted_FullMethodName            = "/rpc.feed.FeedService/QueryVideoExisted"
@@ -29,6 +30,7 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type FeedServiceClient interface {
+	ListVideosByRecommend(ctx context.Context, in *ListFeedRequest, opts ...grpc.CallOption) (*ListFeedResponse, error)
 	ListVideos(ctx context.Context, in *ListFeedRequest, opts ...grpc.CallOption) (*ListFeedResponse, error)
 	QueryVideos(ctx context.Context, in *QueryVideosRequest, opts ...grpc.CallOption) (*QueryVideosResponse, error)
 	QueryVideoExisted(ctx context.Context, in *VideoExistRequest, opts ...grpc.CallOption) (*VideoExistResponse, error)
@@ -41,6 +43,15 @@ type feedServiceClient struct {
 
 func NewFeedServiceClient(cc grpc.ClientConnInterface) FeedServiceClient {
 	return &feedServiceClient{cc}
+}
+
+func (c *feedServiceClient) ListVideosByRecommend(ctx context.Context, in *ListFeedRequest, opts ...grpc.CallOption) (*ListFeedResponse, error) {
+	out := new(ListFeedResponse)
+	err := c.cc.Invoke(ctx, FeedService_ListVideosByRecommend_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *feedServiceClient) ListVideos(ctx context.Context, in *ListFeedRequest, opts ...grpc.CallOption) (*ListFeedResponse, error) {
@@ -83,6 +94,7 @@ func (c *feedServiceClient) QueryVideoSummaryAndKeywords(ctx context.Context, in
 // All implementations must embed UnimplementedFeedServiceServer
 // for forward compatibility
 type FeedServiceServer interface {
+	ListVideosByRecommend(context.Context, *ListFeedRequest) (*ListFeedResponse, error)
 	ListVideos(context.Context, *ListFeedRequest) (*ListFeedResponse, error)
 	QueryVideos(context.Context, *QueryVideosRequest) (*QueryVideosResponse, error)
 	QueryVideoExisted(context.Context, *VideoExistRequest) (*VideoExistResponse, error)
@@ -94,6 +106,9 @@ type FeedServiceServer interface {
 type UnimplementedFeedServiceServer struct {
 }
 
+func (UnimplementedFeedServiceServer) ListVideosByRecommend(context.Context, *ListFeedRequest) (*ListFeedResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListVideosByRecommend not implemented")
+}
 func (UnimplementedFeedServiceServer) ListVideos(context.Context, *ListFeedRequest) (*ListFeedResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListVideos not implemented")
 }
@@ -117,6 +132,24 @@ type UnsafeFeedServiceServer interface {
 
 func RegisterFeedServiceServer(s grpc.ServiceRegistrar, srv FeedServiceServer) {
 	s.RegisterService(&FeedService_ServiceDesc, srv)
+}
+
+func _FeedService_ListVideosByRecommend_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListFeedRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FeedServiceServer).ListVideosByRecommend(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FeedService_ListVideosByRecommend_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FeedServiceServer).ListVideosByRecommend(ctx, req.(*ListFeedRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _FeedService_ListVideos_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -198,6 +231,10 @@ var FeedService_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "rpc.feed.FeedService",
 	HandlerType: (*FeedServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "ListVideosByRecommend",
+			Handler:    _FeedService_ListVideosByRecommend_Handler,
+		},
 		{
 			MethodName: "ListVideos",
 			Handler:    _FeedService_ListVideos_Handler,

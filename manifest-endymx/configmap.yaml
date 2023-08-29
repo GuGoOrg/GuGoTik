@@ -3,14 +3,3 @@ kind: ConfigMap
 metadata:
   name: env-config
   namespace: gugotik-service-bundle
-data:
-  DREAM_APP_NAME: "gugotik-service-bundle"
-  DREAM_UNIT_NAME: "gugotik-service-bundle"
-  DREAM_APP_VERSION: "${CI_COMMIT_ID}"
-  DREAM_APP_ROOT: "/data/apps/gugotik-service-bundle"
-  DREAM_CFG_ACCESS_KEY: ''
-  DREAM_ENV: "TESTING"
-  DREAM_REGION_NAME: "endymx"
-  DREAM_SEC_APP_TOKEN: ''
-  DREAM_SERVICE_DISCOVERY_URI: 'consul://consul-server.consul.svc.cluster.local:8500'
-  DREAM_IMAGE_TAG: "${IMAGE_TAG}"

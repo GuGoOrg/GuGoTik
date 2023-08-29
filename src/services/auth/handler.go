@@ -6,6 +6,7 @@ import (
 	"GuGoTik/src/extra/tracing"
 	"GuGoTik/src/models"
 	"GuGoTik/src/rpc/auth"
+	"GuGoTik/src/rpc/recommend"
 	"GuGoTik/src/rpc/relation"
 	user2 "GuGoTik/src/rpc/user"
 	"GuGoTik/src/storage/cached"
@@ -32,6 +33,7 @@ import (
 
 var relationClient relation.RelationServiceClient
 var userClient user2.UserServiceClient
+var recommendClient recommend.RecommendServiceClient
 
 type AuthServiceImpl struct {
 	auth.AuthServiceServer
@@ -42,6 +44,8 @@ func (a AuthServiceImpl) New() {
 	relationClient = relation.NewRelationServiceClient(relationConn)
 	userRpcConn := grpc2.Connect(config.UserRpcServerName)
 	userClient = user2.NewUserServiceClient(userRpcConn)
+	recommendRpcConn := grpc2.Connect(config.RecommendRpcServiceName)
+	recommendClient = recommend.NewRecommendServiceClient(recommendRpcConn)
 }
 
 func (a AuthServiceImpl) Authenticate(ctx context.Context, request *auth.AuthenticateRequest) (resp *auth.AuthenticateResponse, err error) {
@@ -214,6 +218,15 @@ func (a AuthServiceImpl) Register(ctx context.Context, request *auth.RegisterReq
 		"username": request.Username,
 	}).Infof("User register success!")
 
+	recommendResp, err := recommendClient.RegisterRecommendUser(ctx, &recommend.RecommendRegisterRequest{UserId: user.ID, Username: request.Username})
+	if err != nil || recommendResp.StatusCode != strings.ServiceOKCode {
+		resp = &auth.RegisterResponse{
+			StatusCode: strings.AuthServiceInnerErrorCode,
+			StatusMsg:  strings.AuthServiceInnerError,
+		}
+		return
+	}
+
 	resp.UserId = user.ID
 	resp.StatusCode = strings.ServiceOKCode
 	resp.StatusMsg = strings.ServiceOK
@@ -242,6 +255,7 @@ func (a AuthServiceImpl) Login(ctx context.Context, request *auth.LoginRequest) 
 			StatusCode: strings.AuthServiceInnerErrorCode,
 			StatusMsg:  strings.AuthServiceInnerError,
 		}
+		logging.SetSpanError(span, err)
 		return
 	}
 
@@ -258,6 +272,7 @@ func (a AuthServiceImpl) Login(ctx context.Context, request *auth.LoginRequest) 
 				StatusCode: strings.AuthServiceInnerErrorCode,
 				StatusMsg:  strings.AuthServiceInnerError,
 			}
+			logging.SetSpanError(span, err)
 			return
 		}
 
@@ -289,6 +304,7 @@ func (a AuthServiceImpl) Login(ctx context.Context, request *auth.LoginRequest) 
 				StatusCode: strings.AuthServiceInnerErrorCode,
 				StatusMsg:  strings.AuthServiceInnerError,
 			}
+			logging.SetSpanError(span, err)
 			return
 		}
 
@@ -297,8 +313,23 @@ func (a AuthServiceImpl) Login(ctx context.Context, request *auth.LoginRequest) 
 				StatusCode: strings.AuthServiceInnerErrorCode,
 				StatusMsg:  strings.AuthServiceInnerError,
 			}
+			logging.SetSpanError(span, err)
 			return
 		}
+
+		cached.Write(ctx, fmt.Sprintf("UserId%s", request.Username), strconv.Itoa(int(user.ID)), true)
+	} else {
+		id, _, err := cached.Get(ctx, fmt.Sprintf("UserId%s", request.Username))
+		if err != nil {
+			resp = &auth.LoginResponse{
+				StatusCode: strings.AuthServiceInnerErrorCode,
+				StatusMsg:  strings.AuthServiceInnerError,
+			}
+			logging.SetSpanError(span, err)
+			return nil, err
+		}
+		uintId, _ := strconv.ParseUint(id, 10, 32)
+		user.ID = uint32(uintId)
 	}
 
 	token, err := getToken(ctx, user.ID)
@@ -404,7 +435,7 @@ func addMagicUserFriend(ctx context.Context, span *trace.Span, userId uint32) {
 	logger := logging.LogService("AuthService.Register.AddMagicUserFriend").WithContext(ctx)
 
 	isMagicUserExist, err := userClient.GetUserExistInformation(ctx, &user2.UserExistRequest{
-		UserId: 1,
+		UserId: config.EnvCfg.MagicUserId,
 	})
 	if err != nil {
 		logger.WithFields(logrus.Fields{
@@ -426,7 +457,7 @@ func addMagicUserFriend(ctx context.Context, span *trace.Span, userId uint32) {
 	// User follow magic user
 	_, err = relationClient.Follow(ctx, &relation.RelationActionRequest{
 		ActorId: userId,
-		UserId:  1,
+		UserId:  config.EnvCfg.MagicUserId,
 	})
 	if err != nil {
 		logger.WithFields(logrus.Fields{
@@ -439,7 +470,7 @@ func addMagicUserFriend(ctx context.Context, span *trace.Span, userId uint32) {
 
 	// Magic user follow user
 	_, err = relationClient.Follow(ctx, &relation.RelationActionRequest{
-		ActorId: 1,
+		ActorId: config.EnvCfg.MagicUserId,
 		UserId:  userId,
 	})
 	if err != nil {

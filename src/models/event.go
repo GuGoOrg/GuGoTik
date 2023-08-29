@@ -8,4 +8,5 @@ type RecommendEvent struct {
 	VideoId  []uint32 // 代表视频 Id，可以批量操作，但是仅对于某一个唯一的用户
 	Tag      []string // 插入时使用
 	Category []string // 插入时使用
+	Title    string
 }

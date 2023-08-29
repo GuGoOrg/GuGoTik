@@ -3,7 +3,7 @@ services:
   rdb:
     container_name: "GuGoTik-Extra-PostgreSQL"
     image: postgres
-    restart: always
+    restart: unless-stopped
     environment:
       POSTGRES_PASSWORD: gugotik123
       POSTGRES_DB: gugodb
@@ -49,6 +49,7 @@ services:
     image: redis
     ports:
       - "6379:6379"
+    restart: unless-stopped
     healthcheck:
       test: [ "CMD", "redis-cli", "ping" ]
       interval: 10s
@@ -111,6 +112,57 @@ services:
     image:  bitnami/prometheus:latest
     ports:
       - "9090:9090"
+  gorse-master:
+    image: zhenghaoz/gorse-master
+    restart: unless-stopped
+    ports:
+      - "8086:8086"
+      - "8088:8088"
+    environment:
+      GORSE_CACHE_STORE: redis://redis:6379
+      GORSE_DATA_STORE: postgres://gugotik:gugotik123@rdb/gugodb?sslmode=disable
+    command: >
+      -c /etc/gorse/config.toml 
+      --log-path /var/log/gorse/master.log 
+      --cache-path /var/lib/gorse/master_cache.data
+    volumes:
+      - ./gorse-config.docker.compose.toml:/etc/gorse/config.toml
+    depends_on:
+      redis:
+        condition: service_healthy
+      rdb:
+        condition: service_healthy
+  gorse-worker:
+    image: zhenghaoz/gorse-worker
+    restart: unless-stopped
+    ports:
+      - "8099:8099"
+    command: >
+      --master-host gorse-master --master-port 8086 
+      --http-host 0.0.0.0 --http-port 8099
+      --log-path /var/log/gorse/worker.log 
+      --cache-path /var/lib/gorse/worker_cache.data
+    depends_on:
+      - gorse-master
+  gorse-server:
+    image: zhenghaoz/gorse-server
+    restart: unless-stopped
+    ports:
+      - "8087:8087"
+    command: >
+      --master-host gorse-master --master-port 8086 
+      --http-host 0.0.0.0 --http-port 8087
+      --log-path /var/log/gorse/server.log 
+      --cache-path /var/lib/gorse/server_cache.data
+    depends_on:
+      - gorse-master
+  static:
+    image: nginx
+    container_name: "GuGoTik-StaticServer"
+    ports:
+      - "8066:80"
+    volumes:
+      - share-volume:/usr/share/nginx/html/
   auth:
     container_name: "GuGoTik-AuthService"
     build:
@@ -219,7 +271,7 @@ services:
       - .env.docker.compose
     command: ["/bin/sh", "-c", "export POD_IP=`hostname -i` && ./services/publish/PublishService"]
     volumes:
-      - share-volume:/var/tmp
+      - share-volume:/usr/share/nginx/html/
     depends_on:
       rdb:
         condition: service_healthy
@@ -275,7 +327,7 @@ services:
       - .env.docker.compose
     command: ["/bin/sh", "-c", "export POD_IP=`hostname -i` && ./services/videoprocessor/VideoprocessorService"]
     volumes:
-      - share-volume:/var/tmp
+      - share-volume:/usr/share/nginx/html/
     depends_on:
       rdb:
         condition: service_healthy

@@ -13,5 +13,5 @@ spec:
       targetPort: 37006
   selector:
     name: gugotik-favorite-service
-    branch: dev
+    branch: master
   type: ClusterIP

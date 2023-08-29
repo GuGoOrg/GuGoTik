@@ -9,7 +9,6 @@ import (
 	"GuGoTik/src/utils/rabbitmq"
 	"context"
 	"encoding/json"
-
 	"github.com/sirupsen/logrus"
 	"github.com/streadway/amqp"
 )

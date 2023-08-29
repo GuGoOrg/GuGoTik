@@ -13,5 +13,5 @@ spec:
       targetPort: 37008
   selector:
     name: gugotik-relation-service
-    branch: dev
+    branch: master
   type: ClusterIP

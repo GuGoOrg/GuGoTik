@@ -6,23 +6,35 @@ import (
 	"GuGoTik/src/extra/tracing"
 	"GuGoTik/src/models"
 	"GuGoTik/src/rpc/chat"
+	"GuGoTik/src/rpc/feed"
+	"GuGoTik/src/rpc/recommend"
+	"GuGoTik/src/rpc/relation"
 	"GuGoTik/src/rpc/user"
 	"GuGoTik/src/storage/database"
 	"GuGoTik/src/storage/redis"
 	grpc2 "GuGoTik/src/utils/grpc"
 	"GuGoTik/src/utils/logging"
+	"GuGoTik/src/utils/ptr"
 	"GuGoTik/src/utils/rabbitmq"
 	"context"
 	"encoding/json"
 	"fmt"
 
+	"time"
+
 	"github.com/go-redis/redis_rate/v10"
+	"github.com/robfig/cron/v3"
 	"github.com/streadway/amqp"
+	"gorm.io/gorm"
 
 	"github.com/sirupsen/logrus"
 )
 
-var UserClient user.UserServiceClient
+var userClient user.UserServiceClient
+var recommendClient recommend.RecommendServiceClient
+var relationClient relation.RelationServiceClient
+var feedClient feed.FeedServiceClient
+var chatClient chat.ChatServiceClient
 
 type MessageServiceImpl struct {
 	chat.ChatServiceServer
@@ -42,7 +54,7 @@ func failOnError(err error, msg string) {
 
 func (c MessageServiceImpl) New() {
 	userRpcConn := grpc2.Connect(config.UserRpcServerName)
-	UserClient = user.NewUserServiceClient(userRpcConn)
+
 	var err error
 	conn, err = amqp.Dial(rabbitmq.BuildMQConnAddr())
 	if err != nil {
@@ -61,6 +73,31 @@ func (c MessageServiceImpl) New() {
 		failOnError(err, "Failed to define queue")
 	}
 
+	userClient = user.NewUserServiceClient(userRpcConn)
+
+	recommendRpcConn := grpc2.Connect(config.RecommendRpcServiceName)
+	recommendClient = recommend.NewRecommendServiceClient(recommendRpcConn)
+
+	relationRpcConn := grpc2.Connect(config.RelationRpcServerName)
+	relationClient = relation.NewRelationServiceClient(relationRpcConn)
+
+	feedRpcConn := grpc2.Connect(config.FeedRpcServerName)
+	feedClient = feed.NewFeedServiceClient(feedRpcConn)
+
+	chatRpcConn := grpc2.Connect(config.MessageRpcServerName)
+	chatClient = chat.NewChatServiceClient(chatRpcConn)
+
+	cronRunner := cron.New(cron.WithSeconds())
+	//_, err := cronRunner.AddFunc("0 0 18 * * *", sendMagicMessage) // execute every 18:00
+	_, err = cronRunner.AddFunc("@every 2m", sendMagicMessage) // execute every minute [for test]
+
+	if err != nil {
+		logging.Logger.WithFields(logrus.Fields{
+			"err": err,
+		}).Errorf("Cannot start SendMagicMessage cron job")
+	}
+
+	cronRunner.Start()
 }
 
 func CloseMQConn() {
@@ -146,6 +183,25 @@ func (c MessageServiceImpl) ChatAction(ctx context.Context, request *chat.Action
 	   			StatusMsg:  strings.UnableToAddMessageError,
 	   		}, err
 	   	} */
+	userResponse, err := userClient.GetUserExistInformation(ctx, &user.UserExistRequest{
+		UserId: request.UserId,
+	})
+
+	if err != nil || userResponse.StatusCode != strings.ServiceOKCode {
+		logger.WithFields(logrus.Fields{
+			"err":          err,
+			"ActorId":      request.ActorId,
+			"user_id":      request.UserId,
+			"action_type":  request.ActionType,
+			"content_text": request.Content,
+		}).Errorf("User service error")
+		logging.SetSpanError(span, err)
+
+		return &chat.ActionResponse{
+			StatusCode: strings.UnableToAddMessageErrorCode,
+			StatusMsg:  strings.UnableToAddMessageError,
+		}, err
+	}
 
 	res, err = addMessage(ctx, request.ActorId, request.UserId, request.Content)
 	if err != nil {
@@ -196,6 +252,25 @@ func (c MessageServiceImpl) Chat(ctx context.Context, request *chat.ChatRequest)
 	   		return
 	   	}
 	*/
+	userResponse, err := userClient.GetUserExistInformation(ctx, &user.UserExistRequest{
+		UserId: request.UserId,
+	})
+
+	if err != nil || userResponse.StatusCode != strings.ServiceOKCode {
+		logger.WithFields(logrus.Fields{
+			"err":     err,
+			"ActorId": request.ActorId,
+			"user_id": request.UserId,
+		}).Errorf("User service error")
+		logging.SetSpanError(span, err)
+
+		resp = &chat.ChatResponse{
+			StatusCode: strings.UnableToQueryMessageErrorCode,
+			StatusMsg:  strings.UnableToQueryMessageError,
+		}
+		return
+	}
+
 	toUserId := request.UserId
 	fromUserId := request.ActorId
 
@@ -208,10 +283,19 @@ func (c MessageServiceImpl) Chat(ctx context.Context, request *chat.ChatRequest)
 	//TO DO 看怎么需要改一下
 
 	var pMessageList []models.Message
-	result := database.Client.WithContext(ctx).
-		Where("conversation_id=?", conversationId).
-		Order("created_at desc").
-		Find(&pMessageList)
+	var result *gorm.DB
+	if request.PreMsgTime == 0 {
+		result = database.Client.WithContext(ctx).
+			Where("conversation_id=?", conversationId).
+			Order("created_at").
+			Find(&pMessageList)
+	} else {
+		result = database.Client.WithContext(ctx).
+			Where("conversation_id=?", conversationId).
+			Where("created_at > ?", time.UnixMilli(int64(request.PreMsgTime)).Add(100*time.Millisecond)).
+			Order("created_at").
+			Find(&pMessageList)
+	}
 
 	if result.Error != nil {
 		logger.WithFields(logrus.Fields{
@@ -234,9 +318,9 @@ func (c MessageServiceImpl) Chat(ctx context.Context, request *chat.ChatRequest)
 		rMessageList = append(rMessageList, &chat.Message{
 			Id:         pMessage.ID,
 			Content:    pMessage.Content,
-			CreateTime: uint32(pMessage.CreatedAt.Unix()),
-			FromUserId: &pMessage.FromUserId,
-			ToUserId:   &pMessage.ToUserId,
+			CreateTime: uint64(pMessage.CreatedAt.UnixMilli()),
+			FromUserId: ptr.Ptr(pMessage.FromUserId),
+			ToUserId:   ptr.Ptr(pMessage.ToUserId),
 		})
 	}
 
@@ -302,4 +386,95 @@ func addMessage(ctx context.Context, fromUserId uint32, toUserId uint32, Context
 	}
 	return
 
+}
+
+func sendMagicMessage() {
+	ctx, span := tracing.Tracer.Start(context.Background(), "SendMagicMessageService")
+	defer span.End()
+	logger := logging.LogService("ChatService.SendMessageService").WithContext(ctx)
+
+	logger.Debugf("Start ChatService.SendMessageService at %s", time.Now())
+
+	// Get all friends of magic user
+	friendsResponse, err := relationClient.GetFriendList(ctx, &relation.FriendListRequest{
+		ActorId: config.EnvCfg.MagicUserId,
+		UserId:  config.EnvCfg.MagicUserId,
+	})
+
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"ActorId": config.EnvCfg.MagicUserId,
+			"Err":     err,
+		}).Errorf("Cannot get friend list of magic user")
+		logging.SetSpanError(span, err)
+		return
+	}
+
+	// Send magic message to every friends
+	friends := friendsResponse.UserList
+	videoMap := make(map[uint32]*feed.Video)
+	for _, friend := range friends {
+		// Get recommend video id
+		recommendResponse, err := recommendClient.GetRecommendInformation(ctx, &recommend.RecommendRequest{
+			UserId: friend.Id,
+			Offset: 0,
+			Number: 1,
+		})
+
+		if err != nil || len(recommendResponse.VideoList) < 1 {
+			logger.WithFields(logrus.Fields{
+				"UserId": friend.Id,
+				"Err":    err,
+			}).Errorf("Cannot get recommend video of user %d", friend.Id)
+			logging.SetSpanError(span, err)
+			continue
+		}
+
+		// Get video by video id
+		videoId := recommendResponse.VideoList[0]
+		video, ok := videoMap[videoId]
+		if !ok {
+			videoQueryResponse, err := feedClient.QueryVideos(ctx, &feed.QueryVideosRequest{
+				ActorId:  config.EnvCfg.MagicUserId,
+				VideoIds: []uint32{videoId},
+			})
+			if err != nil {
+				logger.WithFields(logrus.Fields{
+					"UserId":  friend.Id,
+					"VideoId": videoId,
+					"Err":     err,
+				}).Errorf("Cannot get video info of %d", videoId)
+				logging.SetSpanError(span, err)
+				continue
+			}
+			video = videoQueryResponse.VideoList[0]
+			videoMap[videoId] = video
+		}
+
+		// Chat to every friend
+		content := fmt.Sprintf("今日视频推荐：%s；\n视频链接：%s", video.Title, video.PlayUrl)
+		_, err = chatClient.ChatAction(ctx, &chat.ActionRequest{
+			ActorId:    config.EnvCfg.MagicUserId,
+			UserId:     friend.Id,
+			ActionType: 1,
+			Content:    content,
+		})
+
+		if err != nil {
+			logger.WithFields(logrus.Fields{
+				"UserId":  friend.Id,
+				"VideoId": videoId,
+				"Content": content,
+				"Err":     err,
+			}).Errorf("Cannot send magic message to user %d", friend.Id)
+			logging.SetSpanError(span, err)
+			continue
+		}
+
+		logger.WithFields(logrus.Fields{
+			"UserId":  friend.Id,
+			"VideoId": videoId,
+			"Content": content,
+		}).Infof("Successfully send the magic message")
+	}
 }

@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   annotations:
-    sidecar.jaegertracing.io/inject: 'true'
+    sidecar.jaegertracing.io/inject: 'false'
   labels:
     app: gugotik-user-service
   name: gugotik-user-service
@@ -28,10 +28,14 @@ spec:
             imagePullPolicy: IfNotPresent
             name: gugotik-user-service
             command:
-              - ./services/UserService
+              - ./services/user/UserService
             envFrom:
               -   configMapRef:
                     name: env-config
+              - configMapRef:
+                  name: gugotik-env
+              - secretRef:
+                  name: gugotik-secret
             ports:
               - name: grpc-37001
                 containerPort: 37001

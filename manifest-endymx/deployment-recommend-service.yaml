@@ -4,31 +4,31 @@ metadata:
   annotations:
     sidecar.jaegertracing.io/inject: 'false'
   labels:
-    app: gugotik-message-service
-  name: gugotik-message-service
+    app: gugotik-recommend-service
+  name: gugotik-recommend-service
   namespace: gugotik-service-bundle
 spec:
   selector:
     matchLabels:
-      name: gugotik-message-service
+      name: gugotik-recommend-service
   template:
     metadata:
       labels:
-        app: gugotik-message-service
+        app: gugotik-recommend-service
         branch: master
         version: ${BUILD_NUMBER}-${CI_COMMIT_ID}
-        name: gugotik-message-service
-        dream-app: gugotik-message-service
-        dream-unit: gugotik-message-service
+        name: gugotik-recommend-service
+        dream-app: gugotik-recommend-service
+        dream-unit: gugotik-recommend-service
     spec:
       imagePullSecrets:
         -   name: reg-cred
       containers:
         -   image: ${IMAGE}
             imagePullPolicy: IfNotPresent
-            name: gugotik-message-service
+            name: gugotik-recommend-service
             command:
-              - ./services/message/MessageService
+              - ./services/recommend/RecommendService
             envFrom:
               -   configMapRef:
                     name: env-config
@@ -37,8 +37,8 @@ spec:
               - secretRef:
                   name: gugotik-secret
             ports:
-              - name: grpc-37007
-                containerPort: 37007
+              - name: grpc-37003
+                containerPort: 37003
                 protocol: TCP
             resources:
               limits:

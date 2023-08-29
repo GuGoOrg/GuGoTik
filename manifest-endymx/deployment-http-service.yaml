@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   annotations:
-    sidecar.jaegertracing.io/inject: 'true'
+    sidecar.jaegertracing.io/inject: 'false'
   labels:
     app: gugotik-http-service
   name: gugotik-http-service
@@ -32,6 +32,10 @@ spec:
             envFrom:
               -   configMapRef:
                     name: env-config
+              - configMapRef:
+                  name: gugotik-env
+              - secretRef:
+                  name: gugotik-secret
             ports:
               - name: http-37000
                 containerPort: 37000

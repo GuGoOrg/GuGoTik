@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   annotations:
-    sidecar.jaegertracing.io/inject: 'true'
+    sidecar.jaegertracing.io/inject: 'false'
   labels:
     app: gugotik-favorite-service
   name: gugotik-favorite-service
@@ -28,10 +28,14 @@ spec:
             imagePullPolicy: IfNotPresent
             name: gugotik-favorite-service
             command:
-              - ./services/FavoriteService
+              - ./services/favorite/FavoriteService
             envFrom:
               -   configMapRef:
                     name: env-config
+              - configMapRef:
+                  name: gugotik-env
+              - secretRef:
+                  name: gugotik-secret
             ports:
               - name: grpc-37006
                 containerPort: 37006
