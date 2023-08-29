@@ -63,9 +63,9 @@ func main() {
 	rootPath := g.Group("/douyin")
 	user := rootPath.Group("/user")
 	{
-		user.POST("/", user2.UserHandler)
-		user.POST("/login", auth.LoginHandle)
-		user.POST("/register", auth.RegisterHandle)
+		user.GET("/", user2.UserHandler)
+		user.POST("/login/", auth.LoginHandle)
+		user.POST("/register/", auth.RegisterHandle)
 	}
 	feed := rootPath.Group("/feed")
 	{
@@ -73,39 +73,39 @@ func main() {
 	}
 	comment := rootPath.Group("/comment")
 	{
-		comment.POST("/action", comment2.ActionCommentHandler)
-		comment.GET("/list", comment2.ListCommentHandler)
-		comment.GET("/count", comment2.CountCommentHandler)
+		comment.POST("/action/", comment2.ActionCommentHandler)
+		comment.GET("/list/", comment2.ListCommentHandler)
+		comment.GET("/count/", comment2.CountCommentHandler)
 	}
 	relation := rootPath.Group("/relation")
 	{
 		//todo: frontend
-		relation.POST("/action", relation2.ActionRelationHandler)
-		relation.POST("/follow", relation2.FollowHandler)
-		relation.POST("/unfollow", relation2.UnfollowHandler)
-		relation.GET("/follow/list", relation2.GetFollowListHandler)
-		relation.GET("/follower/list", relation2.GetFollowerListHandler)
-		relation.GET("/friend/list", relation2.GetFriendListHandler)
-		relation.GET("/follow/count", relation2.CountFollowHandler)
-		relation.GET("/follower/count", relation2.CountFollowerHandler)
-		relation.GET("/isFollow", relation2.IsFollowHandler)
+		relation.POST("/action/", relation2.ActionRelationHandler)
+		relation.POST("/follow/", relation2.FollowHandler)
+		relation.POST("/unfollow/", relation2.UnfollowHandler)
+		relation.GET("/follow/list/", relation2.GetFollowListHandler)
+		relation.GET("/follower/list/", relation2.GetFollowerListHandler)
+		relation.GET("/friend/list/", relation2.GetFriendListHandler)
+		relation.GET("/follow/count/", relation2.CountFollowHandler)
+		relation.GET("/follower/count/", relation2.CountFollowerHandler)
+		relation.GET("/isFollow/", relation2.IsFollowHandler)
 	}
 
 	publish := rootPath.Group("/publish")
 	{
-		publish.POST("/action", publish2.ActionPublishHandle)
-		publish.GET("/list", publish2.ListPublishHandle)
+		publish.POST("/action/", publish2.ActionPublishHandle)
+		publish.GET("/list/", publish2.ListPublishHandle)
 	}
 	//todo
 	message := rootPath.Group("/message")
 	{
-		message.GET("/chat", message2.ListMessageHandler)
-		message.POST("/action", message2.ActionMessageHandler)
+		message.GET("/chat/", message2.ListMessageHandler)
+		message.POST("/action/", message2.ActionMessageHandler)
 	}
 	favorite := rootPath.Group("/favorite")
 	{
-		favorite.POST("/action", favorite2.ActionFavoriteHandler)
-		favorite.GET("/list", favorite2.ListFavoriteHandler)
+		favorite.POST("/action/", favorite2.ActionFavoriteHandler)
+		favorite.GET("/list/", favorite2.ListFavoriteHandler)
 	}
 	// Run Server
 	if err := g.Run(config.WebServiceAddr); err != nil {

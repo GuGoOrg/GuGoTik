@@ -255,6 +255,7 @@ func (a AuthServiceImpl) Login(ctx context.Context, request *auth.LoginRequest) 
 			StatusCode: strings.AuthServiceInnerErrorCode,
 			StatusMsg:  strings.AuthServiceInnerError,
 		}
+		logging.SetSpanError(span, err)
 		return
 	}
 
@@ -271,6 +272,7 @@ func (a AuthServiceImpl) Login(ctx context.Context, request *auth.LoginRequest) 
 				StatusCode: strings.AuthServiceInnerErrorCode,
 				StatusMsg:  strings.AuthServiceInnerError,
 			}
+			logging.SetSpanError(span, err)
 			return
 		}
 
@@ -302,6 +304,7 @@ func (a AuthServiceImpl) Login(ctx context.Context, request *auth.LoginRequest) 
 				StatusCode: strings.AuthServiceInnerErrorCode,
 				StatusMsg:  strings.AuthServiceInnerError,
 			}
+			logging.SetSpanError(span, err)
 			return
 		}
 
@@ -310,8 +313,23 @@ func (a AuthServiceImpl) Login(ctx context.Context, request *auth.LoginRequest) 
 				StatusCode: strings.AuthServiceInnerErrorCode,
 				StatusMsg:  strings.AuthServiceInnerError,
 			}
+			logging.SetSpanError(span, err)
 			return
 		}
+
+		cached.Write(ctx, fmt.Sprintf("UserId%s", request.Username), strconv.Itoa(int(user.ID)), true)
+	} else {
+		id, _, err := cached.Get(ctx, fmt.Sprintf("UserId%s", request.Username))
+		if err != nil {
+			resp = &auth.LoginResponse{
+				StatusCode: strings.AuthServiceInnerErrorCode,
+				StatusMsg:  strings.AuthServiceInnerError,
+			}
+			logging.SetSpanError(span, err)
+			return nil, err
+		}
+		uintId, _ := strconv.ParseUint(id, 10, 32)
+		user.ID = uint32(uintId)
 	}
 
 	token, err := getToken(ctx, user.ID)
