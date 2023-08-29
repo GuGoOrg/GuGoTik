@@ -127,7 +127,7 @@ func (s FeedServiceImpl) ListVideosByRecommend(ctx context.Context, request *fee
 	defer span.End()
 	logger := logging.LogService("FeedService.ListVideos").WithContext(ctx)
 
-	now := time.Now().Unix()
+	now := time.Now().UnixNano() / 1e6
 	latestTime := now
 	if request.LatestTime != nil && *request.LatestTime != "" {
 		// Check if request.LatestTime is a timestamp
@@ -236,7 +236,7 @@ func (s FeedServiceImpl) ListVideos(ctx context.Context, request *feed.ListFeedR
 	defer span.End()
 	logger := logging.LogService("FeedService.ListVideos").WithContext(ctx)
 
-	now := time.Now().Unix()
+	now := time.Now().UnixNano() / 1e6
 	latestTime := now
 	if request.LatestTime != nil && *request.LatestTime != "" {
 		// Check if request.LatestTime is a timestamp
@@ -443,11 +443,10 @@ func (s FeedServiceImpl) QueryVideoSummaryAndKeywords(ctx context.Context, req *
 
 func findVideos(ctx context.Context, latestTime int64) ([]*models.Video, time.Time, error) {
 	logger := logging.LogService("ListVideos.findVideos").WithContext(ctx)
-
-	nextTime := time.Unix(latestTime, 0)
+	nextTime := time.Unix(0, latestTime*int64(time.Millisecond))
 
 	var videos []*models.Video
-	result := database.Client.Where("created_at < ?", time.Unix(latestTime, 0)).
+	result := database.Client.Where("created_at < ?", time.Unix(0, latestTime*int64(time.Millisecond))).
 		Order("created_at DESC").
 		Limit(VideoCount).
 		Find(&videos)
@@ -464,7 +463,7 @@ func findVideos(ctx context.Context, latestTime int64) ([]*models.Video, time.Ti
 	}
 
 	logger.WithFields(logrus.Fields{
-		"latestTime":  time.Unix(latestTime, 0),
+		"latestTime":  time.Unix(0, latestTime*int64(time.Millisecond)),
 		"VideosCount": len(videos),
 		"NextTime":    nextTime,
 	}).Debugf("Find videos")
@@ -650,11 +649,10 @@ func isUnixTimestamp(s string) (int64, bool) {
 	if err != nil {
 		return 0, false
 	}
-
 	startTime := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
 	endTime := time.Now().AddDate(100, 0, 0)
 
-	t := time.Unix(timestamp, 0)
+	t := time.Unix(0, timestamp*int64(time.Millisecond))
 	res := t.After(startTime) && t.Before(endTime)
 
 	return timestamp, res
