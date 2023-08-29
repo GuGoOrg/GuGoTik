@@ -147,6 +147,12 @@ func Consume(ch *amqp.Channel, queueName string) {
 			}).Infof("Event dealt with type 1")
 			span.End()
 			err = d.Ack(false)
+			if err != nil {
+				logger.WithFields(logrus.Fields{
+					"err": err,
+				}).Errorf("Error when ack")
+				logging.SetSpanError(span, err)
+			}
 		case 2:
 			var types string
 			switch raw.Source {
@@ -176,6 +182,12 @@ func Consume(ch *amqp.Channel, queueName string) {
 			}).Infof("Event dealt with type 2")
 			span.End()
 			err = d.Ack(false)
+			if err != nil {
+				logger.WithFields(logrus.Fields{
+					"err": err,
+				}).Errorf("Error when ack")
+				logging.SetSpanError(span, err)
+			}
 		case 3:
 			var items []gorse.Item
 			for _, id := range raw.VideoId {
@@ -202,6 +214,12 @@ func Consume(ch *amqp.Channel, queueName string) {
 			}).Infof("Event dealt with type 3")
 			span.End()
 			err = d.Ack(false)
+			if err != nil {
+				logger.WithFields(logrus.Fields{
+					"err": err,
+				}).Errorf("Error when ack")
+				logging.SetSpanError(span, err)
+			}
 		}
 	}
 }

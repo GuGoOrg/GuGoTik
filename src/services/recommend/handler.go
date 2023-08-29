@@ -44,7 +44,7 @@ func (a RecommendServiceImpl) GetRecommendInformation(ctx context.Context, reque
 				StatusMsg:  strings.RecommendServiceInnerError,
 				VideoList:  nil,
 			}
-			return nil, err
+			return resp, err
 		}
 
 		resp = &recommend.RecommendResponse{
