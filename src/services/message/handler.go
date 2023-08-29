@@ -14,6 +14,7 @@ import (
 	"GuGoTik/src/storage/redis"
 	grpc2 "GuGoTik/src/utils/grpc"
 	"GuGoTik/src/utils/logging"
+	"GuGoTik/src/utils/ptr"
 	"context"
 	"fmt"
 	"github.com/go-redis/redis_rate/v10"
@@ -233,8 +234,8 @@ func (c MessageServiceImpl) Chat(ctx context.Context, request *chat.ChatRequest)
 			Id:         pMessage.ID,
 			Content:    pMessage.Content,
 			CreateTime: uint64(pMessage.CreatedAt.UnixMilli()),
-			FromUserId: &pMessage.FromUserId,
-			ToUserId:   &pMessage.ToUserId,
+			FromUserId: ptr.Ptr(pMessage.FromUserId),
+			ToUserId:   ptr.Ptr(pMessage.ToUserId),
 		})
 	}
 
