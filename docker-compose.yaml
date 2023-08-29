@@ -156,6 +156,12 @@ services:
       --cache-path /var/lib/gorse/server_cache.data
     depends_on:
       - gorse-master
+  static:
+    image: nginx
+    ports:
+      - "8066:80"
+    volumes:
+      - share-volume:/usr/share/nginx/html/
   auth:
     container_name: "GuGoTik-AuthService"
     build:
@@ -264,7 +270,7 @@ services:
       - .env.docker.compose
     command: ["/bin/sh", "-c", "export POD_IP=`hostname -i` && ./services/publish/PublishService"]
     volumes:
-      - share-volume:/var/tmp
+      - share-volume:/usr/share/nginx/html/
     depends_on:
       rdb:
         condition: service_healthy
@@ -320,7 +326,7 @@ services:
       - .env.docker.compose
     command: ["/bin/sh", "-c", "export POD_IP=`hostname -i` && ./services/videoprocessor/VideoprocessorService"]
     volumes:
-      - share-volume:/var/tmp
+      - share-volume:/usr/share/nginx/html/
     depends_on:
       rdb:
         condition: service_healthy

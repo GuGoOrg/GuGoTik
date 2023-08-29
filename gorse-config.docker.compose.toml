@@ -53,7 +53,7 @@ http_cors_domains = []
 http_cors_methods = []
 
 # Number of working jobs in the master node. The default value is 1.
-n_jobs = 1
+n_jobs = 3
 
 # Meta information timeout. The default value is 10s.
 meta_timeout = "10s"
@@ -70,7 +70,7 @@ admin_api_key = ""
 [server]
 
 # Default number of returned items. The default value is 10.
-default_n = 10
+default_n = 3
 
 # Secret key for RESTful APIs (SSL required).
 api_key = "5105502fc46a411c896aa5b50c31e951"
@@ -85,7 +85,7 @@ auto_insert_user = true
 auto_insert_item = true
 
 # Server-side cache expire time. The default value is 10s.
-cache_expire = "10s"
+cache_expire = "5s"
 
 [recommend]
 
@@ -93,7 +93,7 @@ cache_expire = "10s"
 cache_size = 100
 
 # Recommended cache expire time. The default value is 72h.
-cache_expire = "72h"
+cache_expire = "12h"
 
 [recommend.data_source]
 
@@ -112,7 +112,7 @@ item_ttl = 0
 [recommend.popular]
 
 # The time window of popular items. The default values is 4320h.
-popular_window = "720h"
+popular_window = "24h"
 
 [recommend.user_neighbors]
 
@@ -164,10 +164,10 @@ index_recall = 0.9
 index_fit_epoch = 3
 
 # The time period for model fitting. The default value is "60m".
-model_fit_period = "60m"
+model_fit_period = "10m"
 
 # The time period for model searching. The default value is "360m".
-model_search_period = "360m"
+model_search_period = "60m"
 
 # The number of epochs for model searching. The default value is 100.
 model_search_epoch = 100
@@ -192,10 +192,10 @@ read_replacement_decay = 0.6
 [recommend.offline]
 
 # The time period to check recommendation for users. The default values is 1m.
-check_recommend_period = "1m"
+check_recommend_period = "20s"
 
 # The time period to refresh recommendation for inactive users. The default values is 120h.
-refresh_recommend_period = "24h"
+refresh_recommend_period = "1h"
 
 # Enable latest recommendation during offline recommendation. The default value is false.
 enable_latest_recommend = true
