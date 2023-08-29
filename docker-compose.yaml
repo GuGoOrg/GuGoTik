@@ -158,6 +158,7 @@ services:
       - gorse-master
   static:
     image: nginx
+    container_name: "GuGoTik-StaticServer"
     ports:
       - "8066:80"
     volumes:
