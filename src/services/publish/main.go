@@ -35,7 +35,7 @@ func main() {
 	// Configure Pyroscope
 	profiling.InitPyroscope("GuGoTik.PublishService")
 
-	maxSize := 100 * 1024 * 1024
+	maxSize := 500 * 1024 * 1024
 	s := grpc.NewServer(
 		grpc.MaxRecvMsgSize(maxSize),
 		grpc.MaxSendMsgSize(maxSize),

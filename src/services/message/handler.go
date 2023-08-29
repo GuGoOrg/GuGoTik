@@ -222,7 +222,7 @@ func (c MessageServiceImpl) Chat(ctx context.Context, request *chat.ChatRequest)
 		rMessageList = append(rMessageList, &chat.Message{
 			Id:         pMessage.ID,
 			Content:    pMessage.Content,
-			CreateTime: uint32(pMessage.CreatedAt.Unix()),
+			CreateTime: uint64(pMessage.CreatedAt.UnixMicro()),
 			FromUserId: &pMessage.FromUserId,
 			ToUserId:   &pMessage.ToUserId,
 		})
