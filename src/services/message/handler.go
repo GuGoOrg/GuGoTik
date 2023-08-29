@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"github.com/go-redis/redis_rate/v10"
 	"github.com/robfig/cron/v3"
+	"gorm.io/gorm"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -196,10 +197,19 @@ func (c MessageServiceImpl) Chat(ctx context.Context, request *chat.ChatRequest)
 	//TO DO 看怎么需要改一下
 
 	var pMessageList []models.Message
-	result := database.Client.WithContext(ctx).
-		Where("conversation_id=?", conversationId).
-		Order("created_at desc").
-		Find(&pMessageList)
+	var result *gorm.DB
+	if request.PreMsgTime == 0 {
+		result = database.Client.WithContext(ctx).
+			Where("conversation_id=?", conversationId).
+			Order("created_at").
+			Find(&pMessageList)
+	} else {
+		result = database.Client.WithContext(ctx).
+			Where("conversation_id=?", conversationId).
+			Where("created_at > ?", time.UnixMilli(int64(request.PreMsgTime)).Add(100*time.Millisecond)).
+			Order("created_at").
+			Find(&pMessageList)
+	}
 
 	if result.Error != nil {
 		logger.WithFields(logrus.Fields{
@@ -222,7 +232,7 @@ func (c MessageServiceImpl) Chat(ctx context.Context, request *chat.ChatRequest)
 		rMessageList = append(rMessageList, &chat.Message{
 			Id:         pMessage.ID,
 			Content:    pMessage.Content,
-			CreateTime: uint64(pMessage.CreatedAt.UnixMicro()),
+			CreateTime: uint64(pMessage.CreatedAt.UnixMilli()),
 			FromUserId: &pMessage.FromUserId,
 			ToUserId:   &pMessage.ToUserId,
 		})

@@ -39,10 +39,19 @@ func ListVideosByRecommendHandle(c *gin.Context) {
 
 	latestTime := req.LatestTime
 	actorId := uint32(req.ActorId)
-	res, err := Client.ListVideosByRecommend(c.Request.Context(), &feed.ListFeedRequest{
-		LatestTime: &latestTime,
-		ActorId:    &actorId,
-	})
+	var res *feed.ListFeedResponse
+	var err error
+	if actorId == 0 {
+		res, err = Client.ListVideos(c.Request.Context(), &feed.ListFeedRequest{
+			LatestTime: &latestTime,
+			ActorId:    &actorId,
+		})
+	} else {
+		res, err = Client.ListVideosByRecommend(c.Request.Context(), &feed.ListFeedRequest{
+			LatestTime: &latestTime,
+			ActorId:    &actorId,
+		})
+	}
 	if err != nil {
 		logger.WithFields(logrus.Fields{
 			"LatestTime": latestTime,

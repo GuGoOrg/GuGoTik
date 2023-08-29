@@ -127,11 +127,11 @@ func (s FeedServiceImpl) ListVideosByRecommend(ctx context.Context, request *fee
 	defer span.End()
 	logger := logging.LogService("FeedService.ListVideos").WithContext(ctx)
 
-	now := time.Now().Unix()
+	now := time.Now().UnixMilli()
 	latestTime := now
 	if request.LatestTime != nil && *request.LatestTime != "" {
 		// Check if request.LatestTime is a timestamp
-		t, ok := isUnixTimestamp(*request.LatestTime)
+		t, ok := isUnixMilliTimestamp(*request.LatestTime)
 		if ok {
 			latestTime = t
 		} else {
@@ -163,7 +163,7 @@ func (s FeedServiceImpl) ListVideosByRecommend(ctx context.Context, request *fee
 	recommendVideoId := recommendResponse.VideoList
 	find, err := findRecommendVideos(ctx, recommendVideoId)
 
-	nextTimeStamp := uint32(latestTime)
+	nextTimeStamp := uint64(latestTime)
 	if err != nil {
 		logger.WithFields(logrus.Fields{
 			"find": find,
@@ -236,11 +236,11 @@ func (s FeedServiceImpl) ListVideos(ctx context.Context, request *feed.ListFeedR
 	defer span.End()
 	logger := logging.LogService("FeedService.ListVideos").WithContext(ctx)
 
-	now := time.Now().Unix()
+	now := time.Now().UnixMilli()
 	latestTime := now
 	if request.LatestTime != nil && *request.LatestTime != "" {
 		// Check if request.LatestTime is a timestamp
-		t, ok := isUnixTimestamp(*request.LatestTime)
+		t, ok := isUnixMilliTimestamp(*request.LatestTime)
 		if ok {
 			latestTime = t
 		} else {
@@ -252,7 +252,7 @@ func (s FeedServiceImpl) ListVideos(ctx context.Context, request *feed.ListFeedR
 	}
 
 	find, nextTime, err := findVideos(ctx, latestTime)
-	nextTimeStamp := uint32(nextTime.Unix())
+	nextTimeStamp := uint64(nextTime.UnixMilli())
 	if err != nil {
 		logger.WithFields(logrus.Fields{
 			"find": find,
@@ -444,10 +444,10 @@ func (s FeedServiceImpl) QueryVideoSummaryAndKeywords(ctx context.Context, req *
 func findVideos(ctx context.Context, latestTime int64) ([]*models.Video, time.Time, error) {
 	logger := logging.LogService("ListVideos.findVideos").WithContext(ctx)
 
-	nextTime := time.Unix(latestTime, 0)
+	nextTime := time.UnixMilli(latestTime)
 
 	var videos []*models.Video
-	result := database.Client.Where("created_at < ?", time.Unix(latestTime, 0)).
+	result := database.Client.Where("created_at < ?", nextTime).
 		Order("created_at DESC").
 		Limit(VideoCount).
 		Find(&videos)
@@ -464,7 +464,7 @@ func findVideos(ctx context.Context, latestTime int64) ([]*models.Video, time.Ti
 	}
 
 	logger.WithFields(logrus.Fields{
-		"latestTime":  time.Unix(latestTime, 0),
+		"latestTime":  time.UnixMilli(latestTime),
 		"VideosCount": len(videos),
 		"NextTime":    nextTime,
 	}).Debugf("Find videos")
@@ -645,7 +645,7 @@ func query(ctx context.Context, logger *logrus.Entry, actorId uint32, videoIds [
 	return queryDetailed(ctx, logger, actorId, videos), nil
 }
 
-func isUnixTimestamp(s string) (int64, bool) {
+func isUnixMilliTimestamp(s string) (int64, bool) {
 	timestamp, err := strconv.ParseInt(s, 10, 64)
 	if err != nil {
 		return 0, false
@@ -654,7 +654,7 @@ func isUnixTimestamp(s string) (int64, bool) {
 	startTime := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
 	endTime := time.Now().AddDate(100, 0, 0)
 
-	t := time.Unix(timestamp, 0)
+	t := time.UnixMilli(timestamp)
 	res := t.After(startTime) && t.Before(endTime)
 
 	return timestamp, res
