@@ -45,7 +45,7 @@ func main() {
 	msg, err := channel.Consume(
 		strings.MessageActionEvent,
 		"",
-		false, false, false, false,
+		true, false, false, false,
 		nil,
 	)
 	if err != nil {
@@ -99,12 +99,12 @@ func main() {
 				// logging.SetSpanError(span, err)
 				return
 			}
-			err = body.Ack(true)
+			/* 	err = body.Ack(true)
 			if err != nil {
 				logger.WithFields(logrus.Fields{
 					"err": err,
 				}).Errorf("Error when dealing with the ,essage...")
-			}
+			} */
 		}
 	}()
 
