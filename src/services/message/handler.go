@@ -15,12 +15,17 @@ import (
 	grpc2 "GuGoTik/src/utils/grpc"
 	"GuGoTik/src/utils/logging"
 	"GuGoTik/src/utils/ptr"
+	"GuGoTik/src/utils/rabbitmq"
 	"context"
+	"encoding/json"
 	"fmt"
+
+	"time"
+
 	"github.com/go-redis/redis_rate/v10"
 	"github.com/robfig/cron/v3"
+	"github.com/streadway/amqp"
 	"gorm.io/gorm"
-	"time"
 
 	"github.com/sirupsen/logrus"
 )
@@ -35,8 +40,40 @@ type MessageServiceImpl struct {
 	chat.ChatServiceServer
 }
 
+// 连接
+var conn *amqp.Connection
+var channel *amqp.Channel
+
+//输出
+
+func failOnError(err error, msg string) {
+	//打日志
+	logging.Logger.Errorf("err %s", msg)
+
+}
+
 func (c MessageServiceImpl) New() {
+
+	var err error
+	conn, err = amqp.Dial(rabbitmq.BuildMQConnAddr())
+	if err != nil {
+		failOnError(err, "Fialed to conenct to RabbitMQ")
+	}
+	channel, err = conn.Channel()
+	if err != nil {
+		failOnError(err, "Failed to open a channel")
+	}
+	_, err = channel.QueueDeclare(
+		strings.MessageActionEvent,
+		false, false, false, false,
+		nil,
+	)
+	if err != nil {
+		failOnError(err, "Failed to define queue")
+	}
+
 	userRpcConn := grpc2.Connect(config.UserRpcServerName)
+
 	userClient = user.NewUserServiceClient(userRpcConn)
 
 	recommendRpcConn := grpc2.Connect(config.RecommendRpcServiceName)
@@ -52,8 +89,9 @@ func (c MessageServiceImpl) New() {
 	chatClient = chat.NewChatServiceClient(chatRpcConn)
 
 	cronRunner := cron.New(cron.WithSeconds())
+
 	//_, err := cronRunner.AddFunc("0 0 18 * * *", sendMagicMessage) // execute every 18:00
-	_, err := cronRunner.AddFunc("@every 2m", sendMagicMessage) // execute every minute [for test]
+	_, err = cronRunner.AddFunc("@every 2m", sendMagicMessage) // execute every minute [for test]
 
 	if err != nil {
 		logging.Logger.WithFields(logrus.Fields{
@@ -62,7 +100,19 @@ func (c MessageServiceImpl) New() {
 	}
 
 	cronRunner.Start()
+
 }
+
+func CloseMQConn() {
+	if err := channel.Close(); err != nil {
+		failOnError(err, "close channel error")
+	}
+	if err := conn.Close(); err != nil {
+		failOnError(err, "close conn error")
+	}
+}
+
+//发送消息
 
 var chatActionLimitKeyPrefix = config.EnvCfg.RedisPrefix + "chat_freq_limit"
 
@@ -266,10 +316,28 @@ func addMessage(ctx context.Context, fromUserId uint32, toUserId uint32, Context
 	}
 
 	//TO_DO 后面写mq？
-	result := database.Client.WithContext(ctx).Create(&message)
 
-	if result.Error != nil {
+	body, err := json.Marshal(message)
 
+	if err != nil {
+		resp = &chat.ActionResponse{
+			StatusCode: strings.UnableToAddMessageErrorCode,
+			StatusMsg:  strings.UnableToAddMessageError,
+		}
+		return
+	}
+	headers := rabbitmq.InjectAMQPHeaders(ctx)
+	err = channel.Publish("", strings.MessageActionEvent, false, false,
+		amqp.Publishing{
+			DeliveryMode: amqp.Persistent,
+			ContentType:  "text/plain",
+			Body:         body,
+			Headers:      headers,
+		})
+
+	// result := database.Client.WithContext(ctx).Create(&message)
+
+	if err != nil {
 		resp = &chat.ActionResponse{
 			StatusCode: strings.UnableToAddMessageErrorCode,
 			StatusMsg:  strings.UnableToAddMessageError,
