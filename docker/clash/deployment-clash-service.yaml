@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    sidecar.jaegertracing.io/inject: 'false'
+  labels:
+    app: clash
+  name: clash
+  namespace: epicmo-clash
+spec:
+  selector:
+    matchLabels:
+      name: clash
+  template:
+    metadata:
+      labels:
+        app: clash
+        name: clash
+    spec:
+      containers:
+        -   image: dreamacro/clash
+            imagePullPolicy: IfNotPresent
+            name: clash
+            command:
+              - /clash
+              - '-f'
+              - '/root/.config/clash/config.yaml'
+              - '-d'
+              - '.'
+            ports:
+              - name: http-7890
+                containerPort: 7890
+                protocol: TCP
+              - name: http-7891
+                containerPort: 7891
+                protocol: TCP
+            volumeMounts:
+              - name: config
+                mountPath: /root/.config/clash
+      volumes:
+        - name: config
+          configMap:
+            name: clash-config
+            defaultMode: 420
+      terminationGracePeriodSeconds: 30

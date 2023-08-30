@@ -4,5 +4,6 @@ output/
 log/
 .env
 docker/basic/static
+docker/clash/static
 docker/rabbitmq/static
 static/

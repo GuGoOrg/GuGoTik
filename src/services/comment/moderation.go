@@ -8,11 +8,29 @@ import (
 	"github.com/sashabaranov/go-openai"
 	"github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel/trace"
+	"net/http"
+	url2 "net/url"
 	"strconv"
 	"strings"
 )
 
-var openaiClient = openai.NewClient(config.EnvCfg.ChatGPTAPIKEYS)
+var openaiClient *openai.Client
+
+func init() {
+	cfg := openai.DefaultConfig(config.EnvCfg.ChatGPTAPIKEYS)
+
+	url, err := url2.Parse(config.EnvCfg.ChatGptProxy)
+	if err != nil {
+		panic(err)
+	}
+	cfg.HTTPClient = &http.Client{
+		Transport: &http.Transport{
+			Proxy: http.ProxyURL(url),
+		},
+	}
+
+	openaiClient = openai.NewClientWithConfig(cfg)
+}
 
 func RateCommentByGPT(commentContent string, logger *logrus.Entry, span trace.Span) (rate uint32, reason string, err error) {
 	logger.WithFields(logrus.Fields{
