@@ -11,7 +11,6 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/streadway/amqp"
-	"go-micro.dev/v4/logger"
 )
 
 func failOnError(err error, msg string) {
@@ -110,13 +109,13 @@ func main() {
 		}
 	}()
 
-	go ss(channel)
+	// go ss(channel)
 
 	<-foreever
 
 }
 
-func ss(channel *amqp.Channel) {
+/* func ss(channel *amqp.Channel) {
 	gptmsg, err := channel.Consume(
 		strings.MessageGptActionEvent,
 		"",
@@ -158,4 +157,4 @@ func ss(channel *amqp.Channel) {
 		}
 
 	}
-}
+} */
