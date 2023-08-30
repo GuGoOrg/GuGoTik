@@ -42,7 +42,7 @@ type envConfig struct {
 	GorseApiKey           string `env:"GORSE_APIKEY"`
 	MagicUserId           uint32 `env:"MAGIC_USER_ID" envDefault:"1"`
 	ChatGptProxy          string `env:"CHATGPT_PROXY"`
-	PostgreSQLPrefix      string `env:"POSTGRESQL_PREFIX"`
+	PostgreSQLPrefix      string `env:"POSTGRESQL_PREFIX" envDefault:""`
 }
 
 func init() {
