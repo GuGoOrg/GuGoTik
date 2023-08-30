@@ -74,7 +74,7 @@ func main() {
 	health.RegisterHealthServer(s, &probe)
 	defer CloseMQConn()
 	if err := consul.RegisterConsul(config.FeedRpcServerName, config.FeedRpcServerPort); err != nil {
-		log.Panicf("Rpc %s register consul hanpens error for: %v", config.FeedRpcServerName, err)
+		log.Panicf("Rpc %s register consul happens error for: %v", config.FeedRpcServerName, err)
 	}
 	srv.New()
 	srvMetrics.InitializeMetrics(s)
