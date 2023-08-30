@@ -18,7 +18,7 @@ type ActionCommentRes struct {
 }
 
 type ListCommentReq struct {
-	Token   string `form:"token" binding:"required"`
+	Token   string `form:"token"`
 	ActorId int    `form:"actor_id"`
 	VideoId int    `form:"video_id" binding:"-"`
 }
@@ -30,7 +30,7 @@ type ListCommentRes struct {
 }
 
 type CountCommentReq struct {
-	Token   string `form:"token" binding:"required"`
+	Token   string `form:"token"`
 	ActorId int    `form:"actor_id"`
 	VideoId int    `form:"video_id" binding:"-"`
 }

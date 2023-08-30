@@ -3,6 +3,7 @@ package main
 import (
 	"GuGoTik/src/constant/config"
 	"GuGoTik/src/constant/strings"
+	"GuGoTik/src/extra/gorse"
 	"GuGoTik/src/extra/tracing"
 	"GuGoTik/src/models"
 	"GuGoTik/src/utils/logging"
@@ -11,7 +12,9 @@ import (
 	"encoding/json"
 	"github.com/sirupsen/logrus"
 	"github.com/streadway/amqp"
+	"strconv"
 	"sync"
+	"time"
 )
 
 func exitOnError(err error) {
@@ -63,7 +66,7 @@ func main() {
 	exitOnError(err)
 
 	q, err := ch.QueueDeclare(
-		"",
+		"event_queue",
 		true,
 		false,
 		false,
@@ -77,7 +80,7 @@ func main() {
 
 	err = ch.QueueBind(
 		q.Name,
-		strings.FavoriteActionEvent,
+		"video.#",
 		strings.EventExchange,
 		false,
 		nil)
@@ -87,6 +90,12 @@ func main() {
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	wg.Wait()
+}
+
+var gorseClient *gorse.GorseClient
+
+func init() {
+	gorseClient = gorse.NewGorseClient(config.EnvCfg.GorseAddr, config.EnvCfg.GorseApiKey)
 }
 
 func Consume(ch *amqp.Channel, queueName string) {
@@ -107,8 +116,110 @@ func Consume(ch *amqp.Channel, queueName string) {
 				"err": err,
 			}).Errorf("Error when unmarshaling the prepare json body.")
 			logging.SetSpanError(span, err)
-			return
+			continue
 		}
 
+		switch raw.Type {
+		case 1:
+			var types string
+			switch raw.Source {
+			case config.FeedRpcServerName:
+				types = "read"
+			}
+			var feedbacks []gorse.Feedback
+			for _, id := range raw.VideoId {
+				feedbacks = append(feedbacks, gorse.Feedback{
+					FeedbackType: types,
+					UserId:       strconv.Itoa(int(raw.ActorId)),
+					ItemId:       strconv.Itoa(int(id)),
+					Timestamp:    time.Now().UTC().Format(time.RFC3339),
+				})
+			}
+
+			if _, err := gorseClient.InsertFeedback(ctx, feedbacks); err != nil {
+				logger.WithFields(logrus.Fields{
+					"err": err,
+				}).Errorf("Error when insert the feedback")
+				logging.SetSpanError(span, err)
+			}
+			logger.WithFields(logrus.Fields{
+				"ids": raw.VideoId,
+			}).Infof("Event dealt with type 1")
+			span.End()
+			err = d.Ack(false)
+			if err != nil {
+				logger.WithFields(logrus.Fields{
+					"err": err,
+				}).Errorf("Error when ack")
+				logging.SetSpanError(span, err)
+			}
+		case 2:
+			var types string
+			switch raw.Source {
+			case config.CommentRpcServerName:
+				types = "comment"
+			case config.FavoriteRpcServerName:
+				types = "favorite"
+			}
+			var feedbacks []gorse.Feedback
+			for _, id := range raw.VideoId {
+				feedbacks = append(feedbacks, gorse.Feedback{
+					FeedbackType: types,
+					UserId:       strconv.Itoa(int(raw.ActorId)),
+					ItemId:       strconv.Itoa(int(id)),
+					Timestamp:    time.Now().UTC().Format(time.RFC3339),
+				})
+			}
+
+			if _, err := gorseClient.InsertFeedback(ctx, feedbacks); err != nil {
+				logger.WithFields(logrus.Fields{
+					"err": err,
+				}).Errorf("Error when insert the feedback")
+				logging.SetSpanError(span, err)
+			}
+			logger.WithFields(logrus.Fields{
+				"ids": raw.VideoId,
+			}).Infof("Event dealt with type 2")
+			span.End()
+			err = d.Ack(false)
+			if err != nil {
+				logger.WithFields(logrus.Fields{
+					"err": err,
+				}).Errorf("Error when ack")
+				logging.SetSpanError(span, err)
+			}
+		case 3:
+			var items []gorse.Item
+			for _, id := range raw.VideoId {
+				items = append(items, gorse.Item{
+					ItemId:     strconv.Itoa(int(id)),
+					IsHidden:   false,
+					Labels:     raw.Tag,
+					Categories: raw.Category,
+					Timestamp:  time.Now().UTC().Format(time.RFC3339),
+					Comment:    raw.Title,
+				})
+			}
+
+			if _, err := gorseClient.InsertItems(ctx, items); err != nil {
+				logger.WithFields(logrus.Fields{
+					"err": err,
+				}).Errorf("Error when insert the items")
+				logging.SetSpanError(span, err)
+			}
+			logger.WithFields(logrus.Fields{
+				"ids":     raw.VideoId,
+				"tag":     raw.Tag,
+				"comment": raw.Title,
+			}).Infof("Event dealt with type 3")
+			span.End()
+			err = d.Ack(false)
+			if err != nil {
+				logger.WithFields(logrus.Fields{
+					"err": err,
+				}).Errorf("Error when ack")
+				logging.SetSpanError(span, err)
+			}
+		}
 	}
 }

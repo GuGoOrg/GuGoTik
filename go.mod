@@ -9,14 +9,18 @@ require (
 	github.com/go-redis/redis_rate/v10 v10.0.1
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0
 	github.com/google/uuid v1.3.0
+	github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus v1.0.0-rc.0
 	github.com/hashicorp/consul/api v1.24.0
 	github.com/joho/godotenv v1.5.1
 	github.com/juju/ratelimit v1.0.2
 	github.com/mbobakov/grpc-consul-resolver v1.5.2
+	github.com/oklog/run v1.1.0
 	github.com/patrickmn/go-cache v2.1.0+incompatible
+	github.com/prometheus/client_golang v1.16.0
 	github.com/pyroscope-io/client v0.7.2
 	github.com/redis/go-redis/extra/redisotel/v9 v9.0.5
 	github.com/redis/go-redis/v9 v9.1.0
+	github.com/robfig/cron/v3 v3.0.0
 	github.com/sashabaranov/go-openai v1.14.2
 	github.com/sirupsen/logrus v1.9.3
 	github.com/streadway/amqp v1.1.0
@@ -24,12 +28,12 @@ require (
 	github.com/zsais/go-gin-prometheus v0.1.0
 	go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin v0.42.0
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.42.0
+	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.42.0
 	go.opentelemetry.io/otel v1.16.0
 	go.opentelemetry.io/otel/exporters/jaeger v1.16.0
 	go.opentelemetry.io/otel/sdk v1.16.0
 	go.opentelemetry.io/otel/trace v1.16.0
 	golang.org/x/crypto v0.12.0
-	golang.org/x/image v0.0.0-20190802002840-cff245a6509b
 	google.golang.org/grpc v1.57.0
 	google.golang.org/protobuf v1.31.0
 	gorm.io/driver/postgres v1.5.2
@@ -79,6 +83,7 @@ require (
 	github.com/ettle/strcase v0.1.1 // indirect
 	github.com/fatih/color v1.15.0 // indirect
 	github.com/fatih/structtag v1.2.0 // indirect
+	github.com/felixge/httpsnoop v1.0.3 // indirect
 	github.com/firefart/nonamedreturns v1.0.4 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/fzipp/gocyclo v0.6.0 // indirect
@@ -119,6 +124,7 @@ require (
 	github.com/gostaticanalysis/comment v1.4.2 // indirect
 	github.com/gostaticanalysis/forcetypeassert v0.1.0 // indirect
 	github.com/gostaticanalysis/nilerr v0.1.1 // indirect
+	github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.0.0-rc.3 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-hclog v1.5.0 // indirect
@@ -179,7 +185,6 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/polyfloyd/go-errorlint v1.4.4 // indirect
-	github.com/prometheus/client_golang v1.16.0 // indirect
 	github.com/prometheus/client_model v0.4.0 // indirect
 	github.com/prometheus/common v0.44.0 // indirect
 	github.com/prometheus/procfs v0.11.1 // indirect
@@ -236,6 +241,7 @@ require (
 	golang.org/x/arch v0.4.0 // indirect
 	golang.org/x/exp v0.0.0-20230817173708-d852ddb80c63 // indirect
 	golang.org/x/exp/typeparams v0.0.0-20230817173708-d852ddb80c63 // indirect
+	golang.org/x/image v0.0.0-20190802002840-cff245a6509b // indirect
 	golang.org/x/mod v0.12.0 // indirect
 	golang.org/x/net v0.14.0 // indirect
 	golang.org/x/sync v0.3.0 // indirect

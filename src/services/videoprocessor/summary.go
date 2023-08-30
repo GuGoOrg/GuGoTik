@@ -87,7 +87,7 @@ func produceKeywords(ctx context.Context, event models.RecommendEvent) {
 
 	err = channel.Publish(
 		strings2.EventExchange,
-		strings2.FavoriteActionEvent,
+		strings2.VideoPublishEvent,
 		false,
 		false,
 		amqp.Publishing{
@@ -346,6 +346,7 @@ func SummaryConsume(channel *amqp.Channel) {
 					VideoId: []uint32{raw.VideoId},
 					Type:    3,
 					Source:  config.VideoProcessorRpcServiceName,
+					Title:   raw.Title,
 				})
 			}()
 			wg.Wait()
@@ -616,7 +617,7 @@ func isKeywordsExist(videoId uint32) (res bool, keywords string, err error) {
 
 func isMagicUserExist(ctx context.Context, logger *logrus.Entry, span *trace.Span) bool {
 	isMagicUserExistRes, err := userClient.GetUserExistInformation(ctx, &user.UserExistRequest{
-		UserId: 1,
+		UserId: config.EnvCfg.MagicUserId,
 	})
 	if err != nil {
 		logger.WithFields(logrus.Fields{
@@ -628,15 +629,15 @@ func isMagicUserExist(ctx context.Context, logger *logrus.Entry, span *trace.Spa
 
 	if !isMagicUserExistRes.Existed {
 		logger.Errorf("Magic user does not exist")
+		logging.SetSpanError(*span, errors.New("magic user does not exist"))
 	}
-	logging.SetSpanError(*span, errors.New("magic user does not exist"))
 
 	return isMagicUserExistRes.Existed
 }
 
 func addMagicComment(videoId uint32, content string, ctx context.Context, logger *logrus.Entry, span *trace.Span) {
 	_, err := commentClient.ActionComment(ctx, &comment.ActionCommentRequest{
-		ActorId:    1,
+		ActorId:    config.EnvCfg.MagicUserId,
 		VideoId:    videoId,
 		ActionType: comment.ActionCommentType_ACTION_COMMENT_TYPE_ADD,
 		Action:     &comment.ActionCommentRequest_CommentText{CommentText: content},

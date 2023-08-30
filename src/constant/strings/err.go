@@ -58,6 +58,8 @@ const (
 	AlreadyFollowingError            = "无法关注已关注的人"
 	UnableToGetFriendListErrorCode   = 50024
 	UnableToGetFriendListError       = "无法查询到好友列表"
+	RecommendServiceInnerErrorCode   = 50025
+	RecommendServiceInnerError       = "推荐系统内部错误"
 )
 
 // Expected Error

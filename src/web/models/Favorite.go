@@ -17,8 +17,8 @@ type ActionFavoriteRes struct {
 }
 
 type ListFavoriteReq struct {
-	Token   string `form:"token" binding:"required"`
-	ActorId int    `form:"actor_id" binding:"required"`
+	Token   string `form:"token"`
+	ActorId int    `form:"actor_id"`
 	UserId  int    `form:"user_id" binding:"required"`
 }
 

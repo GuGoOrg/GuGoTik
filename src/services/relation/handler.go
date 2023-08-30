@@ -774,7 +774,7 @@ func (r RelationServiceImpl) GetFollowList(ctx context.Context, request *relatio
 		}
 	}
 
-	rFollowList, err := r.idList2UserList(ctx, followIdListInt, request.ActorId, logger, span)
+	rFollowList, err := r.idList2UserList(ctx, followIdListInt, request.UserId, logger, span)
 	if err != nil {
 		resp = &relation.FollowListResponse{
 			StatusCode: strings.UnableToGetFollowListErrorCode,
@@ -853,7 +853,7 @@ func (r RelationServiceImpl) GetFollowerList(ctx context.Context, request *relat
 		}
 	}
 
-	rFollowerList, err := r.idList2UserList(ctx, followerIdListInt, request.ActorId, logger, span)
+	rFollowerList, err := r.idList2UserList(ctx, followerIdListInt, request.UserId, logger, span)
 	if err != nil {
 		resp = &relation.FollowerListResponse{
 			StatusCode: strings.UnableToGetFollowerListErrorCode,

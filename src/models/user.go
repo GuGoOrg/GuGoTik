@@ -2,9 +2,7 @@ package models
 
 import (
 	"GuGoTik/src/storage/database"
-	"GuGoTik/src/utils/logging"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 	"regexp"
 )
 
@@ -37,23 +35,5 @@ func (u *User) GetID() uint32 {
 func init() {
 	if err := database.Client.AutoMigrate(&User{}); err != nil {
 		panic(err)
-	}
-
-	// Create magic user (id = 0): show video summary and keywords, and act as ChatGPT
-	magicUser := User{
-		ID:              1,
-		UserName:        "ChatGPT",
-		Password:        "chatgpt",
-		Role:            2,
-		Avatar:          "https://maples31-blog.oss-cn-beijing.aliyuncs.com/img/ChatGPT_logo.svg.png",
-		BackgroundImage: "https://maples31-blog.oss-cn-beijing.aliyuncs.com/img/ChatGPT.jpg",
-		Signature:       "GuGoTik 小助手",
-	}
-	result := database.Client.Clauses(clause.OnConflict{
-		UpdateAll: true,
-	}).Create(&magicUser)
-
-	if result.Error != nil {
-		logging.Logger.Errorf("Cannot create magic user because of %s", result.Error)
 	}
 }

@@ -8,6 +8,7 @@ import (
 	"GuGoTik/src/rpc/comment"
 	"GuGoTik/src/rpc/favorite"
 	"GuGoTik/src/rpc/feed"
+	"GuGoTik/src/rpc/recommend"
 	"GuGoTik/src/rpc/user"
 	"GuGoTik/src/storage/database"
 	"GuGoTik/src/storage/file"
@@ -31,12 +32,13 @@ type FeedServiceImpl struct {
 }
 
 const (
-	VideoCount = 30
+	VideoCount = 3
 )
 
 var UserClient user.UserServiceClient
 var CommentClient comment.CommentServiceClient
 var FavoriteClient favorite.FavoriteServiceClient
+var RecommendClient recommend.RecommendServiceClient
 
 var conn *amqp.Connection
 
@@ -55,6 +57,8 @@ func (s FeedServiceImpl) New() {
 	CommentClient = comment.NewCommentServiceClient(commentRpcConn)
 	favoriteRpcConn := grpc2.Connect(config.FavoriteRpcServerName)
 	FavoriteClient = favorite.NewFavoriteServiceClient(favoriteRpcConn)
+	recommendRpcConn := grpc2.Connect(config.RecommendRpcServiceName)
+	RecommendClient = recommend.NewRecommendServiceClient(recommendRpcConn)
 
 	var err error
 
@@ -99,6 +103,8 @@ func produceFeed(ctx context.Context, event models.RecommendEvent) {
 		return
 	}
 
+	headers := rabbitmq.InjectAMQPHeaders(ctx)
+
 	err = channel.Publish(
 		strings.EventExchange,
 		strings.VideoGetEvent,
@@ -107,6 +113,7 @@ func produceFeed(ctx context.Context, event models.RecommendEvent) {
 		amqp.Publishing{
 			ContentType: "text/plain",
 			Body:        data,
+			Headers:     headers,
 		})
 
 	if err != nil {
@@ -118,16 +125,125 @@ func produceFeed(ctx context.Context, event models.RecommendEvent) {
 	}
 }
 
+func (s FeedServiceImpl) ListVideosByRecommend(ctx context.Context, request *feed.ListFeedRequest) (resp *feed.ListFeedResponse, err error) {
+	ctx, span := tracing.Tracer.Start(ctx, "ListVideosService")
+	defer span.End()
+	logger := logging.LogService("FeedService.ListVideos").WithContext(ctx)
+
+	now := time.Now().UnixMilli()
+	latestTime := now
+	if request.LatestTime != nil && *request.LatestTime != "" {
+		// Check if request.LatestTime is a timestamp
+		t, ok := isUnixMilliTimestamp(*request.LatestTime)
+		if ok {
+			latestTime = t
+		} else {
+			logger.WithFields(logrus.Fields{
+				"latestTime": request.LatestTime,
+			}).Errorf("The latestTime is not a unix timestamp")
+			logging.SetSpanError(span, errors.New("the latestTime is not a unit timestamp"))
+		}
+	}
+	recommendResponse, err := RecommendClient.GetRecommendInformation(ctx, &recommend.RecommendRequest{
+		UserId: *request.ActorId,
+		Offset: -1,
+		Number: VideoCount,
+	})
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"err":             err,
+			"recommenVideoId": recommendResponse.VideoList,
+		}).Errorf("Error when trying to connect with RecommendService")
+		logging.SetSpanError(span, err)
+		resp = &feed.ListFeedResponse{
+			StatusCode: strings.RecommendServiceInnerErrorCode,
+			StatusMsg:  strings.RecommendServiceInnerError,
+			NextTime:   nil,
+			VideoList:  nil,
+		}
+		return resp, err
+	}
+	recommendVideoId := recommendResponse.VideoList
+	find, err := findRecommendVideos(ctx, recommendVideoId)
+
+	nextTimeStamp := uint64(latestTime)
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"find": find,
+		}).Warnf("func findRecommendVideos meet trouble.")
+		logging.SetSpanError(span, err)
+
+		resp = &feed.ListFeedResponse{
+			StatusCode: strings.FeedServiceInnerErrorCode,
+			StatusMsg:  strings.FeedServiceInnerError,
+			NextTime:   &nextTimeStamp,
+			VideoList:  nil,
+		}
+		return resp, err
+	}
+	if len(find) == 0 {
+		resp = &feed.ListFeedResponse{
+			StatusCode: strings.ServiceOKCode,
+			StatusMsg:  strings.ServiceOK,
+			NextTime:   nil,
+			VideoList:  nil,
+		}
+		return resp, err
+	}
+
+	var actorId uint32 = 0
+	if request.ActorId != nil {
+		actorId = *request.ActorId
+	}
+	videos := queryDetailed(ctx, logger, actorId, find)
+	if videos == nil {
+		logger.WithFields(logrus.Fields{
+			"videos": videos,
+		}).Warnf("func queryDetailed meet trouble.")
+		logging.SetSpanError(span, err)
+		resp = &feed.ListFeedResponse{
+			StatusCode: strings.FeedServiceInnerErrorCode,
+			StatusMsg:  strings.FeedServiceInnerError,
+			NextTime:   nil,
+			VideoList:  nil,
+		}
+		return resp, err
+	}
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		var videoLists []uint32
+		for _, item := range videos {
+			videoLists = append(videoLists, item.Id)
+		}
+		produceFeed(ctx, models.RecommendEvent{
+			ActorId: *request.ActorId,
+			VideoId: videoLists,
+			Type:    1,
+			Source:  config.FeedRpcServerName,
+		})
+	}()
+	wg.Wait()
+	resp = &feed.ListFeedResponse{
+		StatusCode: strings.ServiceOKCode,
+		StatusMsg:  strings.ServiceOK,
+		NextTime:   &nextTimeStamp,
+		VideoList:  videos,
+	}
+	return resp, err
+}
+
 func (s FeedServiceImpl) ListVideos(ctx context.Context, request *feed.ListFeedRequest) (resp *feed.ListFeedResponse, err error) {
 	ctx, span := tracing.Tracer.Start(ctx, "ListVideosService")
 	defer span.End()
 	logger := logging.LogService("FeedService.ListVideos").WithContext(ctx)
 
-	now := time.Now().Unix()
+	now := time.Now().UnixMilli()
 	latestTime := now
 	if request.LatestTime != nil && *request.LatestTime != "" {
 		// Check if request.LatestTime is a timestamp
-		t, ok := isUnixTimestamp(*request.LatestTime)
+		t, ok := isUnixMilliTimestamp(*request.LatestTime)
 		if ok {
 			latestTime = t
 		} else {
@@ -139,7 +255,7 @@ func (s FeedServiceImpl) ListVideos(ctx context.Context, request *feed.ListFeedR
 	}
 
 	find, nextTime, err := findVideos(ctx, latestTime)
-	nextTimeStamp := uint32(nextTime.Unix())
+	nextTimeStamp := uint64(nextTime.UnixMilli())
 	if err != nil {
 		logger.WithFields(logrus.Fields{
 			"find": find,
@@ -331,10 +447,10 @@ func (s FeedServiceImpl) QueryVideoSummaryAndKeywords(ctx context.Context, req *
 func findVideos(ctx context.Context, latestTime int64) ([]*models.Video, time.Time, error) {
 	logger := logging.LogService("ListVideos.findVideos").WithContext(ctx)
 
-	nextTime := time.Unix(latestTime, 0)
+	nextTime := time.UnixMilli(latestTime)
 
 	var videos []*models.Video
-	result := database.Client.Where("created_at < ?", time.Unix(latestTime, 0)).
+	result := database.Client.Where("created_at < ?", nextTime).
 		Order("created_at DESC").
 		Limit(VideoCount).
 		Find(&videos)
@@ -351,11 +467,30 @@ func findVideos(ctx context.Context, latestTime int64) ([]*models.Video, time.Ti
 	}
 
 	logger.WithFields(logrus.Fields{
-		"latestTime":  time.Unix(latestTime, 0),
+		"latestTime":  time.UnixMilli(latestTime),
 		"VideosCount": len(videos),
 		"NextTime":    nextTime,
 	}).Debugf("Find videos")
 	return videos, nextTime, nil
+}
+
+func findRecommendVideos(ctx context.Context, recommendVideoId []uint32) ([]*models.Video, error) {
+	logger := logging.LogService("ListVideos.findVideos").WithContext(ctx)
+	var videos []*models.Video
+	var ids []interface{}
+	for _, id := range recommendVideoId {
+		ids = append(ids, id)
+	}
+	result := database.Client.WithContext(ctx).Where("id IN ?", ids).Find(&videos)
+
+	if result.Error != nil {
+		logger.WithFields(logrus.Fields{
+			"videos": videos,
+		}).Warnf("database.Client.Where meet trouble")
+		return nil, result.Error
+	}
+
+	return videos, nil
 }
 
 func queryDetailed(ctx context.Context, logger *logrus.Entry, actorId uint32, videos []*models.Video) (respVideoList []*feed.Video) {
@@ -513,7 +648,7 @@ func query(ctx context.Context, logger *logrus.Entry, actorId uint32, videoIds [
 	return queryDetailed(ctx, logger, actorId, videos), nil
 }
 
-func isUnixTimestamp(s string) (int64, bool) {
+func isUnixMilliTimestamp(s string) (int64, bool) {
 	timestamp, err := strconv.ParseInt(s, 10, 64)
 	if err != nil {
 		return 0, false
@@ -522,7 +657,7 @@ func isUnixTimestamp(s string) (int64, bool) {
 	startTime := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
 	endTime := time.Now().AddDate(100, 0, 0)
 
-	t := time.Unix(timestamp, 0)
+	t := time.UnixMilli(timestamp)
 	res := t.After(startTime) && t.Before(endTime)
 
 	return timestamp, res

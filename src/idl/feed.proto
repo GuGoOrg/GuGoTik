@@ -22,7 +22,7 @@ message ListFeedRequest {
 message ListFeedResponse {
   int32 status_code = 1;
   string status_msg = 2;
-  optional uint32 next_time = 3;
+  optional uint64 next_time = 3;
   repeated Video video_list = 4;
 }
 
@@ -60,6 +60,7 @@ message QueryVideoSummaryAndKeywordsResponse {
 }
 
 service FeedService {
+  rpc ListVideosByRecommend(ListFeedRequest) returns (ListFeedResponse);
   rpc ListVideos(ListFeedRequest) returns (ListFeedResponse);
   rpc QueryVideos(QueryVideosRequest) returns (QueryVideosResponse);
   rpc QueryVideoExisted(VideoExistRequest) returns (VideoExistResponse);

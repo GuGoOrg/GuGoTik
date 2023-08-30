@@ -90,6 +90,8 @@ func produceFavorite(ctx context.Context, event models.RecommendEvent) {
 		return
 	}
 
+	headers := rabbitmq.InjectAMQPHeaders(ctx)
+
 	err = channel.Publish(
 		strings.EventExchange,
 		strings.FavoriteActionEvent,
@@ -98,6 +100,7 @@ func produceFavorite(ctx context.Context, event models.RecommendEvent) {
 		amqp.Publishing{
 			ContentType: "text/plain",
 			Body:        data,
+			Headers:     headers,
 		})
 
 	if err != nil {
@@ -189,7 +192,7 @@ func (c FavoriteServiceServerImpl) FavoriteAction(ctx context.Context, req *favo
 				produceFavorite(ctx, models.RecommendEvent{
 					ActorId: req.ActorId,
 					VideoId: []uint32{req.VideoId},
-					Type:    1,
+					Type:    2,
 					Source:  config.FavoriteRpcServerName,
 				})
 			}()
