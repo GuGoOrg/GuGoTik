@@ -13,5 +13,6 @@ const (
 	VideoCommentEvent   = "video.comment.action"
 	VideoPublishEvent   = "video.publish.action"
 
-	MessageActionEvent = "message.send"
+	MessageActionEvent    = "message.send"
+	MessageGptActionEvent = "message.gpt.send"
 )

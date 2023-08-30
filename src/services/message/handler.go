@@ -12,7 +12,6 @@ import (
 	"GuGoTik/src/rpc/user"
 	"GuGoTik/src/storage/database"
 	"GuGoTik/src/storage/redis"
-	grpc2 "GuGoTik/src/utils/grpc"
 	"GuGoTik/src/utils/logging"
 	"GuGoTik/src/utils/ptr"
 	"GuGoTik/src/utils/rabbitmq"
@@ -23,18 +22,17 @@ import (
 	"time"
 
 	"github.com/go-redis/redis_rate/v10"
-	"github.com/robfig/cron/v3"
 	"github.com/streadway/amqp"
 	"gorm.io/gorm"
 
 	"github.com/sirupsen/logrus"
 )
 
-var userClient user.UserServiceClient
+/* var userClient user.UserServiceClient
 var recommendClient recommend.RecommendServiceClient
 var relationClient relation.RelationServiceClient
 var feedClient feed.FeedServiceClient
-var chatClient chat.ChatServiceClient
+var chatClient chat.ChatServiceClient */
 
 type MessageServiceImpl struct {
 	chat.ChatServiceServer
@@ -87,34 +85,66 @@ func (c MessageServiceImpl) New() {
 		failOnError(err, "Failed to define queue")
 	}
 
-	userRpcConn := grpc2.Connect(config.UserRpcServerName)
-
-	userClient = user.NewUserServiceClient(userRpcConn)
-
-	recommendRpcConn := grpc2.Connect(config.RecommendRpcServiceName)
-	recommendClient = recommend.NewRecommendServiceClient(recommendRpcConn)
-
-	relationRpcConn := grpc2.Connect(config.RelationRpcServerName)
-	relationClient = relation.NewRelationServiceClient(relationRpcConn)
-
-	feedRpcConn := grpc2.Connect(config.FeedRpcServerName)
-	feedClient = feed.NewFeedServiceClient(feedRpcConn)
-
-	chatRpcConn := grpc2.Connect(config.MessageRpcServerName)
-	chatClient = chat.NewChatServiceClient(chatRpcConn)
-
-	cronRunner := cron.New(cron.WithSeconds())
-
-	//_, err = cronRunner.AddFunc("0 0 18 * * *", sendMagicMessage) // execute every 18:00
-	_, err = cronRunner.AddFunc("@every 5m", sendMagicMessage) // execute every minute [for test]
+	_, err = channel.QueueDeclare(
+		strings.MessageGptActionEvent,
+		false, false, false, false,
+		nil,
+	)
 
 	if err != nil {
-		logging.Logger.WithFields(logrus.Fields{
-			"err": err,
-		}).Errorf("Cannot start SendMagicMessage cron job")
+		failOnError(err, "Failed to define queue")
 	}
 
-	cronRunner.Start()
+	channel.QueueBind(
+		strings.MessageActionEvent,
+		strings.MessageActionEvent,
+		strings.MessageExchange,
+		false,
+		nil,
+	)
+	if err != nil {
+		failOnError(err, "Failed to bind queue to exchange")
+	}
+
+	channel.QueueBind(
+		strings.MessageGptActionEvent,
+		strings.MessageGptActionEvent,
+		strings.MessageExchange,
+		false,
+		nil,
+	)
+	if err != nil {
+		failOnError(err, "Failed to define queue  to exchange")
+	}
+
+	/* 	userRpcConn := grpc2.Connect(config.UserRpcServerName)
+
+	   	userClient = user.NewUserServiceClient(userRpcConn)
+
+	   	recommendRpcConn := grpc2.Connect(config.RecommendRpcServiceName)
+	   	recommendClient = recommend.NewRecommendServiceClient(recommendRpcConn)
+
+	   	relationRpcConn := grpc2.Connect(config.RelationRpcServerName)
+	   	relationClient = relation.NewRelationServiceClient(relationRpcConn)
+
+	   	feedRpcConn := grpc2.Connect(config.FeedRpcServerName)
+	   	feedClient = feed.NewFeedServiceClient(feedRpcConn)
+
+	   	chatRpcConn := grpc2.Connect(config.MessageRpcServerName)
+	   	chatClient = chat.NewChatServiceClient(chatRpcConn)
+
+	   	cronRunner := cron.New(cron.WithSeconds())
+
+	   	//_, err = cronRunner.AddFunc("0 0 18 * * *", sendMagicMessage) // execute every 18:00
+	   	_, err = cronRunner.AddFunc("@every 5m", sendMagicMessage) // execute every minute [for test]
+
+	   	if err != nil {
+	   		logging.Logger.WithFields(logrus.Fields{
+	   			"err": err,
+	   		}).Errorf("Cannot start SendMagicMessage cron job")
+	   	}
+
+	   	cronRunner.Start() */
 
 }
 
@@ -183,25 +213,25 @@ func (c MessageServiceImpl) ChatAction(ctx context.Context, request *chat.Action
 		return
 	}
 
-	userResponse, err := userClient.GetUserExistInformation(ctx, &user.UserExistRequest{
-		UserId: request.UserId,
-	})
+	/* 	userResponse, err := userClient.GetUserExistInformation(ctx, &user.UserExistRequest{
+	   		UserId: request.UserId,
+	   	})
 
-	if err != nil || userResponse.StatusCode != strings.ServiceOKCode {
-		logger.WithFields(logrus.Fields{
-			"err":          err,
-			"ActorId":      request.ActorId,
-			"user_id":      request.UserId,
-			"action_type":  request.ActionType,
-			"content_text": request.Content,
-		}).Errorf("User service error")
-		logging.SetSpanError(span, err)
+	   	if err != nil || userResponse.StatusCode != strings.ServiceOKCode {
+	   		logger.WithFields(logrus.Fields{
+	   			"err":          err,
+	   			"ActorId":      request.ActorId,
+	   			"user_id":      request.UserId,
+	   			"action_type":  request.ActionType,
+	   			"content_text": request.Content,
+	   		}).Errorf("User service error")
+	   		logging.SetSpanError(span, err)
 
-		return &chat.ActionResponse{
-			StatusCode: strings.UnableToAddMessageErrorCode,
-			StatusMsg:  strings.UnableToAddMessageError,
-		}, err
-	}
+	   		return &chat.ActionResponse{
+	   			StatusCode: strings.UnableToAddMessageErrorCode,
+	   			StatusMsg:  strings.UnableToAddMessageError,
+	   		}, err
+	   	} */
 
 	res, err = addMessage(ctx, request.ActorId, request.UserId, request.Content)
 	if err != nil {
@@ -233,25 +263,25 @@ func (c MessageServiceImpl) Chat(ctx context.Context, request *chat.ChatRequest)
 		"ActorId":      request.ActorId,
 		"pre_msg_time": request.PreMsgTime,
 	}).Debugf("Process start")
+	/*
+		userResponse, err := userClient.GetUserExistInformation(ctx, &user.UserExistRequest{
+			UserId: request.UserId,
+		})
 
-	userResponse, err := userClient.GetUserExistInformation(ctx, &user.UserExistRequest{
-		UserId: request.UserId,
-	})
+		if err != nil || userResponse.StatusCode != strings.ServiceOKCode {
+			logger.WithFields(logrus.Fields{
+				"err":     err,
+				"ActorId": request.ActorId,
+				"user_id": request.UserId,
+			}).Errorf("User service error")
+			logging.SetSpanError(span, err)
 
-	if err != nil || userResponse.StatusCode != strings.ServiceOKCode {
-		logger.WithFields(logrus.Fields{
-			"err":     err,
-			"ActorId": request.ActorId,
-			"user_id": request.UserId,
-		}).Errorf("User service error")
-		logging.SetSpanError(span, err)
-
-		resp = &chat.ChatResponse{
-			StatusCode: strings.UnableToQueryMessageErrorCode,
-			StatusMsg:  strings.UnableToQueryMessageError,
-		}
-		return
-	}
+			resp = &chat.ChatResponse{
+				StatusCode: strings.UnableToQueryMessageErrorCode,
+				StatusMsg:  strings.UnableToQueryMessageError,
+			}
+			return
+		} */
 
 	toUserId := request.UserId
 	fromUserId := request.ActorId
@@ -385,7 +415,7 @@ func addMessage(ctx context.Context, fromUserId uint32, toUserId uint32, Context
 
 }
 
-func sendMagicMessage() {
+/* func sendMagicMessage() {
 	ctx, span := tracing.Tracer.Start(context.Background(), "SendMagicMessageService")
 	defer span.End()
 	logging.SetSpanWithHostname(span)
@@ -476,3 +506,4 @@ func sendMagicMessage() {
 		}).Infof("Successfully send the magic message")
 	}
 }
+*/

@@ -11,6 +11,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/streadway/amqp"
+	"go-micro.dev/v4/logger"
 )
 
 func failOnError(err error, msg string) {
@@ -49,7 +50,7 @@ func main() {
 		nil,
 	)
 	if err != nil {
-		failOnError(err, "Failed to define queue")
+		failOnError(err, "Failed to Consume")
 	}
 
 	var foreever chan struct{}
@@ -66,6 +67,7 @@ func main() {
 					"err":     err,
 				}).Errorf("Error when unmarshaling the prepare json body.")
 				return
+				//todo
 			}
 
 			/* 	ctx := rabbitmq.ExtractAMQPHeaders(context.Background(), body.Headers)
@@ -108,6 +110,52 @@ func main() {
 		}
 	}()
 
+	go ss(channel)
+
 	<-foreever
 
+}
+
+func ss(channel *amqp.Channel) {
+	gptmsg, err := channel.Consume(
+		strings.MessageGptActionEvent,
+		"",
+		false, false, false, false,
+		nil,
+	)
+	if err != nil {
+		failOnError(err, "Failed to Consume")
+	}
+	var message models.Message
+	for body := range gptmsg {
+		if err := json.Unmarshal(body.Body, &message); err != nil {
+			logger.WithFields(logrus.Fields{
+				"from_id": message.FromUserId,
+				"to_id":   message.ToUserId,
+				"err":     err,
+			}).Errorf("Error when unmarshaling the prepare json body.")
+			continue
+		}
+
+		pmessage := models.Message{
+			ToUserId:       message.ToUserId,
+			FromUserId:     message.FromUserId,
+			ConversationId: message.ConversationId,
+			Content:        message.Content,
+		}
+
+		result := database.Client.WithContext(context.Background()).Create(&pmessage)
+		//发一份消息到openai api
+
+		if result.Error != nil {
+			logger.WithFields(logrus.Fields{
+				"from_id": message.FromUserId,
+				"to_id":   message.ToUserId,
+				"err":     result.Error,
+			}).Errorf("Error when insert message to database.")
+			// logging.SetSpanError(span, err)
+			return
+		}
+
+	}
 }
