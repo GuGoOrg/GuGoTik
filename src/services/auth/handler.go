@@ -51,6 +51,7 @@ func (a AuthServiceImpl) New() {
 func (a AuthServiceImpl) Authenticate(ctx context.Context, request *auth.AuthenticateRequest) (resp *auth.AuthenticateResponse, err error) {
 	ctx, span := tracing.Tracer.Start(ctx, "AuthenticateService")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("AuthService.Authenticate").WithContext(ctx)
 
 	userId, ok, err := hasToken(ctx, request.Token)
@@ -98,6 +99,7 @@ func (a AuthServiceImpl) Authenticate(ctx context.Context, request *auth.Authent
 func (a AuthServiceImpl) Register(ctx context.Context, request *auth.RegisterRequest) (resp *auth.RegisterResponse, err error) {
 	ctx, span := tracing.Tracer.Start(ctx, "RegisterService")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("AuthService.Register").WithContext(ctx)
 
 	resp = &auth.RegisterResponse{}
@@ -239,6 +241,7 @@ func (a AuthServiceImpl) Register(ctx context.Context, request *auth.RegisterReq
 func (a AuthServiceImpl) Login(ctx context.Context, request *auth.LoginRequest) (resp *auth.LoginResponse, err error) {
 	ctx, span := tracing.Tracer.Start(ctx, "LoginService")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("AuthService.Login").WithContext(ctx)
 	logger.WithFields(logrus.Fields{
 		"username": request.Username,
@@ -354,7 +357,7 @@ func (a AuthServiceImpl) Login(ctx context.Context, request *auth.LoginRequest) 
 func hashPassword(ctx context.Context, password string) (string, error) {
 	_, span := tracing.Tracer.Start(ctx, "PasswordHash")
 	defer span.End()
-
+	logging.SetSpanWithHostname(span)
 	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 12)
 	return string(bytes), err
 }
@@ -362,6 +365,7 @@ func hashPassword(ctx context.Context, password string) (string, error) {
 func checkPasswordHash(ctx context.Context, password, hash string) bool {
 	_, span := tracing.Tracer.Start(ctx, "PasswordHashChecked")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
 	return err == nil
 }
@@ -422,7 +426,7 @@ func getAvatarByEmail(ctx context.Context, email string) string {
 func getEmailMD5(ctx context.Context, email string) (md5String string) {
 	_, span := tracing.Tracer.Start(ctx, "Auth-EmailMD5")
 	defer span.End()
-
+	logging.SetSpanWithHostname(span)
 	lowerEmail := stringsLib.ToLower(email)
 	hashed := md5.New()
 	hashed.Write([]byte(lowerEmail))

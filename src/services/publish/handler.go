@@ -128,6 +128,7 @@ func (a PublishServiceImpl) New() {
 func (a PublishServiceImpl) ListVideo(ctx context.Context, req *publish.ListVideoRequest) (resp *publish.ListVideoResponse, err error) {
 	ctx, span := tracing.Tracer.Start(ctx, "ListVideoService")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("PublishServiceImpl.ListVideo").WithContext(ctx)
 
 	var videos []models.Video
@@ -181,6 +182,7 @@ func (a PublishServiceImpl) ListVideo(ctx context.Context, req *publish.ListVide
 func (a PublishServiceImpl) CountVideo(ctx context.Context, req *publish.CountVideoRequest) (resp *publish.CountVideoResponse, err error) {
 	ctx, span := tracing.Tracer.Start(ctx, "CountVideoService")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("PublishServiceImpl.CountVideo").WithContext(ctx)
 
 	var count int64
@@ -208,6 +210,7 @@ func (a PublishServiceImpl) CountVideo(ctx context.Context, req *publish.CountVi
 func (a PublishServiceImpl) CreateVideo(ctx context.Context, request *publish.CreateVideoRequest) (resp *publish.CreateVideoResponse, err error) {
 	ctx, span := tracing.Tracer.Start(ctx, "CreateVideoService")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("PublishService.CreateVideo").WithContext(ctx)
 
 	logger.WithFields(logrus.Fields{

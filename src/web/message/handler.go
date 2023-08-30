@@ -27,6 +27,7 @@ func ActionMessageHandler(c *gin.Context) {
 	var req models.SMessageReq
 	_, span := tracing.Tracer.Start(c.Request.Context(), "ActionMessageHandler")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("GateWay.ActionChat").WithContext(c.Request.Context())
 
 	if err := c.ShouldBindQuery(&req); err != nil {

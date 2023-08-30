@@ -93,6 +93,7 @@ func CloseMQConn() {
 func produceFeed(ctx context.Context, event models.RecommendEvent) {
 	ctx, span := tracing.Tracer.Start(ctx, "FeedPublisher")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("FeedService.FeedPublisher").WithContext(ctx)
 	data, err := json.Marshal(event)
 	if err != nil {
@@ -128,6 +129,7 @@ func produceFeed(ctx context.Context, event models.RecommendEvent) {
 func (s FeedServiceImpl) ListVideosByRecommend(ctx context.Context, request *feed.ListFeedRequest) (resp *feed.ListFeedResponse, err error) {
 	ctx, span := tracing.Tracer.Start(ctx, "ListVideosService")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("FeedService.ListVideos").WithContext(ctx)
 
 	now := time.Now().UnixMilli()
@@ -237,6 +239,7 @@ func (s FeedServiceImpl) ListVideosByRecommend(ctx context.Context, request *fee
 func (s FeedServiceImpl) ListVideos(ctx context.Context, request *feed.ListFeedRequest) (resp *feed.ListFeedResponse, err error) {
 	ctx, span := tracing.Tracer.Start(ctx, "ListVideosService")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("FeedService.ListVideos").WithContext(ctx)
 
 	now := time.Now().UnixMilli()
@@ -326,6 +329,7 @@ func (s FeedServiceImpl) ListVideos(ctx context.Context, request *feed.ListFeedR
 func (s FeedServiceImpl) QueryVideos(ctx context.Context, req *feed.QueryVideosRequest) (resp *feed.QueryVideosResponse, err error) {
 	ctx, span := tracing.Tracer.Start(ctx, "QueryVideosService")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("FeedService.QueryVideos").WithContext(ctx)
 
 	rst, err := query(ctx, logger, req.ActorId, req.VideoIds)
@@ -353,6 +357,7 @@ func (s FeedServiceImpl) QueryVideos(ctx context.Context, req *feed.QueryVideosR
 func (s FeedServiceImpl) QueryVideoExisted(ctx context.Context, req *feed.VideoExistRequest) (resp *feed.VideoExistResponse, err error) {
 	ctx, span := tracing.Tracer.Start(ctx, "QueryVideoExistedService")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("FeedService.QueryVideoExisted").WithContext(ctx)
 	var video models.Video
 	result := database.Client.WithContext(ctx).Where("id = ?", req.VideoId).First(&video)
@@ -392,6 +397,7 @@ func (s FeedServiceImpl) QueryVideoExisted(ctx context.Context, req *feed.VideoE
 func (s FeedServiceImpl) QueryVideoSummaryAndKeywords(ctx context.Context, req *feed.QueryVideoSummaryAndKeywordsRequest) (resp *feed.QueryVideoSummaryAndKeywordsResponse, err error) {
 	ctx, span := tracing.Tracer.Start(ctx, "QueryVideoSummaryAndKeywordsService")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("FeedService.QueryVideoSummaryAndKeywords").WithContext(ctx)
 
 	videoExistRes, err := s.QueryVideoExisted(ctx, &feed.VideoExistRequest{
@@ -496,6 +502,7 @@ func findRecommendVideos(ctx context.Context, recommendVideoId []uint32) ([]*mod
 func queryDetailed(ctx context.Context, logger *logrus.Entry, actorId uint32, videos []*models.Video) (respVideoList []*feed.Video) {
 	ctx, span := tracing.Tracer.Start(ctx, "queryDetailed")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger = logging.LogService("ListVideos.queryDetailed").WithContext(ctx)
 	respVideoList = make([]*feed.Video, len(videos))
 

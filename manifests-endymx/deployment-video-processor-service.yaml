@@ -44,6 +44,13 @@ spec:
               - name: metrics-37099
                 containerPort: 37099
                 protocol: TCP
+            resources:
+              limits:
+                cpu: 4000m
+                memory: 8Gi
+              requests:
+                cpu: 2000m
+                memory: 4Gi
             volumeMounts:
               - mountPath: /data/apps/gugotik-service-bundle/data
                 name: volume

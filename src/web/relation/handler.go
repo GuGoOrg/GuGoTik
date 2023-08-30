@@ -27,6 +27,7 @@ func ActionRelationHandler(c *gin.Context) {
 	var req models.RelationActionReq
 	_, span := tracing.Tracer.Start(c.Request.Context(), "ActionRelationHandler")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("GateWay.ActionRelation").WithContext(c.Request.Context())
 
 	if err := c.ShouldBindQuery(&req); err != nil {

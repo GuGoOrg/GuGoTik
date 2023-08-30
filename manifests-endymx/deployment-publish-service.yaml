@@ -49,11 +49,11 @@ spec:
                 protocol: TCP
             resources:
               limits:
-                cpu: 500m
-                memory: 256Mi
+                cpu: 1000m
+                memory: 1Gi
               requests:
-                cpu: 100m
-                memory: 8Mi
+                cpu: 500m
+                memory: 512Mi
             volumeMounts:
               - mountPath: /data/apps/gugotik-service-bundle/data
                 name: volume

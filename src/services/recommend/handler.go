@@ -28,6 +28,7 @@ var gorseClient *gorse.GorseClient
 func (a RecommendServiceImpl) GetRecommendInformation(ctx context.Context, request *recommend.RecommendRequest) (resp *recommend.RecommendResponse, err error) {
 	ctx, span := tracing.Tracer.Start(ctx, "GetRecommendService")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("RecommendService.GetRecommend").WithContext(ctx)
 
 	var offset int
@@ -106,6 +107,7 @@ func (a RecommendServiceImpl) GetRecommendInformation(ctx context.Context, reque
 func (a RecommendServiceImpl) RegisterRecommendUser(ctx context.Context, request *recommend.RecommendRegisterRequest) (resp *recommend.RecommendRegisterResponse, err error) {
 	ctx, span := tracing.Tracer.Start(ctx, "RegisterRecommendService")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("RecommendService.RegisterRecommend").WithContext(ctx)
 
 	_, err = gorseClient.InsertUsers(ctx, []gorse.User{
@@ -137,6 +139,7 @@ func (a RecommendServiceImpl) RegisterRecommendUser(ctx context.Context, request
 func getVideoIds(ctx context.Context, actorId string, num int) (ids []uint32, err error) {
 	ctx, span := tracing.Tracer.Start(ctx, "GetRecommendAutoService")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("RecommendService.GetRecommendAuto").WithContext(ctx)
 	key := fmt.Sprintf("%s-RecommendAutoService-%s", config.EnvCfg.RedisPrefix, actorId)
 	offset := 0

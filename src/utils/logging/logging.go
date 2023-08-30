@@ -10,7 +10,11 @@ import (
 	"os"
 )
 
+var hostname string
+
 func init() {
+	hostname, _ = os.Hostname()
+
 	switch config.EnvCfg.LoggerLevel {
 	case "DEBUG":
 		log.SetLevel(log.DebugLevel)
@@ -29,7 +33,9 @@ func init() {
 	log.SetFormatter(&log.JSONFormatter{})
 	log.AddHook(logTraceHook{})
 	Logger = log.WithFields(log.Fields{
-		"Tied": config.EnvCfg.TiedLogging,
+		"Tied":     config.EnvCfg.TiedLogging,
+		"Hostname": hostname,
+		"PodIP":    config.EnvCfg.PodIpAddr,
 	})
 }
 
@@ -90,4 +96,9 @@ func SetSpanError(span trace.Span, err error) {
 func SetSpanErrorWithDesc(span trace.Span, err error, desc string) {
 	span.RecordError(err)
 	span.SetStatus(codes.Error, desc)
+}
+
+func SetSpanWithHostname(span trace.Span) {
+	span.SetAttributes(attribute.String("hostname", hostname))
+	span.SetAttributes(attribute.String("podIP", config.EnvCfg.PodIpAddr))
 }

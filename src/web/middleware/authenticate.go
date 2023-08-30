@@ -20,7 +20,7 @@ func TokenAuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx, span := tracing.Tracer.Start(c.Request.Context(), "AuthMiddleWare")
 		defer span.End()
-		span.SetAttributes(attribute.String("podID", config.EnvCfg.PodIpAddr))
+		logging.SetSpanWithHostname(span)
 
 		if c.Request.URL.Path == "/douyin/user/login/" ||
 			c.Request.URL.Path == "/douyin/user/register/" ||

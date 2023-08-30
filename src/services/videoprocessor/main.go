@@ -148,7 +148,7 @@ func Consume(channel *amqp.Channel) {
 		ctx := rabbitmq.ExtractAMQPHeaders(context.Background(), d.Headers)
 		ctx, span := tracing.Tracer.Start(ctx, "VideoPickerService")
 		logger := logging.LogService("VideoPicker.Picker").WithContext(ctx)
-
+		logging.SetSpanWithHostname(span)
 		var raw models.RawVideo
 		if err := json.Unmarshal(d.Body, &raw); err != nil {
 			logger.WithFields(logrus.Fields{
@@ -228,6 +228,7 @@ func Consume(channel *amqp.Channel) {
 func extractVideoCover(ctx context.Context, video *models.RawVideo) error {
 	ctx, span := tracing.Tracer.Start(ctx, "ExtractVideoCoverService")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("VideoPicker.Picker").WithContext(ctx)
 	logger.Debug("Extracting video cover...")
 	RawFileName := video.FileName
@@ -264,6 +265,7 @@ func extractVideoCover(ctx context.Context, video *models.RawVideo) error {
 func textWatermark(ctx context.Context, video *models.RawVideo) (string, error) {
 	ctx, span := tracing.Tracer.Start(ctx, "NicknameWatermarkService")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("VideoPicker.Picker").WithContext(ctx)
 	// 加载字体文件
 	fontName := filepath.Join("static", "font.ttf")
@@ -365,6 +367,7 @@ func textWatermark(ctx context.Context, video *models.RawVideo) (string, error) 
 func addWatermarkToVideo(ctx context.Context, video *models.RawVideo, WatermarkPNGName string) error {
 	ctx, span := tracing.Tracer.Start(ctx, "AddWatermarkToVideoService")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("VideoPicker.Picker").WithContext(ctx)
 	logger.Debug("Adding watermark to video...")
 	RawFileName := video.FileName

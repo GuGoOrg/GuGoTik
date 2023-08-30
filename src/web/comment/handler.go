@@ -25,6 +25,7 @@ func ActionCommentHandler(c *gin.Context) {
 	var req models.ActionCommentReq
 	_, span := tracing.Tracer.Start(c.Request.Context(), "ActionCommentHandler")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("GateWay.ActionComment").WithContext(c.Request.Context())
 
 	if err := c.ShouldBindQuery(&req); err != nil {

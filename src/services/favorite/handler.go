@@ -80,6 +80,7 @@ func CloseMQConn() {
 func produceFavorite(ctx context.Context, event models.RecommendEvent) {
 	ctx, span := tracing.Tracer.Start(ctx, "FavoriteEventPublisher")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("FavoriteService.FavoriteEventPublisher").WithContext(ctx)
 	data, err := json.Marshal(event)
 	if err != nil {
@@ -115,6 +116,7 @@ func produceFavorite(ctx context.Context, event models.RecommendEvent) {
 func (c FavoriteServiceServerImpl) FavoriteAction(ctx context.Context, req *favorite.FavoriteRequest) (resp *favorite.FavoriteResponse, err error) {
 	ctx, span := tracing.Tracer.Start(ctx, "FavoriteServiceServerImpl")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("FavoriteService.FavoriteAction").WithContext(ctx)
 
 	logger.WithFields(logrus.Fields{
@@ -260,6 +262,7 @@ func (c FavoriteServiceServerImpl) FavoriteList(ctx context.Context, req *favori
 
 	ctx, span := tracing.Tracer.Start(ctx, "FavoriteServiceServerImpl")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("FavoriteService.FavoriteList").WithContext(ctx)
 
 	logger.WithFields(logrus.Fields{
@@ -347,6 +350,7 @@ func (c FavoriteServiceServerImpl) FavoriteList(ctx context.Context, req *favori
 func (c FavoriteServiceServerImpl) IsFavorite(ctx context.Context, req *favorite.IsFavoriteRequest) (resp *favorite.IsFavoriteResponse, err error) {
 	ctx, span := tracing.Tracer.Start(ctx, "FavoriteServiceServerImpl")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("FavoriteService.IsFavorite").WithContext(ctx)
 
 	logger.WithFields(logrus.Fields{
@@ -416,6 +420,7 @@ func (c FavoriteServiceServerImpl) CountFavorite(ctx context.Context, req *favor
 
 	ctx, span := tracing.Tracer.Start(ctx, "FavoriteServiceServerImpl")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("FavoriteService.CountFavorite").WithContext(ctx)
 
 	logger.WithFields(logrus.Fields{
@@ -470,6 +475,7 @@ func (c FavoriteServiceServerImpl) CountUserFavorite(ctx context.Context, req *f
 
 	ctx, span := tracing.Tracer.Start(ctx, "FavoriteServiceServerImpl")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("FavoriteService.CountUserFavorite").WithContext(ctx)
 
 	logger.WithFields(logrus.Fields{
@@ -529,6 +535,7 @@ func (c FavoriteServiceServerImpl) CountUserFavorite(ctx context.Context, req *f
 func (c FavoriteServiceServerImpl) CountUserTotalFavorited(ctx context.Context, req *favorite.CountUserTotalFavoritedRequest) (resp *favorite.CountUserTotalFavoritedResponse, err error) {
 	ctx, span := tracing.Tracer.Start(ctx, "FavoriteServiceServerImpl")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("FavoriteService.CountUserTotalFavorited").WithContext(ctx)
 
 	logger.WithFields(logrus.Fields{
