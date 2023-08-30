@@ -90,8 +90,8 @@ func (c MessageServiceImpl) New() {
 
 	cronRunner := cron.New(cron.WithSeconds())
 
-	_, err = cronRunner.AddFunc("0 0 18 * * *", sendMagicMessage) // execute every 18:00
-	//_, err = cronRunner.AddFunc("@every 2m", sendMagicMessage) // execute every minute [for test]
+	//_, err = cronRunner.AddFunc("0 0 18 * * *", sendMagicMessage) // execute every 18:00
+	_, err = cronRunner.AddFunc("@every 5m", sendMagicMessage) // execute every minute [for test]
 
 	if err != nil {
 		logging.Logger.WithFields(logrus.Fields{

@@ -11,7 +11,6 @@ spec:
       port: 37000
       protocol: TCP
       targetPort: 37000
-      nodePort: 32192
   selector:
     name: gugotik-http-service
     branch: master
