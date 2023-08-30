@@ -18,6 +18,10 @@ var client auth.AuthServiceClient
 
 func TokenAuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		ctx, span := tracing.Tracer.Start(c.Request.Context(), "AuthMiddleWare")
+		defer span.End()
+		span.SetAttributes(attribute.String("podID", config.EnvCfg.PodIpAddr))
+
 		if c.Request.URL.Path == "/douyin/user/login/" ||
 			c.Request.URL.Path == "/douyin/user/register/" ||
 			c.Request.URL.Path == "/douyin/comment/list/" ||
@@ -40,9 +44,6 @@ func TokenAuthMiddleware() gin.HandlerFunc {
 			c.Next()
 			return
 		}
-
-		ctx, span := tracing.Tracer.Start(c.Request.Context(), "AuthMiddleWare")
-		defer span.End()
 		span.SetAttributes(attribute.String("token", token))
 		logger := logging.LogService("GateWay.AuthMiddleWare").WithContext(ctx)
 		// Verify User Token
