@@ -97,7 +97,7 @@ func (c MessageServiceImpl) New() {
 		failOnError(err, "Failed to define queue")
 	}
 
-	channel.QueueBind(
+	err = channel.QueueBind(
 		strings.MessageActionEvent,
 		strings.MessageActionEvent,
 		strings.MessageExchange,
@@ -108,7 +108,7 @@ func (c MessageServiceImpl) New() {
 		failOnError(err, "Failed to bind queue to exchange")
 	}
 
-	channel.QueueBind(
+	err = channel.QueueBind(
 		strings.MessageGptActionEvent,
 		strings.MessageGptActionEvent,
 		strings.MessageExchange,
@@ -116,7 +116,7 @@ func (c MessageServiceImpl) New() {
 		nil,
 	)
 	if err != nil {
-		failOnError(err, "Failed to define queue  to exchange")
+		failOnError(err, "Failed to bind queue  to exchange")
 	}
 
 	userRpcConn := grpc2.Connect(config.UserRpcServerName)
