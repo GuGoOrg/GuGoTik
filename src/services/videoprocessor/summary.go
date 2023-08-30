@@ -365,6 +365,7 @@ func SummaryConsume(channel *amqp.Channel) {
 					Type:    3,
 					Source:  config.VideoProcessorRpcServiceName,
 					Title:   raw.Title,
+					Tag:     strings.Split(keywords, " | "),
 				})
 			}()
 			wg.Wait()
