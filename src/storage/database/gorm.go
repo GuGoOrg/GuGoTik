@@ -24,13 +24,16 @@ func init() {
 			PrepareStmt: true,
 			Logger:      gormLogrus,
 			NamingStrategy: schema.NamingStrategy{
-				TablePrefix: config.EnvCfg.PostgreSQLSchema + ".",
+				TablePrefix: config.EnvCfg.PostgreSQLSchema + "." + config.EnvCfg.PostgreSQLPrefix,
 			},
 		}
 	} else {
 		cfg = gorm.Config{
 			PrepareStmt: true,
 			Logger:      gormLogrus,
+			NamingStrategy: schema.NamingStrategy{
+				TablePrefix: config.EnvCfg.PostgreSQLSchema + "." + config.EnvCfg.PostgreSQLPrefix,
+			},
 		}
 	}
 
