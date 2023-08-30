@@ -59,15 +59,27 @@ func (c MessageServiceImpl) New() {
 	if err != nil {
 		failOnError(err, "Fialed to conenct to RabbitMQ")
 	}
+
 	channel, err = conn.Channel()
 	if err != nil {
 		failOnError(err, "Failed to open a channel")
 	}
+
+	channel.ExchangeDeclare(
+		strings.MessageExchange,
+		"x-delayed-message",
+		true, false, false, false,
+		amqp.Table{
+			"x-delayed-type": "direct",
+		},
+	)
+
 	_, err = channel.QueueDeclare(
 		strings.MessageActionEvent,
 		false, false, false, false,
 		nil,
 	)
+
 	if err != nil {
 		failOnError(err, "Failed to define queue")
 	}
@@ -279,14 +291,29 @@ func (c MessageServiceImpl) Chat(ctx context.Context, request *chat.ChatRequest)
 	}
 
 	rMessageList := make([]*chat.Message, 0, len(pMessageList))
-	for _, pMessage := range pMessageList {
-		rMessageList = append(rMessageList, &chat.Message{
-			Id:         pMessage.ID,
-			Content:    pMessage.Content,
-			CreateTime: uint64(pMessage.CreatedAt.UnixMilli()),
-			FromUserId: ptr.Ptr(pMessage.FromUserId),
-			ToUserId:   ptr.Ptr(pMessage.ToUserId),
-		})
+	if request.PreMsgTime == 0 {
+		for _, pMessage := range pMessageList {
+
+			rMessageList = append(rMessageList, &chat.Message{
+				Id:         pMessage.ID,
+				Content:    pMessage.Content,
+				CreateTime: uint64(pMessage.CreatedAt.UnixMilli()),
+				FromUserId: ptr.Ptr(pMessage.FromUserId),
+				ToUserId:   ptr.Ptr(pMessage.ToUserId),
+			})
+		}
+	} else {
+		for _, pMessage := range pMessageList {
+			if pMessage.ToUserId == request.ActorId {
+				rMessageList = append(rMessageList, &chat.Message{
+					Id:         pMessage.ID,
+					Content:    pMessage.Content,
+					CreateTime: uint64(pMessage.CreatedAt.UnixMilli()),
+					FromUserId: ptr.Ptr(pMessage.FromUserId),
+					ToUserId:   ptr.Ptr(pMessage.ToUserId),
+				})
+			}
+		}
 	}
 
 	resp = &chat.ChatResponse{

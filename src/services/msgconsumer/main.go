@@ -45,7 +45,7 @@ func main() {
 	msg, err := channel.Consume(
 		strings.MessageActionEvent,
 		"",
-		true, false, false, false,
+		false, false, false, false,
 		nil,
 	)
 	if err != nil {
@@ -98,6 +98,12 @@ func main() {
 				}).Errorf("Error when insert message to database.")
 				// logging.SetSpanError(span, err)
 				return
+			}
+			err = body.Ack(true)
+			if err != nil {
+				logger.WithFields(logrus.Fields{
+					"err": err,
+				}).Errorf("Error when dealing with the ,essage...")
 			}
 		}
 	}()

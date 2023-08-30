@@ -1,8 +1,9 @@
 package strings
 
 const (
-	VideoExchange = "video_exchange"
-	EventExchange = "event"
+	VideoExchange   = "video_exchange"
+	EventExchange   = "event"
+	MessageExchange = "message_exchange"
 
 	VideoPicker  = "video_picker"
 	VideoSummary = "video_summary"
