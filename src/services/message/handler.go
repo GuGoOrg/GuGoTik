@@ -57,7 +57,7 @@ func (c MessageServiceImpl) New() {
 	var err error
 	conn, err = amqp.Dial(rabbitmq.BuildMQConnAddr())
 	if err != nil {
-		failOnError(err, "Fialed to conenct to RabbitMQ")
+		failOnError(err, "Failed to connect to RabbitMQ")
 	}
 
 	channel, err = conn.Channel()
@@ -285,7 +285,7 @@ func (c MessageServiceImpl) Chat(ctx context.Context, request *chat.ChatRequest)
 			"user_id":      request.UserId,
 			"ActorId":      request.ActorId,
 			"pre_msg_time": request.PreMsgTime,
-		}).Errorf("ChatServiceImpl list chat failed to response when listing message,database err")
+		}).Errorf("ChatServiceImpl list chat failed to response when listing message, database err")
 		logging.SetSpanError(span, err)
 
 		resp = &chat.ChatResponse{
