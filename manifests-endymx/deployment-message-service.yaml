@@ -4,47 +4,50 @@ metadata:
   annotations:
     sidecar.jaegertracing.io/inject: 'false'
   labels:
-    app: gugotik-auth-service
-  name: gugotik-auth-service
+    app: gugotik-message-service
+  name: gugotik-message-service
   namespace: gugotik-service-bundle
 spec:
   selector:
     matchLabels:
-      name: gugotik-auth-service
+      name: gugotik-message-service
   template:
     metadata:
       labels:
-        app: gugotik-auth-service
+        app: gugotik-message-service
         branch: master
         version: ${BUILD_NUMBER}-${CI_COMMIT_ID}
-        name: gugotik-auth-service
-        dream-app: gugotik-auth-service
-        dream-unit: gugotik-auth-service
+        name: gugotik-message-service
+        dream-app: gugotik-message-service
+        dream-unit: gugotik-message-service
     spec:
       imagePullSecrets:
-        -   name: reg-cred
+        -   name: regcred
       containers:
         -   image: ${IMAGE}
             imagePullPolicy: IfNotPresent
-            name: gugotik-auth-service
+            name: gugotik-message-service
             command:
-              - ./services/auth/AuthService
+              - ./services/message/MessageService
             envFrom:
-              - configMapRef:
-                  name: env-config
+              -   configMapRef:
+                    name: env-config
               - configMapRef:
                   name: gugotik-env
               - secretRef:
                   name: gugotik-secret
             ports:
-              - name: grpc-37001
-                containerPort: 37001
+              - name: grpc-37007
+                containerPort: 37007
+                protocol: TCP
+              - name: metrics-37099
+                containerPort: 37099
                 protocol: TCP
             resources:
               limits:
                 cpu: 500m
-                memory: 256Mi
+                memory: 512Mi
               requests:
                 cpu: 100m
-                memory: 8Mi
+                memory: 128Mi
       terminationGracePeriodSeconds: 30

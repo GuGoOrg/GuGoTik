@@ -30,6 +30,7 @@ const RelationRpcServerPort = ":37008"
 const RecommendRpcServiceName = "GuGoTik-Recommend"
 const RecommendRpcServicePort = ":37009"
 
+const Metrics = ":37099"
 const VideoProcessorRpcServiceName = "GuGoTik-VideoProcessorService"
 
 const VideoPicker = "GuGoTik-VideoPicker"

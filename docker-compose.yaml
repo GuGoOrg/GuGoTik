@@ -110,6 +110,8 @@ services:
   prometheus:
     container_name: "GuGoTik-Extra-Prometheus"
     image:  bitnami/prometheus:latest
+    volumes:
+      - ./promethus.docker.compose.yml:/opt/bitnami/prometheus/conf/prometheus.yml
     ports:
       - "9090:9090"
   gorse-master:

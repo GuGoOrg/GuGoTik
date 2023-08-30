@@ -91,6 +91,7 @@ func CloseMQConn() {
 func produceComment(ctx context.Context, event models.RecommendEvent) {
 	ctx, span := tracing.Tracer.Start(ctx, "CommentPublisher")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("CommentService.CommentPublisher").WithContext(ctx)
 	data, err := json.Marshal(event)
 	if err != nil {
@@ -101,6 +102,8 @@ func produceComment(ctx context.Context, event models.RecommendEvent) {
 		return
 	}
 
+	headers := rabbitmq.InjectAMQPHeaders(ctx)
+
 	err = channel.Publish(
 		strings.EventExchange,
 		strings.VideoCommentEvent,
@@ -109,6 +112,7 @@ func produceComment(ctx context.Context, event models.RecommendEvent) {
 		amqp.Publishing{
 			ContentType: "text/plain",
 			Body:        data,
+			Headers:     headers,
 		})
 
 	if err != nil {
@@ -124,6 +128,7 @@ func produceComment(ctx context.Context, event models.RecommendEvent) {
 func (c CommentServiceImpl) ActionComment(ctx context.Context, request *comment.ActionCommentRequest) (resp *comment.ActionCommentResponse, err error) {
 	ctx, span := tracing.Tracer.Start(ctx, "ActionCommentService")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("CommentService.ActionComment").WithContext(ctx)
 	logger.WithFields(logrus.Fields{
 		"user_id":      request.ActorId,
@@ -231,6 +236,7 @@ func (c CommentServiceImpl) ActionComment(ctx context.Context, request *comment.
 func (c CommentServiceImpl) ListComment(ctx context.Context, request *comment.ListCommentRequest) (resp *comment.ListCommentResponse, err error) {
 	ctx, span := tracing.Tracer.Start(ctx, "ListCommentService")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("CommentService.ListComment").WithContext(ctx)
 	logger.WithFields(logrus.Fields{
 		"user_id":  request.ActorId,
@@ -328,6 +334,7 @@ func (c CommentServiceImpl) ListComment(ctx context.Context, request *comment.Li
 func (c CommentServiceImpl) CountComment(ctx context.Context, request *comment.CountCommentRequest) (resp *comment.CountCommentResponse, err error) {
 	ctx, span := tracing.Tracer.Start(ctx, "CountCommentService")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("CommentService.CountComment").WithContext(ctx)
 	logger.WithFields(logrus.Fields{
 		"user_id":  request.ActorId,

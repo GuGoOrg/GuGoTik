@@ -21,6 +21,7 @@ func ListVideosByRecommendHandle(c *gin.Context) {
 	var req models.ListVideosReq
 	_, span := tracing.Tracer.Start(c.Request.Context(), "Feed-ListVideosByRecommendHandle")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("GateWay.Videos").WithContext(c.Request.Context())
 
 	if err := c.ShouldBindQuery(&req); err != nil {

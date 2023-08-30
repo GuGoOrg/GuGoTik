@@ -109,7 +109,7 @@ func Consume(ch *amqp.Channel, queueName string) {
 		ctx := rabbitmq.ExtractAMQPHeaders(context.Background(), d.Headers)
 		ctx, span := tracing.Tracer.Start(ctx, "EventSystem")
 		logger := logging.LogService("EventSystem.Recommend").WithContext(ctx)
-
+		logging.SetSpanWithHostname(span)
 		var raw models.RecommendEvent
 		if err := json.Unmarshal(d.Body, &raw); err != nil {
 			logger.WithFields(logrus.Fields{

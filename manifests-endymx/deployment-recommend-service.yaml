@@ -4,35 +4,31 @@ metadata:
   annotations:
     sidecar.jaegertracing.io/inject: 'false'
   labels:
-    app: gugotik-video-service
-  name: gugotik-video-service
+    app: gugotik-recommend-service
+  name: gugotik-recommend-service
   namespace: gugotik-service-bundle
 spec:
   selector:
     matchLabels:
-      name: gugotik-video-service
+      name: gugotik-recommend-service
   template:
     metadata:
       labels:
-        app: gugotik-video-service
+        app: gugotik-recommend-service
         branch: master
         version: ${BUILD_NUMBER}-${CI_COMMIT_ID}
-        name: gugotik-video-service
-        dream-app: gugotik-video-service
-        dream-unit: gugotik-video-service
+        name: gugotik-recommend-service
+        dream-app: gugotik-recommend-service
+        dream-unit: gugotik-recommend-service
     spec:
-      volumes:
-        - name: volume
-          persistentVolumeClaim:
-            claimName: storage
       imagePullSecrets:
-        -   name: reg-cred
+        -   name: regcred
       containers:
         -   image: ${IMAGE}
             imagePullPolicy: IfNotPresent
-            name: gugotik-video-service
+            name: gugotik-recommend-service
             command:
-              - ./services/videoprocessor/VideoprocessorService
+              - ./services/recommend/RecommendService
             envFrom:
               -   configMapRef:
                     name: env-config
@@ -41,17 +37,17 @@ spec:
               - secretRef:
                   name: gugotik-secret
             ports:
-              - name: grpc-37001
-                containerPort: 37001
+              - name: grpc-37009
+                containerPort: 37009
+                protocol: TCP
+              - name: metrics-37099
+                containerPort: 37099
                 protocol: TCP
             resources:
               limits:
                 cpu: 500m
-                memory: 256Mi
+                memory: 512Mi
               requests:
                 cpu: 100m
-                memory: 8Mi
-            volumeMounts:
-              - mountPath: /data/apps/gugotik-service-bundle/data
-                name: volume
+                memory: 128Mi
       terminationGracePeriodSeconds: 30

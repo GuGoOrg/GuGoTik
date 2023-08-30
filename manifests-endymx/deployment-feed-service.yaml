@@ -4,47 +4,50 @@ metadata:
   annotations:
     sidecar.jaegertracing.io/inject: 'false'
   labels:
-    app: gugotik-favorite-service
-  name: gugotik-favorite-service
+    app: gugotik-feed-service
+  name: gugotik-feed-service
   namespace: gugotik-service-bundle
 spec:
   selector:
     matchLabels:
-      name: gugotik-favorite-service
+      name: gugotik-feed-service
   template:
     metadata:
       labels:
-        app: gugotik-favorite-service
+        app: gugotik-feed-service
         branch: master
         version: ${BUILD_NUMBER}-${CI_COMMIT_ID}
-        name: gugotik-favorite-service
-        dream-app: gugotik-favorite-service
-        dream-unit: gugotik-favorite-service
+        name: gugotik-feed-service
+        dream-app: gugotik-feed-service
+        dream-unit: gugotik-feed-service
     spec:
       imagePullSecrets:
-        -   name: reg-cred
+        -   name: regcred
       containers:
         -   image: ${IMAGE}
             imagePullPolicy: IfNotPresent
-            name: gugotik-favorite-service
+            name: gugotik-feed-service
             command:
-              - ./services/favorite/FavoriteService
+              - ./services/feed/FeedService
             envFrom:
-              -   configMapRef:
-                    name: env-config
+              - configMapRef:
+                  name: env-config
               - configMapRef:
                   name: gugotik-env
               - secretRef:
                   name: gugotik-secret
             ports:
-              - name: grpc-37006
-                containerPort: 37006
+              - name: grpc-37004
+                containerPort: 37004
+                protocol: TCP
+              - name: metrics-37099
+                containerPort: 37099
                 protocol: TCP
             resources:
               limits:
                 cpu: 500m
-                memory: 256Mi
+                memory: 512Mi
               requests:
                 cpu: 100m
-                memory: 8Mi
+                memory: 128Mi
       terminationGracePeriodSeconds: 30

@@ -4,31 +4,31 @@ metadata:
   annotations:
     sidecar.jaegertracing.io/inject: 'false'
   labels:
-    app: gugotik-user-service
-  name: gugotik-user-service
+    app: gugotik-comment-service
+  name: gugotik-comment-service
   namespace: gugotik-service-bundle
 spec:
   selector:
     matchLabels:
-      name: gugotik-user-service
+      name: gugotik-comment-service
   template:
     metadata:
       labels:
-        app: gugotik-user-service
+        app: gugotik-comment-service
         branch: master
         version: ${BUILD_NUMBER}-${CI_COMMIT_ID}
-        name: gugotik-user-service
-        dream-app: gugotik-user-service
-        dream-unit: gugotik-user-service
+        name: gugotik-comment-service
+        dream-app: gugotik-comment-service
+        dream-unit: gugotik-comment-service
     spec:
       imagePullSecrets:
-        -   name: reg-cred
+        -   name: regcred
       containers:
         -   image: ${IMAGE}
             imagePullPolicy: IfNotPresent
-            name: gugotik-user-service
+            name: gugotik-comment-service
             command:
-              - ./services/user/UserService
+              - ./services/comment/CommentService
             envFrom:
               -   configMapRef:
                     name: env-config
@@ -37,14 +37,17 @@ spec:
               - secretRef:
                   name: gugotik-secret
             ports:
-              - name: grpc-37001
-                containerPort: 37001
+              - name: grpc-37003
+                containerPort: 37003
+                protocol: TCP
+              - name: metrics-37099
+                containerPort: 37099
                 protocol: TCP
             resources:
               limits:
                 cpu: 500m
-                memory: 256Mi
+                memory: 512Mi
               requests:
                 cpu: 100m
-                memory: 8Mi
+                memory: 128Mi
       terminationGracePeriodSeconds: 30

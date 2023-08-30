@@ -4,31 +4,31 @@ metadata:
   annotations:
     sidecar.jaegertracing.io/inject: 'false'
   labels:
-    app: gugotik-http-service
-  name: gugotik-http-service
+    app: gugotik-msgconsumer-service
+  name: gugotik-msgconsumer-service
   namespace: gugotik-service-bundle
 spec:
   selector:
     matchLabels:
-      name: gugotik-http-service
+      name: gugotik-msgconsumer-service
   template:
     metadata:
       labels:
-        app: gugotik-http-service
+        app: gugotik-msgconsumer-service
         branch: master
         version: ${BUILD_NUMBER}-${CI_COMMIT_ID}
-        name: gugotik-http-service
-        dream-app: gugotik-http-service
-        dream-unit: gugotik-http-service
+        name: gugotik-msgconsumer-service
+        dream-app: gugotik-msgconsumer-service
+        dream-unit: gugotik-msgconsumer-service
     spec:
       imagePullSecrets:
-        -   name: reg-cred
+        -   name: regcred
       containers:
         -   image: ${IMAGE}
             imagePullPolicy: IfNotPresent
-            name: gugotik-http-service
+            name: gugotik-msgconsumer-service
             command:
-              - ./gateway/Gateway
+              - ./services/msgconsumer/MsgconsumerService
             envFrom:
               -   configMapRef:
                     name: env-config
@@ -37,14 +37,14 @@ spec:
               - secretRef:
                   name: gugotik-secret
             ports:
-              - name: http-37000
-                containerPort: 37000
+              - name: metrics-37099
+                containerPort: 37099
                 protocol: TCP
             resources:
               limits:
                 cpu: 500m
-                memory: 256Mi
+                memory: 512Mi
               requests:
                 cpu: 100m
-                memory: 8Mi
+                memory: 128Mi
       terminationGracePeriodSeconds: 30

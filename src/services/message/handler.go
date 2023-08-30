@@ -102,8 +102,8 @@ func (c MessageServiceImpl) New() {
 
 	cronRunner := cron.New(cron.WithSeconds())
 
-	//_, err := cronRunner.AddFunc("0 0 18 * * *", sendMagicMessage) // execute every 18:00
-	_, err = cronRunner.AddFunc("@every 2m", sendMagicMessage) // execute every minute [for test]
+	//_, err = cronRunner.AddFunc("0 0 18 * * *", sendMagicMessage) // execute every 18:00
+	_, err = cronRunner.AddFunc("@every 5m", sendMagicMessage) // execute every minute [for test]
 
 	if err != nil {
 		logging.Logger.WithFields(logrus.Fields{
@@ -137,6 +137,7 @@ func chatActionLimitKey(userId uint32) string {
 func (c MessageServiceImpl) ChatAction(ctx context.Context, request *chat.ActionRequest) (res *chat.ActionResponse, err error) {
 	ctx, span := tracing.Tracer.Start(ctx, "ChatActionService")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("ChatService.ActionMessage").WithContext(ctx)
 
 	logger.WithFields(logrus.Fields{
@@ -222,6 +223,7 @@ func (c MessageServiceImpl) ChatAction(ctx context.Context, request *chat.Action
 func (c MessageServiceImpl) Chat(ctx context.Context, request *chat.ChatRequest) (resp *chat.ChatResponse, err error) {
 	ctx, span := tracing.Tracer.Start(ctx, "ChatService")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("ChatService.chat").WithContext(ctx)
 	logger.WithFields(logrus.Fields{
 		"user_id":      request.UserId,
@@ -383,6 +385,7 @@ func addMessage(ctx context.Context, fromUserId uint32, toUserId uint32, Context
 func sendMagicMessage() {
 	ctx, span := tracing.Tracer.Start(context.Background(), "SendMagicMessageService")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("ChatService.SendMessageService").WithContext(ctx)
 
 	logger.Debugf("Start ChatService.SendMessageService at %s", time.Now())

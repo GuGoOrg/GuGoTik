@@ -33,6 +33,7 @@ type cachedItem interface {
 func ScanGet(ctx context.Context, key string, obj interface{}) (bool, error) {
 	ctx, span := tracing.Tracer.Start(ctx, "Cached-GetFromScanCache")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("Cached.GetFromScanCache").WithContext(ctx)
 	key = config.EnvCfg.RedisPrefix + key
 
@@ -100,6 +101,7 @@ func ScanGet(ctx context.Context, key string, obj interface{}) (bool, error) {
 func ScanTagDelete(ctx context.Context, key string, obj interface{}) {
 	ctx, span := tracing.Tracer.Start(ctx, "Cached-ScanTagDelete")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	key = config.EnvCfg.RedisPrefix + key
 
 	redis.Client.HDel(ctx, key)
@@ -114,6 +116,7 @@ func ScanTagDelete(ctx context.Context, key string, obj interface{}) {
 func ScanWriteCache(ctx context.Context, key string, obj interface{}, state bool) (err error) {
 	ctx, span := tracing.Tracer.Start(ctx, "Cached-ScanWriteCache")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("Cached.ScanWriteCache").WithContext(ctx)
 	key = config.EnvCfg.RedisPrefix + key
 
@@ -140,6 +143,7 @@ func ScanWriteCache(ctx context.Context, key string, obj interface{}, state bool
 func Get(ctx context.Context, key string) (string, bool, error) {
 	ctx, span := tracing.Tracer.Start(ctx, "Cached-GetFromStringCache")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("Cached.GetFromStringCache").WithContext(ctx)
 	key = config.EnvCfg.RedisPrefix + key
 
@@ -184,7 +188,7 @@ func Get(ctx context.Context, key string) (string, bool, error) {
 func GetWithFunc(ctx context.Context, key string, f func(ctx context.Context, key string) (string, error)) (string, error) {
 	ctx, span := tracing.Tracer.Start(ctx, "Cached-GetFromStringCacheWithFunc")
 	defer span.End()
-
+	logging.SetSpanWithHostname(span)
 	value, ok, err := Get(ctx, key)
 
 	if err != nil {
@@ -210,6 +214,7 @@ func GetWithFunc(ctx context.Context, key string, f func(ctx context.Context, ke
 func Write(ctx context.Context, key string, value string, state bool) {
 	ctx, span := tracing.Tracer.Start(ctx, "Cached-SetStringCache")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	key = config.EnvCfg.RedisPrefix + key
 
 	c := getOrCreateCache("strings")
@@ -224,6 +229,7 @@ func Write(ctx context.Context, key string, value string, state bool) {
 func TagDelete(ctx context.Context, key string) {
 	ctx, span := tracing.Tracer.Start(ctx, "Cached-DeleteStringCache")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	key = config.EnvCfg.RedisPrefix + key
 
 	c := getOrCreateCache("strings")
@@ -252,6 +258,7 @@ func getOrCreateCache(name string) *cache.Cache {
 func CacheAndRedisGet(ctx context.Context, key string, obj interface{}) (bool, error) {
 	ctx, span := tracing.Tracer.Start(ctx, "CacheAndRedisGet")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("CacheAndRedisGet").WithContext(ctx)
 	key = config.EnvCfg.RedisPrefix + key
 

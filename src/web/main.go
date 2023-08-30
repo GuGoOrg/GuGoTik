@@ -44,7 +44,7 @@ func main() {
 
 	g := gin.Default()
 	// Configure Prometheus
-	p := ginprometheus.NewPrometheus("gin")
+	p := ginprometheus.NewPrometheus("GuGoTik-WebGateway")
 	p.Use(g)
 	// Configure Gzip
 	g.Use(gzip.Gzip(gzip.DefaultCompression))

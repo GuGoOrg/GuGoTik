@@ -44,6 +44,7 @@ func (r RelationServiceImpl) New() {
 func (r RelationServiceImpl) Follow(ctx context.Context, request *relation.RelationActionRequest) (resp *relation.RelationActionResponse, err error) {
 	ctx, span := tracing.Tracer.Start(ctx, "FollowService")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("RelationService.Follow").WithContext(ctx)
 
 	//限流
@@ -199,6 +200,7 @@ func (r RelationServiceImpl) Follow(ctx context.Context, request *relation.Relat
 func (r RelationServiceImpl) Unfollow(ctx context.Context, request *relation.RelationActionRequest) (resp *relation.RelationActionResponse, err error) {
 	ctx, span := tracing.Tracer.Start(ctx, "UnfollowService")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("RelationService.Unfollow").WithContext(ctx)
 
 	//actor exists
@@ -321,6 +323,7 @@ func (r RelationServiceImpl) Unfollow(ctx context.Context, request *relation.Rel
 func (r RelationServiceImpl) CountFollowList(ctx context.Context, request *relation.CountFollowListRequest) (resp *relation.CountFollowListResponse, err error) {
 	ctx, span := tracing.Tracer.Start(ctx, "CountFollowListService")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("RelationService.CountFollowList").WithContext(ctx)
 	//actor exists
 	userExist, err := userClient.GetUserExistInformation(ctx, &user.UserExistRequest{UserId: request.UserId})
@@ -409,6 +412,7 @@ func (r RelationServiceImpl) CountFollowList(ctx context.Context, request *relat
 func (r RelationServiceImpl) CountFollowerList(ctx context.Context, request *relation.CountFollowerListRequest) (resp *relation.CountFollowerListResponse, err error) {
 	ctx, span := tracing.Tracer.Start(ctx, "CountFollowerListService")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("RelationService.CountFollowerList").WithContext(ctx)
 
 	userExist, err := userClient.GetUserExistInformation(ctx, &user.UserExistRequest{UserId: request.UserId})
@@ -494,6 +498,7 @@ func (r RelationServiceImpl) CountFollowerList(ctx context.Context, request *rel
 func (r RelationServiceImpl) GetFriendList(ctx context.Context, request *relation.FriendListRequest) (resp *relation.FriendListResponse, err error) {
 	ctx, span := tracing.Tracer.Start(ctx, "GetFriendListService")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("RelationService.GetFriendList").WithContext(ctx)
 
 	ok, err := isUserExist(ctx, request.ActorId, request.UserId, span, logger)
@@ -685,6 +690,7 @@ func (r RelationServiceImpl) IsFollow(ctx context.Context, request *relation.IsF
 
 	ctx, span := tracing.Tracer.Start(ctx, "isFollowService")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("RelationService.isFollow").WithContext(ctx)
 
 	var count int64
@@ -720,6 +726,7 @@ func (r RelationServiceImpl) IsFollow(ctx context.Context, request *relation.IsF
 func (r RelationServiceImpl) GetFollowList(ctx context.Context, request *relation.FollowListRequest) (resp *relation.FollowListResponse, err error) {
 	ctx, span := tracing.Tracer.Start(ctx, "GetFollowListService")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("RelationService.GetFollowList").WithContext(ctx)
 
 	ok, err := isUserExist(ctx, request.ActorId, request.UserId, span, logger)
@@ -774,7 +781,7 @@ func (r RelationServiceImpl) GetFollowList(ctx context.Context, request *relatio
 		}
 	}
 
-	rFollowList, err := r.idList2UserList(ctx, followIdListInt, request.ActorId, logger, span)
+	rFollowList, err := r.idList2UserList(ctx, followIdListInt, request.UserId, logger, span)
 	if err != nil {
 		resp = &relation.FollowListResponse{
 			StatusCode: strings.UnableToGetFollowListErrorCode,
@@ -799,6 +806,7 @@ func (r RelationServiceImpl) GetFollowList(ctx context.Context, request *relatio
 func (r RelationServiceImpl) GetFollowerList(ctx context.Context, request *relation.FollowerListRequest) (resp *relation.FollowerListResponse, err error) {
 	ctx, span := tracing.Tracer.Start(ctx, "GetFollowerListService")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("RelationService.GetFollowerList").WithContext(ctx)
 
 	ok, err := isUserExist(ctx, request.ActorId, request.UserId, span, logger)
@@ -853,7 +861,7 @@ func (r RelationServiceImpl) GetFollowerList(ctx context.Context, request *relat
 		}
 	}
 
-	rFollowerList, err := r.idList2UserList(ctx, followerIdListInt, request.ActorId, logger, span)
+	rFollowerList, err := r.idList2UserList(ctx, followerIdListInt, request.UserId, logger, span)
 	if err != nil {
 		resp = &relation.FollowerListResponse{
 			StatusCode: strings.UnableToGetFollowerListErrorCode,

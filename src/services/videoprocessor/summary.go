@@ -22,6 +22,8 @@ import (
 	"github.com/streadway/amqp"
 	"go.opentelemetry.io/otel/trace"
 	"gorm.io/gorm/clause"
+	"net/http"
+	url2 "net/url"
 	"os/exec"
 	"strings"
 	"sync"
@@ -29,12 +31,28 @@ import (
 
 var userClient user.UserServiceClient
 var commentClient comment.CommentServiceClient
-var openaiClient = openai.NewClient(config.EnvCfg.ChatGPTAPIKEYS)
+var openaiClient *openai.Client
 var delayTime = int32(2 * 60 * 1000) //2 minutes
 var maxRetries = int32(3)
 
 var conn *amqp.Connection
 var channel *amqp.Channel
+
+func init() {
+	cfg := openai.DefaultConfig(config.EnvCfg.ChatGPTAPIKEYS)
+
+	url, err := url2.Parse(config.EnvCfg.ChatGptProxy)
+	if err != nil {
+		panic(err)
+	}
+	cfg.HTTPClient = &http.Client{
+		Transport: &http.Transport{
+			Proxy: http.ProxyURL(url),
+		},
+	}
+
+	openaiClient = openai.NewClientWithConfig(cfg)
+}
 
 func ConnectServiceClient() {
 	userRpcConn := grpc2.Connect(config.UserRpcServerName)
@@ -347,6 +365,7 @@ func SummaryConsume(channel *amqp.Channel) {
 					Type:    3,
 					Source:  config.VideoProcessorRpcServiceName,
 					Title:   raw.Title,
+					Tag:     strings.Split(keywords, " | "),
 				})
 			}()
 			wg.Wait()
@@ -424,6 +443,7 @@ func SummaryConsume(channel *amqp.Channel) {
 func video2Audio(ctx context.Context, videoFileName string) (audioFileName string, err error) {
 	ctx, span := tracing.Tracer.Start(ctx, "Video2Audio")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("VideoSummary.Video2Audio").WithContext(ctx)
 	logger.WithFields(logrus.Fields{
 		"video_file_name": videoFileName,
@@ -463,6 +483,7 @@ func video2Audio(ctx context.Context, videoFileName string) (audioFileName strin
 func speech2Text(ctx context.Context, audioFileName string) (transcript string, err error) {
 	ctx, span := tracing.Tracer.Start(ctx, "Speech2Text")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("VideoSummary.Speech2Text").WithContext(ctx)
 	logger.WithFields(logrus.Fields{
 		"AudioFileName": audioFileName,
@@ -495,6 +516,7 @@ func speech2Text(ctx context.Context, audioFileName string) (transcript string, 
 func text2Summary(ctx context.Context, transcript string, summaryChannel *chan string, errChannel *chan error) {
 	ctx, span := tracing.Tracer.Start(ctx, "Text2Summary")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("VideoSummary.Text2Summary").WithContext(ctx)
 	logger.WithFields(logrus.Fields{
 		"transcript": transcript,
@@ -536,6 +558,7 @@ func text2Summary(ctx context.Context, transcript string, summaryChannel *chan s
 func text2Keywords(ctx context.Context, transcript string, keywordsChannel *chan string, errChannel *chan error) {
 	ctx, span := tracing.Tracer.Start(ctx, "Text2Keywords")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("VideoSummary.Text2Keywords").WithContext(ctx)
 	logger.WithFields(logrus.Fields{
 		"transcript": transcript,

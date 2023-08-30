@@ -26,7 +26,7 @@ spec:
           persistentVolumeClaim:
             claimName: storage
       imagePullSecrets:
-        -   name: reg-cred
+        -   name: regcred
       containers:
         -   image: ${IMAGE}
             imagePullPolicy: IfNotPresent
@@ -44,13 +44,16 @@ spec:
               - name: grpc-37005
                 containerPort: 37005
                 protocol: TCP
+              - name: metrics-37099
+                containerPort: 37099
+                protocol: TCP
             resources:
               limits:
-                cpu: 500m
-                memory: 256Mi
+                cpu: 1000m
+                memory: 1Gi
               requests:
-                cpu: 100m
-                memory: 8Mi
+                cpu: 500m
+                memory: 512Mi
             volumeMounts:
               - mountPath: /data/apps/gugotik-service-bundle/data
                 name: volume
