@@ -11,6 +11,10 @@ spec:
       port: 37005
       protocol: TCP
       targetPort: 37005
+    - name: metrics
+      port: 37099
+      protocol: TCP
+      targetPort: 37099
   selector:
     name: gugotik-publish-service
     branch: master

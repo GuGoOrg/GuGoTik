@@ -40,6 +40,9 @@ spec:
               - name: grpc-37003
                 containerPort: 37003
                 protocol: TCP
+              - name: metrics-37099
+                containerPort: 37099
+                protocol: TCP
             resources:
               limits:
                 cpu: 500m

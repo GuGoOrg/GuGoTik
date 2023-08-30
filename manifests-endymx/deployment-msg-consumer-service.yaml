@@ -4,42 +4,39 @@ metadata:
   annotations:
     sidecar.jaegertracing.io/inject: 'false'
   labels:
-    app: gugotik-auth-service
-  name: gugotik-auth-service
+    app: gugotik-msgconsumer-service
+  name: gugotik-msgconsumer-service
   namespace: gugotik-service-bundle
 spec:
   selector:
     matchLabels:
-      name: gugotik-auth-service
+      name: gugotik-msgconsumer-service
   template:
     metadata:
       labels:
-        app: gugotik-auth-service
+        app: gugotik-msgconsumer-service
         branch: master
         version: ${BUILD_NUMBER}-${CI_COMMIT_ID}
-        name: gugotik-auth-service
-        dream-app: gugotik-auth-service
-        dream-unit: gugotik-auth-service
+        name: gugotik-msgconsumer-service
+        dream-app: gugotik-msgconsumer-service
+        dream-unit: gugotik-msgconsumer-service
     spec:
       imagePullSecrets:
         -   name: reg-cred
       containers:
         -   image: ${IMAGE}
             imagePullPolicy: IfNotPresent
-            name: gugotik-auth-service
+            name: gugotik-msgconsumer-service
             command:
-              - ./services/auth/AuthService
+              - ./services/msgconsumer/MsgconsumerService
             envFrom:
-              - configMapRef:
-                  name: env-config
+              -   configMapRef:
+                    name: env-config
               - configMapRef:
                   name: gugotik-env
               - secretRef:
                   name: gugotik-secret
             ports:
-              - name: grpc-37001
-                containerPort: 37001
-                protocol: TCP
               - name: metrics-37099
                 containerPort: 37099
                 protocol: TCP

@@ -8,9 +8,13 @@ metadata:
 spec:
   ports:
     - name: grpc
-      port: 37004
+      port: 37009
       protocol: TCP
-      targetPort: 37004
+      targetPort: 37009
+    - name: metrics
+      port: 37099
+      protocol: TCP
+      targetPort: 37099
   selector:
     name: gugotik-recommend-service
     branch: master

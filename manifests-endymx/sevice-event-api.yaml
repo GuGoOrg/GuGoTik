@@ -7,10 +7,10 @@ metadata:
   namespace: gugotik-service-bundle
 spec:
   ports:
-    - name: grpc
-      port: 37006
+    - name: metrics
+      port: 37099
       protocol: TCP
-      targetPort: 37006
+      targetPort: 37099
   selector:
     name: gugotik-event-service
     branch: master
