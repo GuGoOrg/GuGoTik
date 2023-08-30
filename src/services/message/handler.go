@@ -65,7 +65,7 @@ func (c MessageServiceImpl) New() {
 		failOnError(err, "Failed to open a channel")
 	}
 
-	channel.ExchangeDeclare(
+	err = channel.ExchangeDeclare(
 		strings.MessageExchange,
 		"x-delayed-message",
 		true, false, false, false,
@@ -73,6 +73,9 @@ func (c MessageServiceImpl) New() {
 			"x-delayed-type": "direct",
 		},
 	)
+	if err != nil {
+		failOnError(err, "Failed to get exchange")
+	}
 
 	_, err = channel.QueueDeclare(
 		strings.MessageActionEvent,
