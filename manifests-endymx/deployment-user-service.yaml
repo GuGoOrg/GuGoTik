@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    sidecar.jaegertracing.io/inject: 'false'
+  labels:
+    app: gugotik-user-service
+  name: gugotik-user-service
+  namespace: gugotik-service-bundle
+spec:
+  selector:
+    matchLabels:
+      name: gugotik-user-service
+  template:
+    metadata:
+      labels:
+        app: gugotik-user-service
+        branch: master
+        version: ${BUILD_NUMBER}-${CI_COMMIT_ID}
+        name: gugotik-user-service
+        dream-app: gugotik-user-service
+        dream-unit: gugotik-user-service
+    spec:
+      imagePullSecrets:
+        -   name: regcred
+      containers:
+        -   image: ${IMAGE}
+            imagePullPolicy: IfNotPresent
+            name: gugotik-user-service
+            command:
+              - ./services/user/UserService
+            envFrom:
+              -   configMapRef:
+                    name: env-config
+              - configMapRef:
+                  name: gugotik-env
+              - secretRef:
+                  name: gugotik-secret
+            ports:
+              - name: grpc-37002
+                containerPort: 37002
+                protocol: TCP
+              - name: metrics-37099
+                containerPort: 37099
+                protocol: TCP
+            resources:
+              limits:
+                cpu: 500m
+                memory: 512Mi
+              requests:
+                cpu: 100m
+                memory: 128Mi
+      terminationGracePeriodSeconds: 30

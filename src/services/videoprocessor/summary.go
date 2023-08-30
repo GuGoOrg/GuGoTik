@@ -5,8 +5,11 @@ import (
 	strings2 "GuGoTik/src/constant/strings"
 	"GuGoTik/src/extra/tracing"
 	"GuGoTik/src/models"
+	"GuGoTik/src/rpc/comment"
+	"GuGoTik/src/rpc/user"
 	"GuGoTik/src/storage/database"
 	"GuGoTik/src/storage/file"
+	grpc2 "GuGoTik/src/utils/grpc"
 	"GuGoTik/src/utils/logging"
 	"GuGoTik/src/utils/pathgen"
 	"GuGoTik/src/utils/rabbitmq"
@@ -19,13 +22,105 @@ import (
 	"github.com/streadway/amqp"
 	"go.opentelemetry.io/otel/trace"
 	"gorm.io/gorm/clause"
+	"net/http"
+	url2 "net/url"
 	"os/exec"
 	"strings"
+	"sync"
 )
 
-var openaiClient = openai.NewClient(config.EnvCfg.ChatGPTAPIKEYS)
+var userClient user.UserServiceClient
+var commentClient comment.CommentServiceClient
+var openaiClient *openai.Client
 var delayTime = int32(2 * 60 * 1000) //2 minutes
 var maxRetries = int32(3)
+
+var conn *amqp.Connection
+var channel *amqp.Channel
+
+func init() {
+	cfg := openai.DefaultConfig(config.EnvCfg.ChatGPTAPIKEYS)
+
+	url, err := url2.Parse(config.EnvCfg.ChatGptProxy)
+	if err != nil {
+		panic(err)
+	}
+	cfg.HTTPClient = &http.Client{
+		Transport: &http.Transport{
+			Proxy: http.ProxyURL(url),
+		},
+	}
+
+	openaiClient = openai.NewClientWithConfig(cfg)
+}
+
+func ConnectServiceClient() {
+	userRpcConn := grpc2.Connect(config.UserRpcServerName)
+	userClient = user.NewUserServiceClient(userRpcConn)
+	commentRpcConn := grpc2.Connect(config.CommentRpcServerName)
+	commentClient = comment.NewCommentServiceClient(commentRpcConn)
+
+	var err error
+
+	conn, err = amqp.Dial(rabbitmq.BuildMQConnAddr())
+	exitOnError(err)
+
+	channel, err = conn.Channel()
+	exitOnError(err)
+
+	err = channel.ExchangeDeclare(
+		strings2.EventExchange,
+		"topic",
+		true,
+		false,
+		false,
+		false,
+		nil,
+	)
+	exitOnError(err)
+}
+
+func CloseMQConn() {
+	if err := conn.Close(); err != nil {
+		panic(err)
+	}
+
+	if err := channel.Close(); err != nil {
+		panic(err)
+	}
+}
+
+func produceKeywords(ctx context.Context, event models.RecommendEvent) {
+	ctx, span := tracing.Tracer.Start(ctx, "KeywordsEventPublisher")
+	defer span.End()
+	logger := logging.LogService("VideoSummaryService.KeywordsEventPublisher").WithContext(ctx)
+	data, err := json.Marshal(event)
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"err": err,
+		}).Errorf("Error when marshal the event model")
+		logging.SetSpanError(span, err)
+		return
+	}
+
+	err = channel.Publish(
+		strings2.EventExchange,
+		strings2.VideoPublishEvent,
+		false,
+		false,
+		amqp.Publishing{
+			ContentType: "text/plain",
+			Body:        data,
+		},
+	)
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"err": err,
+		}).Errorf("Error when publishing the event model")
+		logging.SetSpanError(span, err)
+		return
+	}
+}
 
 // errorHandler If `requeue` is false, it will just `Nack` it. If `requeue` is true, it will try to re-publish it.
 func errorHandler(channel *amqp.Channel, d amqp.Delivery, requeue bool, logger *logrus.Entry, span *trace.Span) {
@@ -132,6 +227,24 @@ func SummaryConsume(channel *amqp.Channel) {
 				errorHandler(channel, d, false, logger, &span)
 				span.End()
 				continue
+			}
+
+			// Save audio_file_name to db
+			video := &models.Video{
+				ID:            raw.VideoId,
+				AudioFileName: audioFileName,
+			}
+			result := database.Client.Clauses(clause.OnConflict{
+				Columns:   []clause.Column{{Name: "id"}},
+				DoUpdates: clause.AssignmentColumns([]string{"audio_file_name"}),
+			}).Create(&video)
+			if result.Error != nil {
+				logger.WithFields(logrus.Fields{
+					"Err":           result.Error,
+					"ID":            raw.VideoId,
+					"AudioFileName": audioFileName,
+				}).Errorf("Error when updating audio file name to database")
+				logging.SetSpanError(span, result.Error)
 			}
 		} else {
 			logger.WithFields(logrus.Fields{
@@ -240,6 +353,49 @@ func SummaryConsume(channel *amqp.Channel) {
 			}
 		}
 
+		// Publish keywords event
+		if !keywordsExist && keywords != "" {
+			wg := sync.WaitGroup{}
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				produceKeywords(ctx, models.RecommendEvent{
+					ActorId: raw.ActorId,
+					VideoId: []uint32{raw.VideoId},
+					Type:    3,
+					Source:  config.VideoProcessorRpcServiceName,
+					Title:   raw.Title,
+					Tag:     strings.Split(keywords, " | "),
+				})
+			}()
+			wg.Wait()
+		}
+
+		// Add magic comments
+		isMagicUserExistRes := isMagicUserExist(ctx, logger, &span)
+		if isMagicUserExistRes {
+			logger.Debug("Magic user exist")
+			// Add summary comment by magic user
+			if !summaryExist && summary != "" {
+				summaryCommentContent := "视频总结：" + summary
+				logger.WithFields(logrus.Fields{
+					"SummaryCommentContent": summaryCommentContent,
+					"VideoId":               raw.VideoId,
+				}).Debugf("Add summary comment to video")
+				addMagicComment(raw.VideoId, summaryCommentContent, ctx, logger, &span)
+			}
+
+			// Add keywords comment by magic user
+			if !keywordsExist && keywords != "" {
+				keywordsCommentContent := "视频关键词：" + keywords
+				logger.WithFields(logrus.Fields{
+					"KeywordsCommentContent": keywordsCommentContent,
+					"VideoId":                raw.VideoId,
+				}).Debugf("Add keywords comment to video")
+				addMagicComment(raw.VideoId, keywordsCommentContent, ctx, logger, &span)
+			}
+		}
+
 		// Update summary information to database
 		video := &models.Video{
 			ID:            raw.VideoId,
@@ -287,6 +443,7 @@ func SummaryConsume(channel *amqp.Channel) {
 func video2Audio(ctx context.Context, videoFileName string) (audioFileName string, err error) {
 	ctx, span := tracing.Tracer.Start(ctx, "Video2Audio")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("VideoSummary.Video2Audio").WithContext(ctx)
 	logger.WithFields(logrus.Fields{
 		"video_file_name": videoFileName,
@@ -326,6 +483,7 @@ func video2Audio(ctx context.Context, videoFileName string) (audioFileName strin
 func speech2Text(ctx context.Context, audioFileName string) (transcript string, err error) {
 	ctx, span := tracing.Tracer.Start(ctx, "Speech2Text")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("VideoSummary.Speech2Text").WithContext(ctx)
 	logger.WithFields(logrus.Fields{
 		"AudioFileName": audioFileName,
@@ -358,6 +516,7 @@ func speech2Text(ctx context.Context, audioFileName string) (transcript string, 
 func text2Summary(ctx context.Context, transcript string, summaryChannel *chan string, errChannel *chan error) {
 	ctx, span := tracing.Tracer.Start(ctx, "Text2Summary")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("VideoSummary.Text2Summary").WithContext(ctx)
 	logger.WithFields(logrus.Fields{
 		"transcript": transcript,
@@ -399,6 +558,7 @@ func text2Summary(ctx context.Context, transcript string, summaryChannel *chan s
 func text2Keywords(ctx context.Context, transcript string, keywordsChannel *chan string, errChannel *chan error) {
 	ctx, span := tracing.Tracer.Start(ctx, "Text2Keywords")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("VideoSummary.Text2Keywords").WithContext(ctx)
 	logger.WithFields(logrus.Fields{
 		"transcript": transcript,
@@ -476,4 +636,40 @@ func isKeywordsExist(videoId uint32) (res bool, keywords string, err error) {
 		keywords = video.Keywords
 	}
 	return
+}
+
+func isMagicUserExist(ctx context.Context, logger *logrus.Entry, span *trace.Span) bool {
+	isMagicUserExistRes, err := userClient.GetUserExistInformation(ctx, &user.UserExistRequest{
+		UserId: config.EnvCfg.MagicUserId,
+	})
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"err": err,
+		}).Errorf("Failed to check if the magic user exists")
+		logging.SetSpanError(*span, err)
+		return false
+	}
+
+	if !isMagicUserExistRes.Existed {
+		logger.Errorf("Magic user does not exist")
+		logging.SetSpanError(*span, errors.New("magic user does not exist"))
+	}
+
+	return isMagicUserExistRes.Existed
+}
+
+func addMagicComment(videoId uint32, content string, ctx context.Context, logger *logrus.Entry, span *trace.Span) {
+	_, err := commentClient.ActionComment(ctx, &comment.ActionCommentRequest{
+		ActorId:    config.EnvCfg.MagicUserId,
+		VideoId:    videoId,
+		ActionType: comment.ActionCommentType_ACTION_COMMENT_TYPE_ADD,
+		Action:     &comment.ActionCommentRequest_CommentText{CommentText: content},
+	})
+
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"err": err,
+		}).Errorf("Failed to add magic comment")
+		logging.SetSpanError(*span, err)
+	}
 }

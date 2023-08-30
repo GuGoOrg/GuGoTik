@@ -17,10 +17,11 @@ import (
 
 var Client feed.FeedServiceClient
 
-func ListVideosHandle(c *gin.Context) {
+func ListVideosByRecommendHandle(c *gin.Context) {
 	var req models.ListVideosReq
-	_, span := tracing.Tracer.Start(c.Request.Context(), "Feed-ListVideoHandle")
+	_, span := tracing.Tracer.Start(c.Request.Context(), "Feed-ListVideosByRecommendHandle")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("GateWay.Videos").WithContext(c.Request.Context())
 
 	if err := c.ShouldBindQuery(&req); err != nil {
@@ -39,10 +40,19 @@ func ListVideosHandle(c *gin.Context) {
 
 	latestTime := req.LatestTime
 	actorId := uint32(req.ActorId)
-	res, err := Client.ListVideos(c.Request.Context(), &feed.ListFeedRequest{
-		LatestTime: &latestTime,
-		ActorId:    &actorId,
-	})
+	var res *feed.ListFeedResponse
+	var err error
+	if actorId == 0 {
+		res, err = Client.ListVideos(c.Request.Context(), &feed.ListFeedRequest{
+			LatestTime: &latestTime,
+			ActorId:    &actorId,
+		})
+	} else {
+		res, err = Client.ListVideosByRecommend(c.Request.Context(), &feed.ListFeedRequest{
+			LatestTime: &latestTime,
+			ActorId:    &actorId,
+		})
+	}
 	if err != nil {
 		logger.WithFields(logrus.Fields{
 			"LatestTime": latestTime,
@@ -56,11 +66,6 @@ func ListVideosHandle(c *gin.Context) {
 		})
 		return
 	}
-
-	//logger.WithFields(logrus.Fields{
-	//	"LatestTime": latestTime,
-	//	"res":        res,
-	//}).Infof("Feed List videos")
 	c.Render(http.StatusOK, utils.CustomJSON{Data: res, Context: c})
 }
 

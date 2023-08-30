@@ -1,16 +1,22 @@
 package main
 
 import (
+	"GuGoTik/src/constant/config"
 	"GuGoTik/src/constant/strings"
 	"GuGoTik/src/extra/tracing"
 	"GuGoTik/src/models"
 	"GuGoTik/src/rpc/auth"
+	"GuGoTik/src/rpc/recommend"
+	"GuGoTik/src/rpc/relation"
+	user2 "GuGoTik/src/rpc/user"
 	"GuGoTik/src/storage/cached"
 	"GuGoTik/src/storage/database"
+	grpc2 "GuGoTik/src/utils/grpc"
 	"GuGoTik/src/utils/logging"
 	"context"
 	"crypto/md5"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
@@ -25,17 +31,27 @@ import (
 	"sync"
 )
 
+var relationClient relation.RelationServiceClient
+var userClient user2.UserServiceClient
+var recommendClient recommend.RecommendServiceClient
+
 type AuthServiceImpl struct {
 	auth.AuthServiceServer
 }
 
 func (a AuthServiceImpl) New() {
-
+	relationConn := grpc2.Connect(config.RelationRpcServerName)
+	relationClient = relation.NewRelationServiceClient(relationConn)
+	userRpcConn := grpc2.Connect(config.UserRpcServerName)
+	userClient = user2.NewUserServiceClient(userRpcConn)
+	recommendRpcConn := grpc2.Connect(config.RecommendRpcServiceName)
+	recommendClient = recommend.NewRecommendServiceClient(recommendRpcConn)
 }
 
 func (a AuthServiceImpl) Authenticate(ctx context.Context, request *auth.AuthenticateRequest) (resp *auth.AuthenticateResponse, err error) {
 	ctx, span := tracing.Tracer.Start(ctx, "AuthenticateService")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("AuthService.Authenticate").WithContext(ctx)
 
 	userId, ok, err := hasToken(ctx, request.Token)
@@ -83,6 +99,7 @@ func (a AuthServiceImpl) Authenticate(ctx context.Context, request *auth.Authent
 func (a AuthServiceImpl) Register(ctx context.Context, request *auth.RegisterRequest) (resp *auth.RegisterResponse, err error) {
 	ctx, span := tracing.Tracer.Start(ctx, "RegisterService")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("AuthService.Register").WithContext(ctx)
 
 	resp = &auth.RegisterResponse{}
@@ -203,15 +220,28 @@ func (a AuthServiceImpl) Register(ctx context.Context, request *auth.RegisterReq
 		"username": request.Username,
 	}).Infof("User register success!")
 
+	recommendResp, err := recommendClient.RegisterRecommendUser(ctx, &recommend.RecommendRegisterRequest{UserId: user.ID, Username: request.Username})
+	if err != nil || recommendResp.StatusCode != strings.ServiceOKCode {
+		resp = &auth.RegisterResponse{
+			StatusCode: strings.AuthServiceInnerErrorCode,
+			StatusMsg:  strings.AuthServiceInnerError,
+		}
+		return
+	}
+
 	resp.UserId = user.ID
 	resp.StatusCode = strings.ServiceOKCode
 	resp.StatusMsg = strings.ServiceOK
+
+	addMagicUserFriend(ctx, &span, user.ID)
+
 	return
 }
 
 func (a AuthServiceImpl) Login(ctx context.Context, request *auth.LoginRequest) (resp *auth.LoginResponse, err error) {
 	ctx, span := tracing.Tracer.Start(ctx, "LoginService")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("AuthService.Login").WithContext(ctx)
 	logger.WithFields(logrus.Fields{
 		"username": request.Username,
@@ -228,6 +258,7 @@ func (a AuthServiceImpl) Login(ctx context.Context, request *auth.LoginRequest) 
 			StatusCode: strings.AuthServiceInnerErrorCode,
 			StatusMsg:  strings.AuthServiceInnerError,
 		}
+		logging.SetSpanError(span, err)
 		return
 	}
 
@@ -244,6 +275,7 @@ func (a AuthServiceImpl) Login(ctx context.Context, request *auth.LoginRequest) 
 				StatusCode: strings.AuthServiceInnerErrorCode,
 				StatusMsg:  strings.AuthServiceInnerError,
 			}
+			logging.SetSpanError(span, err)
 			return
 		}
 
@@ -275,6 +307,7 @@ func (a AuthServiceImpl) Login(ctx context.Context, request *auth.LoginRequest) 
 				StatusCode: strings.AuthServiceInnerErrorCode,
 				StatusMsg:  strings.AuthServiceInnerError,
 			}
+			logging.SetSpanError(span, err)
 			return
 		}
 
@@ -283,8 +316,23 @@ func (a AuthServiceImpl) Login(ctx context.Context, request *auth.LoginRequest) 
 				StatusCode: strings.AuthServiceInnerErrorCode,
 				StatusMsg:  strings.AuthServiceInnerError,
 			}
+			logging.SetSpanError(span, err)
 			return
 		}
+
+		cached.Write(ctx, fmt.Sprintf("UserId%s", request.Username), strconv.Itoa(int(user.ID)), true)
+	} else {
+		id, _, err := cached.Get(ctx, fmt.Sprintf("UserId%s", request.Username))
+		if err != nil {
+			resp = &auth.LoginResponse{
+				StatusCode: strings.AuthServiceInnerErrorCode,
+				StatusMsg:  strings.AuthServiceInnerError,
+			}
+			logging.SetSpanError(span, err)
+			return nil, err
+		}
+		uintId, _ := strconv.ParseUint(id, 10, 32)
+		user.ID = uint32(uintId)
 	}
 
 	token, err := getToken(ctx, user.ID)
@@ -309,7 +357,7 @@ func (a AuthServiceImpl) Login(ctx context.Context, request *auth.LoginRequest) 
 func hashPassword(ctx context.Context, password string) (string, error) {
 	_, span := tracing.Tracer.Start(ctx, "PasswordHash")
 	defer span.End()
-
+	logging.SetSpanWithHostname(span)
 	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 12)
 	return string(bytes), err
 }
@@ -317,6 +365,7 @@ func hashPassword(ctx context.Context, password string) (string, error) {
 func checkPasswordHash(ctx context.Context, password, hash string) bool {
 	_, span := tracing.Tracer.Start(ctx, "PasswordHashChecked")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
 	return err == nil
 }
@@ -377,11 +426,63 @@ func getAvatarByEmail(ctx context.Context, email string) string {
 func getEmailMD5(ctx context.Context, email string) (md5String string) {
 	_, span := tracing.Tracer.Start(ctx, "Auth-EmailMD5")
 	defer span.End()
-
+	logging.SetSpanWithHostname(span)
 	lowerEmail := stringsLib.ToLower(email)
 	hashed := md5.New()
 	hashed.Write([]byte(lowerEmail))
 	md5Bytes := hashed.Sum(nil)
 	md5String = hex.EncodeToString(md5Bytes)
 	return
+}
+
+func addMagicUserFriend(ctx context.Context, span *trace.Span, userId uint32) {
+	logger := logging.LogService("AuthService.Register.AddMagicUserFriend").WithContext(ctx)
+
+	isMagicUserExist, err := userClient.GetUserExistInformation(ctx, &user2.UserExistRequest{
+		UserId: config.EnvCfg.MagicUserId,
+	})
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"UserId": userId,
+			"Err":    err,
+		}).Errorf("Failed to check if the magic user exists")
+		logging.SetSpanError(*span, err)
+		return
+	}
+
+	if !isMagicUserExist.Existed {
+		logger.WithFields(logrus.Fields{
+			"UserId": userId,
+		}).Errorf("Magic user does not exist")
+		logging.SetSpanError(*span, errors.New("magic user does not exist"))
+		return
+	}
+
+	// User follow magic user
+	_, err = relationClient.Follow(ctx, &relation.RelationActionRequest{
+		ActorId: userId,
+		UserId:  config.EnvCfg.MagicUserId,
+	})
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"UserId": userId,
+			"Err":    err,
+		}).Errorf("Failed to follow magic user")
+		logging.SetSpanError(*span, err)
+		return
+	}
+
+	// Magic user follow user
+	_, err = relationClient.Follow(ctx, &relation.RelationActionRequest{
+		ActorId: config.EnvCfg.MagicUserId,
+		UserId:  userId,
+	})
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"UserId": userId,
+			"Err":    err,
+		}).Errorf("Magic user failed to follow user")
+		logging.SetSpanError(*span, err)
+		return
+	}
 }

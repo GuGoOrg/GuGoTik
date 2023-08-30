@@ -9,6 +9,7 @@ import (
 	"GuGoTik/src/rpc/publish"
 	"GuGoTik/src/storage/database"
 	"GuGoTik/src/storage/file"
+	"GuGoTik/src/storage/redis"
 	grpc2 "GuGoTik/src/utils/grpc"
 	"GuGoTik/src/utils/logging"
 	"GuGoTik/src/utils/pathgen"
@@ -16,6 +17,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
+	"github.com/go-redis/redis_rate/v10"
 	"github.com/sirupsen/logrus"
 	"github.com/streadway/amqp"
 	"math/rand"
@@ -37,6 +40,25 @@ func exitOnError(err error) {
 	if err != nil {
 		panic(err)
 	}
+}
+
+func CloseMQConn() {
+	if err := conn.Close(); err != nil {
+		panic(err)
+	}
+
+	if err := channel.Close(); err != nil {
+		panic(err)
+	}
+}
+
+var createVideoLimitKeyPrefix = config.EnvCfg.RedisPrefix + "publish_freq_limit"
+
+const createVideoMaxQPS = 3
+
+// Return redis key to record the amount of CreateVideo query of an actor, e.g., publish_freq_limit-1-1669524458
+func createVideoLimitKey(userId uint32) string {
+	return fmt.Sprintf("%s-%d", createVideoLimitKeyPrefix, userId)
 }
 
 func (a PublishServiceImpl) New() {
@@ -106,6 +128,7 @@ func (a PublishServiceImpl) New() {
 func (a PublishServiceImpl) ListVideo(ctx context.Context, req *publish.ListVideoRequest) (resp *publish.ListVideoResponse, err error) {
 	ctx, span := tracing.Tracer.Start(ctx, "ListVideoService")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("PublishServiceImpl.ListVideo").WithContext(ctx)
 
 	var videos []models.Video
@@ -159,6 +182,7 @@ func (a PublishServiceImpl) ListVideo(ctx context.Context, req *publish.ListVide
 func (a PublishServiceImpl) CountVideo(ctx context.Context, req *publish.CountVideoRequest) (resp *publish.CountVideoResponse, err error) {
 	ctx, span := tracing.Tracer.Start(ctx, "CountVideoService")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("PublishServiceImpl.CountVideo").WithContext(ctx)
 
 	var count int64
@@ -183,25 +207,46 @@ func (a PublishServiceImpl) CountVideo(ctx context.Context, req *publish.CountVi
 	return
 }
 
-func CloseMQConn() {
-	if err := conn.Close(); err != nil {
-		panic(err)
-	}
-
-	if err := channel.Close(); err != nil {
-		panic(err)
-	}
-}
-
 func (a PublishServiceImpl) CreateVideo(ctx context.Context, request *publish.CreateVideoRequest) (resp *publish.CreateVideoResponse, err error) {
 	ctx, span := tracing.Tracer.Start(ctx, "CreateVideoService")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("PublishService.CreateVideo").WithContext(ctx)
 
 	logger.WithFields(logrus.Fields{
 		"ActorId": request.ActorId,
 		"Title":   request.Title,
 	}).Infof("Create video requested.")
+
+	// Rate limiting
+	limiter := redis_rate.NewLimiter(redis.Client)
+	limiterKey := createVideoLimitKey(request.ActorId)
+	limiterRes, err := limiter.Allow(ctx, limiterKey, redis_rate.PerSecond(createVideoMaxQPS))
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"err":     err,
+			"ActorId": request.ActorId,
+		}).Errorf("CreateVideo limiter error")
+
+		resp = &publish.CreateVideoResponse{
+			StatusCode: strings.VideoServiceInnerErrorCode,
+			StatusMsg:  strings.VideoServiceInnerError,
+		}
+		return
+	}
+	if limiterRes.Allowed == 0 {
+		logger.WithFields(logrus.Fields{
+			"err":     err,
+			"ActorId": request.ActorId,
+		}).Errorf("Create video query too frequently by user %d", request.ActorId)
+
+		resp = &publish.CreateVideoResponse{
+			StatusCode: strings.PublishVideoLimitedCode,
+			StatusMsg:  strings.PublishVideoLimited,
+		}
+		return
+	}
+
 	// 检测视频格式
 	detectedContentType := http.DetectContentType(request.Data)
 	if detectedContentType != "video/mp4" {

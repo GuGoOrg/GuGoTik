@@ -26,6 +26,7 @@ func init() {
 func ListPublishHandle(c *gin.Context) {
 	_, span := tracing.Tracer.Start(c.Request.Context(), "Publish-ListHandle")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("GateWay.PublishList").WithContext(c.Request.Context())
 	var req models.ListPublishReq
 	if err := c.ShouldBindQuery(&req); err != nil {

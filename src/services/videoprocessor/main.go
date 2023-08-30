@@ -13,6 +13,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"github.com/golang/freetype/truetype"
 	"github.com/sirupsen/logrus"
 	"github.com/streadway/amqp"
 	"gorm.io/gorm/clause"
@@ -26,8 +27,6 @@ import (
 	"sync"
 
 	"github.com/golang/freetype"
-	"github.com/golang/freetype/truetype"
-	"golang.org/x/image/math/fixed"
 )
 
 func exitOnError(err error) {
@@ -130,6 +129,9 @@ func main() {
 	logger = logging.LogService("VideoSummary")
 	logger.Infof(strings.VideoSummary + " is running now")
 
+	ConnectServiceClient()
+	defer CloseMQConn()
+
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	wg.Wait()
@@ -146,12 +148,13 @@ func Consume(channel *amqp.Channel) {
 		ctx := rabbitmq.ExtractAMQPHeaders(context.Background(), d.Headers)
 		ctx, span := tracing.Tracer.Start(ctx, "VideoPickerService")
 		logger := logging.LogService("VideoPicker.Picker").WithContext(ctx)
-
+		logging.SetSpanWithHostname(span)
 		var raw models.RawVideo
 		if err := json.Unmarshal(d.Body, &raw); err != nil {
 			logger.WithFields(logrus.Fields{
 				"err": err,
 			}).Errorf("Error when unmarshaling the prepare json body.")
+			return
 		}
 
 		// 截取封面
@@ -225,6 +228,7 @@ func Consume(channel *amqp.Channel) {
 func extractVideoCover(ctx context.Context, video *models.RawVideo) error {
 	ctx, span := tracing.Tracer.Start(ctx, "ExtractVideoCoverService")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("VideoPicker.Picker").WithContext(ctx)
 	logger.Debug("Extracting video cover...")
 	RawFileName := video.FileName
@@ -261,6 +265,7 @@ func extractVideoCover(ctx context.Context, video *models.RawVideo) error {
 func textWatermark(ctx context.Context, video *models.RawVideo) (string, error) {
 	ctx, span := tracing.Tracer.Start(ctx, "NicknameWatermarkService")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("VideoPicker.Picker").WithContext(ctx)
 	// 加载字体文件
 	fontName := filepath.Join("static", "font.ttf")
@@ -287,8 +292,8 @@ func textWatermark(ctx context.Context, video *models.RawVideo) (string, error) 
 	fontSize := 40
 
 	// 设置图片大小
-	imgWidth := 400
-	imgHeight := 200
+	imgWidth := 800
+	imgHeight := 60
 
 	// 设置文本内容
 	var user models.User
@@ -303,7 +308,7 @@ func textWatermark(ctx context.Context, video *models.RawVideo) (string, error) 
 	text := user.UserName
 
 	// 设置文本颜色
-	textColor := color.RGBA{R: 255, G: 255, B: 255, A: 255}
+	textColor := color.RGBA{R: 255, G: 255, B: 255, A: 128}
 
 	// 创建一个新的RGBA图片
 	img := image.NewRGBA(image.Rect(0, 0, imgWidth, imgHeight))
@@ -320,13 +325,9 @@ func textWatermark(ctx context.Context, video *models.RawVideo) (string, error) 
 	c.SetDst(img)
 	c.SetSrc(image.NewUniform(textColor))
 
-	// 计算文本的宽度和高度
-	textWidth := int(c.PointToFixed(float64(fontSize)) >> 6)
-	textHeight := int(font.Bounds(fixed.Int26_6(fontSize)).Max.Y - font.Bounds(fixed.Int26_6(fontSize)).Min.Y)
-
 	// 计算文本的位置
-	textX := (imgWidth - textWidth) / 4
-	textY := (imgHeight - textHeight) / 2
+	textX := 10
+	textY := 50
 
 	// 在图片上绘制文本
 	pt := freetype.Pt(textX, textY)
@@ -366,6 +367,7 @@ func textWatermark(ctx context.Context, video *models.RawVideo) (string, error) 
 func addWatermarkToVideo(ctx context.Context, video *models.RawVideo, WatermarkPNGName string) error {
 	ctx, span := tracing.Tracer.Start(ctx, "AddWatermarkToVideoService")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("VideoPicker.Picker").WithContext(ctx)
 	logger.Debug("Adding watermark to video...")
 	RawFileName := video.FileName
@@ -375,7 +377,7 @@ func addWatermarkToVideo(ctx context.Context, video *models.RawVideo, WatermarkP
 	cmdArgs := []string{
 		"-i", RawFilePath,
 		"-i", WatermarkPath,
-		"-filter_complex", "[0:v][1:v]overlay=W-w-10:10",
+		"-filter_complex", "[0:v][1:v]overlay=10:10",
 		"-f", "matroska", "-",
 	}
 

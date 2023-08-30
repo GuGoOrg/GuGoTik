@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: gugotik-http-service
+  name: gugotik-http-service
+  namespace: gugotik-service-bundle
+spec:
+  ports:
+    - name: http
+      port: 37000
+      protocol: TCP
+      targetPort: 37000
+  selector:
+    name: gugotik-http-service
+    branch: master
+  type: ClusterIP

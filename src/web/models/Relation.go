@@ -22,7 +22,7 @@ type RelationActionRes struct {
 }
 
 type FollowListReq struct {
-	Token   string `form:"token" binding:"required"`
+	Token   string `form:"token"`
 	ActorId int    `form:"actor_id"`
 	UserId  int    `form:"user_id"`
 }
@@ -45,7 +45,7 @@ type CountFollowListRes struct {
 }
 
 type FollowerListReq struct {
-	Token   string `form:"token" binding:"required"`
+	Token   string `form:"token"`
 	ActorId int    `form:"actor_id"`
 	UserId  int    `form:"user_id"`
 }
@@ -57,7 +57,7 @@ type FollowerListRes struct {
 }
 
 type CountFollowerListReq struct {
-	Token  string `form:"token" binding:"required"`
+	Token  string `form:"token"`
 	UserId int    `form:"user_id"`
 }
 
@@ -68,7 +68,7 @@ type CountFollowerListRes struct {
 }
 
 type FriendListReq struct {
-	Token   string `form:"token" binding:"required"`
+	Token   string `form:"token"`
 	ActorId int    `form:"actor_id"`
 	UserId  int    `form:"user_id"`
 }

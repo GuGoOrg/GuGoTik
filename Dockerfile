@@ -3,7 +3,7 @@ FROM golang:alpine as builder
 WORKDIR /build
 
 ENV CGO_ENABLED 0
-ENV GOPROXY https://goproxy.cn,direct
+ENV GOPROXY https://goproxy.cn/,direct
 
 RUN apk update --no-cache \
     && apk upgrade \
@@ -18,7 +18,7 @@ COPY . .
 RUN go mod download \
     && bash ./scripts/build-all.sh
 
-FROM docker.io/epicmo/gugotik-basic:1.2 as prod
+FROM docker.io/epicmo/gugotik-basic:1.3 as prod
 
 ENV TZ Asia/Shanghai
 

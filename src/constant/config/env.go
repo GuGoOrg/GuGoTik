@@ -37,7 +37,12 @@ type envConfig struct {
 	RabbitMQPort          string `env:"RABBITMQ_PORT" envDefault:"5672"`
 	RabbitMQVhostPrefix   string `env:"RABBITMQ_VHOST_PREFIX" envDefault:""`
 	ChatGPTAPIKEYS        string `env:"CHATGPT_API_KEYS"`
-	PodIpAddr             string `env:"POD_IP" envDefault:"127.0.0.1"`
+	PodIpAddr             string `env:"POD_IP" envDefault:"localhost"`
+	GorseAddr             string `env:"GORSE_ADDR"`
+	GorseApiKey           string `env:"GORSE_APIKEY"`
+	MagicUserId           uint32 `env:"MAGIC_USER_ID" envDefault:"1"`
+	ChatGptProxy          string `env:"CHATGPT_PROXY"`
+	PostgreSQLPrefix      string `env:"POSTGRESQL_PREFIX" envDefault:""`
 }
 
 func init() {

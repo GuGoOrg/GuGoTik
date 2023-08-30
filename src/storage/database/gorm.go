@@ -18,6 +18,25 @@ func init() {
 
 	gormLogrus := logging.GetGormLogger()
 
+	var cfg gorm.Config
+	if config.EnvCfg.PostgreSQLSchema == "" {
+		cfg = gorm.Config{
+			PrepareStmt: true,
+			Logger:      gormLogrus,
+			NamingStrategy: schema.NamingStrategy{
+				TablePrefix: config.EnvCfg.PostgreSQLSchema + "." + config.EnvCfg.PostgreSQLPrefix,
+			},
+		}
+	} else {
+		cfg = gorm.Config{
+			PrepareStmt: true,
+			Logger:      gormLogrus,
+			NamingStrategy: schema.NamingStrategy{
+				TablePrefix: config.EnvCfg.PostgreSQLSchema + "." + config.EnvCfg.PostgreSQLPrefix,
+			},
+		}
+	}
+
 	if Client, err = gorm.Open(
 		postgres.Open(
 			fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s",
@@ -26,13 +45,7 @@ func init() {
 				config.EnvCfg.PostgreSQLPassword,
 				config.EnvCfg.PostgreSQLDataBase,
 				config.EnvCfg.PostgreSQLPort)),
-		&gorm.Config{
-			PrepareStmt: true,
-			Logger:      gormLogrus,
-			NamingStrategy: schema.NamingStrategy{
-				TablePrefix: config.EnvCfg.PostgreSQLSchema,
-			},
-		},
+		&cfg,
 	); err != nil {
 		panic(err)
 	}

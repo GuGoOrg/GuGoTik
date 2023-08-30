@@ -12,10 +12,13 @@ import (
 	"GuGoTik/src/storage/redis"
 	grpc2 "GuGoTik/src/utils/grpc"
 	"GuGoTik/src/utils/logging"
+	"GuGoTik/src/utils/rabbitmq"
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/go-redis/redis_rate/v10"
 	"github.com/sirupsen/logrus"
+	"github.com/streadway/amqp"
 	"go.opentelemetry.io/otel/trace"
 	"strconv"
 	"sync"
@@ -32,6 +35,12 @@ var rateCommentLimitKey = config.EnvCfg.RedisPrefix + "rate_comment_freq_limit"
 
 const rateCommentMaxQPM = 3 // Maximum RateComment query amount
 
+func exitOnError(err error) {
+	if err != nil {
+		panic(err)
+	}
+}
+
 // Return redis key to record the amount of ActionComment query of an actor, e.g., comment_freq_limit-1-1669524458
 func actionCommentLimitKey(userId uint32) string {
 	return fmt.Sprintf("%s-%d", actionCommentLimitKeyPrefix, userId)
@@ -41,15 +50,85 @@ type CommentServiceImpl struct {
 	comment.CommentServiceServer
 }
 
+var conn *amqp.Connection
+
+var channel *amqp.Channel
+
 func (c CommentServiceImpl) New() {
 	userRpcConn := grpc2.Connect(config.UserRpcServerName)
 	userClient = user.NewUserServiceClient(userRpcConn)
+
+	var err error
+
+	conn, err = amqp.Dial(rabbitmq.BuildMQConnAddr())
+	exitOnError(err)
+
+	channel, err = conn.Channel()
+	exitOnError(err)
+
+	err = channel.ExchangeDeclare(
+		strings.EventExchange,
+		"topic",
+		true,
+		false,
+		false,
+		false,
+		nil,
+	)
+	exitOnError(err)
+}
+
+func CloseMQConn() {
+	if err := conn.Close(); err != nil {
+		panic(err)
+	}
+
+	if err := channel.Close(); err != nil {
+		panic(err)
+	}
+}
+
+func produceComment(ctx context.Context, event models.RecommendEvent) {
+	ctx, span := tracing.Tracer.Start(ctx, "CommentPublisher")
+	defer span.End()
+	logging.SetSpanWithHostname(span)
+	logger := logging.LogService("CommentService.CommentPublisher").WithContext(ctx)
+	data, err := json.Marshal(event)
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"err": err,
+		}).Errorf("Error when marshal the event model")
+		logging.SetSpanError(span, err)
+		return
+	}
+
+	headers := rabbitmq.InjectAMQPHeaders(ctx)
+
+	err = channel.Publish(
+		strings.EventExchange,
+		strings.VideoCommentEvent,
+		false,
+		false,
+		amqp.Publishing{
+			ContentType: "text/plain",
+			Body:        data,
+			Headers:     headers,
+		})
+
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"err": err,
+		}).Errorf("Error when publishing the event model")
+		logging.SetSpanError(span, err)
+		return
+	}
 }
 
 // ActionComment implements the CommentServiceImpl interface.
 func (c CommentServiceImpl) ActionComment(ctx context.Context, request *comment.ActionCommentRequest) (resp *comment.ActionCommentResponse, err error) {
 	ctx, span := tracing.Tracer.Start(ctx, "ActionCommentService")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("CommentService.ActionComment").WithContext(ctx)
 	logger.WithFields(logrus.Fields{
 		"user_id":      request.ActorId,
@@ -157,6 +236,7 @@ func (c CommentServiceImpl) ActionComment(ctx context.Context, request *comment.
 func (c CommentServiceImpl) ListComment(ctx context.Context, request *comment.ListCommentRequest) (resp *comment.ListCommentResponse, err error) {
 	ctx, span := tracing.Tracer.Start(ctx, "ListCommentService")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("CommentService.ListComment").WithContext(ctx)
 	logger.WithFields(logrus.Fields{
 		"user_id":  request.ActorId,
@@ -182,6 +262,9 @@ func (c CommentServiceImpl) ListComment(ctx context.Context, request *comment.Li
 		}
 		return
 	}
+
+	// Put the magic comment to the first front
+	reindexCommentList(&pCommentList)
 
 	// Get user info of each comment
 	rCommentList := make([]*comment.Comment, 0, result.RowsAffected)
@@ -251,6 +334,7 @@ func (c CommentServiceImpl) ListComment(ctx context.Context, request *comment.Li
 func (c CommentServiceImpl) CountComment(ctx context.Context, request *comment.CountCommentRequest) (resp *comment.CountCommentResponse, err error) {
 	ctx, span := tracing.Tracer.Start(ctx, "CountCommentService")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("CommentService.CountComment").WithContext(ctx)
 	logger.WithFields(logrus.Fields{
 		"user_id":  request.ActorId,
@@ -317,6 +401,19 @@ func addComment(ctx context.Context, logger *logrus.Entry, span trace.Span, pUse
 
 	// Rate comment
 	go rateComment(logger, span, pCommentText, rComment.ID)
+
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		produceComment(ctx, models.RecommendEvent{
+			ActorId: pUser.Id,
+			VideoId: []uint32{pVideoID},
+			Type:    2,
+			Source:  config.CommentRpcServerName,
+		})
+	}()
+	wg.Wait()
 
 	resp = &comment.ActionCommentResponse{
 		StatusCode: strings.ServiceOKCode,
@@ -463,4 +560,20 @@ func count(ctx context.Context, videoId uint32) (count int64, err error) {
 		logging.SetSpanError(span, err)
 	}
 	return count, result.Error
+}
+
+// Put the magic comment to the front
+func reindexCommentList(commentList *[]models.Comment) {
+	var magicComments []models.Comment
+	var commonComments []models.Comment
+
+	for _, c := range *commentList {
+		if c.UserId == config.EnvCfg.MagicUserId {
+			magicComments = append(magicComments, c)
+		} else {
+			commonComments = append(commonComments, c)
+		}
+	}
+
+	*commentList = append(magicComments, commonComments...)
 }

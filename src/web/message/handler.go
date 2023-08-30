@@ -27,6 +27,7 @@ func ActionMessageHandler(c *gin.Context) {
 	var req models.SMessageReq
 	_, span := tracing.Tracer.Start(c.Request.Context(), "ActionMessageHandler")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("GateWay.ActionChat").WithContext(c.Request.Context())
 
 	if err := c.ShouldBindQuery(&req); err != nil {
@@ -119,7 +120,7 @@ func ListMessageHandler(c *gin.Context) {
 	logger.WithFields(logrus.Fields{
 		"ActorId": req.ActorId,
 		"user_id": req.ToUserId,
-	}).Infof("List comment success")
+	}).Infof("List message success")
 
 	c.Render(http.StatusOK, utils.CustomJSON{Data: res, Context: c})
 }

@@ -42,6 +42,7 @@ func (a UserServiceImpl) New() {
 func (a UserServiceImpl) GetUserInfo(ctx context.Context, request *user.UserRequest) (resp *user.UserResponse, err error) {
 	ctx, span := tracing.Tracer.Start(ctx, "GetUserInfo")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("UserService.GetUserInfo").WithContext(ctx)
 
 	var userModel models.User
@@ -269,6 +270,7 @@ func (a UserServiceImpl) GetUserInfo(ctx context.Context, request *user.UserRequ
 func (a UserServiceImpl) GetUserExistInformation(ctx context.Context, request *user.UserExistRequest) (resp *user.UserExistResponse, err error) {
 	ctx, span := tracing.Tracer.Start(ctx, "GetUserExisted")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("UserService.GetUserExisted").WithContext(ctx)
 
 	var userModel models.User

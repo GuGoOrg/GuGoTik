@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    sidecar.jaegertracing.io/inject: 'false'
+  labels:
+    app: gugotik-msgconsumer-service
+  name: gugotik-msgconsumer-service
+  namespace: gugotik-service-bundle
+spec:
+  selector:
+    matchLabels:
+      name: gugotik-msgconsumer-service
+  template:
+    metadata:
+      labels:
+        app: gugotik-msgconsumer-service
+        branch: master
+        version: ${BUILD_NUMBER}-${CI_COMMIT_ID}
+        name: gugotik-msgconsumer-service
+        dream-app: gugotik-msgconsumer-service
+        dream-unit: gugotik-msgconsumer-service
+    spec:
+      imagePullSecrets:
+        -   name: regcred
+      containers:
+        -   image: ${IMAGE}
+            imagePullPolicy: IfNotPresent
+            name: gugotik-msgconsumer-service
+            command:
+              - ./services/msgconsumer/MsgconsumerService
+            envFrom:
+              -   configMapRef:
+                    name: env-config
+              - configMapRef:
+                  name: gugotik-env
+              - secretRef:
+                  name: gugotik-secret
+            ports:
+              - name: metrics-37099
+                containerPort: 37099
+                protocol: TCP
+            resources:
+              limits:
+                cpu: 500m
+                memory: 512Mi
+              requests:
+                cpu: 100m
+                memory: 128Mi
+      terminationGracePeriodSeconds: 30

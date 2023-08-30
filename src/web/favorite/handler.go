@@ -25,6 +25,7 @@ func ActionFavoriteHandler(c *gin.Context) {
 	var req models.ActionFavoriteReq
 	_, span := tracing.Tracer.Start(c.Request.Context(), "ActionFavoriteHandler")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("GateWay.ActionFavorite").WithContext(c.Request.Context())
 
 	if err := c.ShouldBindQuery(&req); err != nil {

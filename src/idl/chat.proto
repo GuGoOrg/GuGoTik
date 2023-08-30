@@ -5,13 +5,13 @@ option go_package = "GuGoTik/src/rpc/chat";
 message ChatRequest {
   uint32 actor_id = 1;
   uint32 user_id = 2;
-  uint32 pre_msg_time = 3;
+  uint64 pre_msg_time = 3;
 }
 
 message Message {
   uint32 id = 1;
   string content = 2;
-  uint32 create_time = 3;
+  uint64 create_time = 3;
   optional uint32 from_user_id = 4;
   optional uint32 to_user_id = 5;
 }

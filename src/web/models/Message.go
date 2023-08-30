@@ -24,7 +24,7 @@ type SMessageRes struct {
 type ListMessageReq struct {
 	ActorId    uint32 `form:"actor_id" binding:"required"`
 	ToUserId   uint32 `form:"to_user_id" binding:"required"`
-	PreMsgTime uint32 `form:"pre_msg_time"`
+	PreMsgTime uint64 `form:"pre_msg_time"`
 }
 
 type ListMessageRes struct {

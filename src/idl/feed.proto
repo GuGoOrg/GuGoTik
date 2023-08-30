@@ -22,7 +22,7 @@ message ListFeedRequest {
 message ListFeedResponse {
   int32 status_code = 1;
   string status_msg = 2;
-  optional uint32 next_time = 3;
+  optional uint64 next_time = 3;
   repeated Video video_list = 4;
 }
 
@@ -38,7 +38,7 @@ message QueryVideosResponse {
 }
 
 message VideoExistRequest {
-  uint32 video_id = 1; // 用户id
+  uint32 video_id = 1; // 视频id
 }
 
 message VideoExistResponse {
@@ -47,8 +47,22 @@ message VideoExistResponse {
   bool existed = 3;
 }
 
+message QueryVideoSummaryAndKeywordsRequest {
+  uint32 actor_id = 1;
+  uint32 video_id = 2;
+}
+
+message QueryVideoSummaryAndKeywordsResponse {
+  int32 status_code = 1; // 状态码，0-成功，其他值-失败
+  string status_msg = 2; // 返回状态描述
+  string summary = 3;
+  string keywords = 4;
+}
+
 service FeedService {
+  rpc ListVideosByRecommend(ListFeedRequest) returns (ListFeedResponse);
   rpc ListVideos(ListFeedRequest) returns (ListFeedResponse);
   rpc QueryVideos(QueryVideosRequest) returns (QueryVideosResponse);
   rpc QueryVideoExisted(VideoExistRequest) returns (VideoExistResponse);
+  rpc QueryVideoSummaryAndKeywords(QueryVideoSummaryAndKeywordsRequest) returns (QueryVideoSummaryAndKeywordsResponse);
 }

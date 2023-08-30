@@ -26,6 +26,7 @@ func UserHandler(c *gin.Context) {
 	var req models.UserReq
 	_, span := tracing.Tracer.Start(c.Request.Context(), "UserInfoHandler")
 	defer span.End()
+	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("GateWay.UserInfo").WithContext(c.Request.Context())
 
 	if err := c.ShouldBindQuery(&req); err != nil {

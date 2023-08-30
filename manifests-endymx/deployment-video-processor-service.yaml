@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    sidecar.jaegertracing.io/inject: 'false'
+  labels:
+    app: gugotik-video-service
+  name: gugotik-video-service
+  namespace: gugotik-service-bundle
+spec:
+  selector:
+    matchLabels:
+      name: gugotik-video-service
+  template:
+    metadata:
+      labels:
+        app: gugotik-video-service
+        branch: master
+        version: ${BUILD_NUMBER}-${CI_COMMIT_ID}
+        name: gugotik-video-service
+        dream-app: gugotik-video-service
+        dream-unit: gugotik-video-service
+    spec:
+      volumes:
+        - name: volume
+          persistentVolumeClaim:
+            claimName: storage
+      imagePullSecrets:
+        -   name: regcred
+      containers:
+        -   image: ${IMAGE}
+            imagePullPolicy: IfNotPresent
+            name: gugotik-video-service
+            command:
+              - ./services/videoprocessor/VideoprocessorService
+            envFrom:
+              -   configMapRef:
+                    name: env-config
+              - configMapRef:
+                  name: gugotik-env
+              - secretRef:
+                  name: gugotik-secret
+            ports:
+              - name: metrics-37099
+                containerPort: 37099
+                protocol: TCP
+            resources:
+              limits:
+                cpu: 4000m
+                memory: 8Gi
+              requests:
+                cpu: 2000m
+                memory: 4Gi
+            volumeMounts:
+              - mountPath: /data/apps/gugotik-service-bundle/data
+                name: volume
+      terminationGracePeriodSeconds: 30
