@@ -39,9 +39,9 @@ func TestListVideo(t *testing.T) {
 }
 
 func TestPublishVideo(t *testing.T) {
-	url := "http://localhost:37000/douyin/publish/action"
+	url := "http://43.248.96.203:32192/douyin/publish/action"
 	method := "POST"
-	filePath := "E:\\Administrator\\Downloads\\Video\\1223461612-1-192.mp4"
+	filePath := "E:\\Administrator\\Downloads\\Video\\1245212692-1-192.mp4"
 
 	payload := &bytes.Buffer{}
 	writer := multipart.NewWriter(payload)
@@ -60,7 +60,7 @@ func TestPublishVideo(t *testing.T) {
 	assert.Empty(t, err)
 
 	_ = writer.WriteField("token", token)
-	_ = writer.WriteField("title", "怎么找到余华的B站账号？")
+	_ = writer.WriteField("title", "10个报错，但是我代码只有9行啊？？？")
 
 	err = writer.Close()
 	assert.Empty(t, err)

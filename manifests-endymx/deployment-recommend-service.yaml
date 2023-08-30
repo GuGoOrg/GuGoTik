@@ -22,7 +22,7 @@ spec:
         dream-unit: gugotik-recommend-service
     spec:
       imagePullSecrets:
-        -   name: reg-cred
+        -   name: regcred
       containers:
         -   image: ${IMAGE}
             imagePullPolicy: IfNotPresent
