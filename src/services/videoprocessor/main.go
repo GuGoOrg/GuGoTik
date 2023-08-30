@@ -155,6 +155,7 @@ func Consume(channel *amqp.Channel) {
 				"err": err,
 			}).Errorf("Error when unmarshaling the prepare json body.")
 			return
+			//这个地方直接能return吗
 		}
 
 		// 截取封面
