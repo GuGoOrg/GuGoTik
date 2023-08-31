@@ -8,7 +8,7 @@ export const options = {
             gracefulStop: '30s',
             stages: [
                 { target: 1000, duration: '15s' },
-                { target: 2000, duration: '30s' },
+                { target: 1500, duration: '30s' },
                 { target: 1000, duration: '15s' },
             ],
             gracefulRampDown: '30s',
