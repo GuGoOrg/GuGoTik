@@ -29,11 +29,13 @@ import (
 	"sync"
 )
 
-var userClient user.UserServiceClient
-var commentClient comment.CommentServiceClient
-var openaiClient *openai.Client
-var delayTime = int32(2 * 60 * 1000) //2 minutes
-var maxRetries = int32(3)
+var (
+	userClient    user.UserServiceClient
+	commentClient comment.CommentServiceClient
+	openaiClient  *openai.Client
+	delayTime     = int32(2 * 60 * 1000) //2 minutes
+	maxRetries    = int32(3)
+)
 
 var conn *amqp.Connection
 var channel *amqp.Channel
