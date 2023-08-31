@@ -12,7 +12,6 @@ import (
 	"GuGoTik/src/rpc/user"
 	"GuGoTik/src/storage/database"
 	"GuGoTik/src/storage/redis"
-	grpc2 "GuGoTik/src/utils/grpc"
 	"GuGoTik/src/utils/logging"
 	"GuGoTik/src/utils/ptr"
 	"GuGoTik/src/utils/rabbitmq"
@@ -20,6 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	grpc2 "GuGoTik/src/utils/grpc"
 	"time"
 
 	"github.com/go-redis/redis_rate/v10"
@@ -79,12 +79,44 @@ func (c MessageServiceImpl) New() {
 
 	_, err = channel.QueueDeclare(
 		strings.MessageActionEvent,
-		false, false, false, false,
+		true, false, false, false,
 		nil,
 	)
 
 	if err != nil {
 		failOnError(err, "Failed to define queue")
+	}
+
+	_, err = channel.QueueDeclare(
+		strings.MessageGptActionEvent,
+		true, false, false, false,
+		nil,
+	)
+
+	if err != nil {
+		failOnError(err, "Failed to define queue")
+	}
+
+	err = channel.QueueBind(
+		strings.MessageActionEvent,
+		strings.MessageActionEvent,
+		strings.MessageExchange,
+		false,
+		nil,
+	)
+	if err != nil {
+		failOnError(err, "Failed to bind queue to exchange")
+	}
+
+	err = channel.QueueBind(
+		strings.MessageGptActionEvent,
+		strings.MessageGptActionEvent,
+		strings.MessageExchange,
+		false,
+		nil,
+	)
+	if err != nil {
+		failOnError(err, "Failed to bind queue  to exchange")
 	}
 
 	userRpcConn := grpc2.Connect(config.UserRpcServerName)
@@ -359,13 +391,26 @@ func addMessage(ctx context.Context, fromUserId uint32, toUserId uint32, Context
 		return
 	}
 	headers := rabbitmq.InjectAMQPHeaders(ctx)
-	err = channel.Publish("", strings.MessageActionEvent, false, false,
-		amqp.Publishing{
-			DeliveryMode: amqp.Persistent,
-			ContentType:  "text/plain",
-			Body:         body,
-			Headers:      headers,
-		})
+
+	if message.ToUserId == config.EnvCfg.MagicUserId {
+		err = channel.Publish("", strings.MessageGptActionEvent, false, false,
+			amqp.Publishing{
+				DeliveryMode: amqp.Persistent,
+				ContentType:  "text/plain",
+				Body:         body,
+				Headers:      headers,
+			})
+
+	} else {
+
+		err = channel.Publish("", strings.MessageActionEvent, false, false,
+			amqp.Publishing{
+				DeliveryMode: amqp.Persistent,
+				ContentType:  "text/plain",
+				Body:         body,
+				Headers:      headers,
+			})
+	}
 
 	// result := database.Client.WithContext(ctx).Create(&message)
 

@@ -35,3 +35,4 @@ const VideoProcessorRpcServiceName = "GuGoTik-VideoProcessorService"
 
 const VideoPicker = "GuGoTik-VideoPicker"
 const Event = "GuGoTik-Recommend"
+const MsgConsumer = "GuGoTik-MgsConsumer"

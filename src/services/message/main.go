@@ -11,13 +11,14 @@ import (
 	"GuGoTik/src/utils/logging"
 	"GuGoTik/src/utils/prom"
 	"context"
-	grpcprom "github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus"
-	"github.com/oklog/run"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"net"
 	"net/http"
 	"os"
 	"syscall"
+
+	grpcprom "github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus"
+	"github.com/oklog/run"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/sirupsen/logrus"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
@@ -74,7 +75,7 @@ func main() {
 	var probe healthImpl.ProbeImpl
 	chat.RegisterChatServiceServer(s, srv)
 	health.RegisterHealthServer(s, &probe)
-
+	defer CloseMQConn()
 	srv.New()
 	srvMetrics.InitializeMetrics(s)
 
