@@ -406,6 +406,12 @@ func checkPasswordHash(ctx context.Context, password, hash string) bool {
 }
 
 func getToken(ctx context.Context, userId uint32) (string, error) {
+	span := trace.SpanFromContext(ctx)
+	logging.SetSpanWithHostname(span)
+	logger := logging.LogService("AuthService.Login").WithContext(ctx)
+	logger.WithFields(logrus.Fields{
+		"userId": userId,
+	}).Infof("Select for user token")
 	return cached.GetWithFunc(ctx, "U2T"+strconv.FormatUint(uint64(userId), 10),
 		func(ctx context.Context, key string) (string, error) {
 			span := trace.SpanFromContext(ctx)

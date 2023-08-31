@@ -7,9 +7,9 @@ export const options = {
             executor: 'ramping-vus',
             gracefulStop: '30s',
             stages: [
-                { target: 100, duration: '15s' },
-                { target: 200, duration: '30s' },
-                { target: 100, duration: '15s' },
+                { target: 1000, duration: '15s' },
+                { target: 2000, duration: '30s' },
+                { target: 1000, duration: '15s' },
             ],
             gracefulRampDown: '30s',
             exec: 'login',
@@ -18,7 +18,7 @@ export const options = {
 }
 
 export function login() {
-    http.post('https://gugotik.endymx.qzwxsaedc.cn/douyin/user/login?username=epicmo&password=epicmo')
+    http.post('http://127.0.0.1:37000/douyin/user/login?username=epicmo&password=epicmo')
 
     sleep(3)
 }
