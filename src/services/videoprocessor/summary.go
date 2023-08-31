@@ -17,9 +17,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/sashabaranov/go-openai"
 	"github.com/sirupsen/logrus"
-	"github.com/streadway/amqp"
 	"go.opentelemetry.io/otel/trace"
 	"gorm.io/gorm/clause"
 	"net/http"
@@ -105,7 +105,7 @@ func produceKeywords(ctx context.Context, event models.RecommendEvent) {
 		return
 	}
 
-	err = channel.Publish(
+	err = channel.PublishWithContext(ctx,
 		strings2.EventExchange,
 		strings2.VideoPublishEvent,
 		false,
@@ -165,7 +165,7 @@ func errorHandler(channel *amqp.Channel, d amqp.Delivery, requeue bool, logger *
 
 			logger.Debugf("Retrying %d times", curRetry)
 
-			err = channel.Publish(
+			err = channel.PublishWithContext(context.Background(),
 				strings2.VideoExchange,
 				strings2.VideoSummary,
 				false,

@@ -5,8 +5,6 @@ import (
 	"GuGoTik/src/extra/profiling"
 	"GuGoTik/src/extra/tracing"
 	"GuGoTik/src/rpc/comment"
-	"GuGoTik/src/rpc/health"
-	healthImpl "GuGoTik/src/services/health"
 	"GuGoTik/src/utils/consul"
 	"GuGoTik/src/utils/logging"
 	"GuGoTik/src/utils/prom"
@@ -17,6 +15,8 @@ import (
 	"github.com/sirupsen/logrus"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/health"
+	"google.golang.org/grpc/health/grpc_health_v1"
 	"net"
 	"net/http"
 	"os"
@@ -69,9 +69,8 @@ func main() {
 	log.Infof("Rpc %s is running at %s now", config.CommentRpcServerName, config.CommentRpcServerPort)
 
 	var srv CommentServiceImpl
-	var probe healthImpl.ProbeImpl
 	comment.RegisterCommentServiceServer(s, srv)
-	health.RegisterHealthServer(s, &probe)
+	grpc_health_v1.RegisterHealthServer(s, health.NewServer())
 	defer CloseMQConn()
 	if err := consul.RegisterConsul(config.CommentRpcServerName, config.CommentRpcServerPort); err != nil {
 		log.Panicf("Rpc %s register consul happens error for: %v", config.CommentRpcServerName, err)

@@ -5,9 +5,7 @@ import (
 	"GuGoTik/src/extra/profiling"
 	"GuGoTik/src/extra/tracing"
 	"GuGoTik/src/models"
-	"GuGoTik/src/rpc/health"
 	"GuGoTik/src/rpc/user"
-	healthImpl "GuGoTik/src/services/health"
 	"GuGoTik/src/storage/database"
 	"GuGoTik/src/utils/consul"
 	"GuGoTik/src/utils/logging"
@@ -19,6 +17,8 @@ import (
 	"github.com/sirupsen/logrus"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/health"
+	"google.golang.org/grpc/health/grpc_health_v1"
 	"gorm.io/gorm/clause"
 	"net"
 	"net/http"
@@ -73,9 +73,8 @@ func main() {
 	log.Infof("Rpc %s is running at %s now", config.UserRpcServerName, config.UserRpcServerPort)
 
 	var srv UserServiceImpl
-	var probe healthImpl.ProbeImpl
 	user.RegisterUserServiceServer(s, srv)
-	health.RegisterHealthServer(s, &probe)
+	grpc_health_v1.RegisterHealthServer(s, health.NewServer())
 	srv.New()
 	createMagicUser()
 	srvMetrics.InitializeMetrics(s)

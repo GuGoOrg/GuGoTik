@@ -18,7 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/streadway/amqp"
+	amqp "github.com/rabbitmq/amqp091-go"
 	"gorm.io/gorm"
 	"strconv"
 	"sync"
@@ -106,7 +106,7 @@ func produceFeed(ctx context.Context, event models.RecommendEvent) {
 
 	headers := rabbitmq.InjectAMQPHeaders(ctx)
 
-	err = channel.Publish(
+	err = channel.PublishWithContext(ctx,
 		strings.EventExchange,
 		strings.VideoGetEvent,
 		false,

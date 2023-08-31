@@ -15,7 +15,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/streadway/amqp"
+	amqp "github.com/rabbitmq/amqp091-go"
 	"strconv"
 	"sync"
 	"time"
@@ -93,7 +93,7 @@ func produceFavorite(ctx context.Context, event models.RecommendEvent) {
 
 	headers := rabbitmq.InjectAMQPHeaders(ctx)
 
-	err = channel.Publish(
+	err = channel.PublishWithContext(ctx,
 		strings.EventExchange,
 		strings.FavoriteActionEvent,
 		false,

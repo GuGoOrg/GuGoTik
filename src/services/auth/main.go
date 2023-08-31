@@ -6,8 +6,6 @@ import (
 	"GuGoTik/src/extra/tracing"
 	"GuGoTik/src/models"
 	"GuGoTik/src/rpc/auth"
-	"GuGoTik/src/rpc/health"
-	healthImpl "GuGoTik/src/services/health"
 	"GuGoTik/src/storage/database"
 	"GuGoTik/src/storage/redis"
 	"GuGoTik/src/utils/consul"
@@ -16,15 +14,14 @@ import (
 	"context"
 	grpcprom "github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus"
 	"github.com/oklog/run"
-	_ "github.com/prometheus/client_golang/prometheus"
-	_ "github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	_ "github.com/prometheus/client_golang/prometheus/promhttp"
 	redis2 "github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
 	"github.com/willf/bloom"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/health"
+	"google.golang.org/grpc/health/grpc_health_v1"
 	"net"
 	"net/http"
 	"os"
@@ -115,9 +112,8 @@ func main() {
 	log.Infof("Rpc %s is running at %s now", config.AuthRpcServerName, config.AuthRpcServerPort)
 
 	var srv AuthServiceImpl
-	var probe healthImpl.ProbeImpl
 	auth.RegisterAuthServiceServer(s, srv)
-	health.RegisterHealthServer(s, &probe)
+	grpc_health_v1.RegisterHealthServer(s, health.NewServer())
 
 	srv.New()
 	srvMetrics.InitializeMetrics(s)

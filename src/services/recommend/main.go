@@ -4,9 +4,7 @@ import (
 	"GuGoTik/src/constant/config"
 	"GuGoTik/src/extra/profiling"
 	"GuGoTik/src/extra/tracing"
-	"GuGoTik/src/rpc/health"
 	"GuGoTik/src/rpc/recommend"
-	healthImpl "GuGoTik/src/services/health"
 	"GuGoTik/src/utils/consul"
 	"GuGoTik/src/utils/logging"
 	"GuGoTik/src/utils/prom"
@@ -17,6 +15,8 @@ import (
 	"github.com/sirupsen/logrus"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/health"
+	"google.golang.org/grpc/health/grpc_health_v1"
 	"net"
 	"net/http"
 	"os"
@@ -70,9 +70,8 @@ func main() {
 	log.Infof("Rpc %s is running at %s now", config.RecommendRpcServiceName, config.RecommendRpcServicePort)
 
 	var srv RecommendServiceImpl
-	var probe healthImpl.ProbeImpl
 	recommend.RegisterRecommendServiceServer(s, srv)
-	health.RegisterHealthServer(s, &probe)
+	grpc_health_v1.RegisterHealthServer(s, health.NewServer())
 
 	srv.New()
 	srvMetrics.InitializeMetrics(s)

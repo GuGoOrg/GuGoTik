@@ -15,6 +15,7 @@ import (
 
 	url2 "net/url"
 
+	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/sashabaranov/go-openai"
 	"github.com/sirupsen/logrus"
 	"github.com/streadway/amqp"
@@ -23,8 +24,9 @@ import (
 
 func failOnError(err error, msg string) {
 	//打日志
-	logging.Logger.Errorf("err %s", msg)
-
+	logging.Logger.WithFields(logrus.Fields{
+		"err": err,
+	}).Errorf(msg)
 }
 
 var delayTime = int32(2 * 60 * 1000) //2 minutes

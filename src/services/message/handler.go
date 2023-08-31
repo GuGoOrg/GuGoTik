@@ -23,8 +23,8 @@ import (
 	"time"
 
 	"github.com/go-redis/redis_rate/v10"
+	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/robfig/cron/v3"
-	"github.com/streadway/amqp"
 	"gorm.io/gorm"
 
 	"github.com/sirupsen/logrus"
@@ -48,8 +48,9 @@ var channel *amqp.Channel
 
 func failOnError(err error, msg string) {
 	//打日志
-	logging.Logger.Errorf("err %s", msg)
-
+	logging.Logger.WithFields(logrus.Fields{
+		"err": err,
+	}).Errorf(msg)
 }
 
 func (c MessageServiceImpl) New() {
@@ -393,7 +394,8 @@ func addMessage(ctx context.Context, fromUserId uint32, toUserId uint32, Context
 	headers := rabbitmq.InjectAMQPHeaders(ctx)
 
 	if message.ToUserId == config.EnvCfg.MagicUserId {
-		err = channel.Publish("", strings.MessageGptActionEvent, false, false,
+		err = channel.PublishWithContext(ctx,
+			"", strings.MessageGptActionEvent, false, false,
 			amqp.Publishing{
 				DeliveryMode: amqp.Persistent,
 				ContentType:  "text/plain",
