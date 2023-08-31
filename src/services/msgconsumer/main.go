@@ -210,7 +210,7 @@ func main() {
 				span.End()
 				continue
 			}
-			err = body.Ack(true)
+			err = body.Ack(false)
 
 			if err != nil {
 				logger.WithFields(logrus.Fields{
@@ -339,7 +339,7 @@ func ss(channel *amqp.Channel) {
 			continue
 		}
 
-		err = body.Ack(true)
+		err = body.Ack(false)
 
 		if err != nil {
 			logger.WithFields(logrus.Fields{
