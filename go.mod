@@ -24,7 +24,6 @@ require (
 	github.com/robfig/cron/v3 v3.0.0
 	github.com/sashabaranov/go-openai v1.14.2
 	github.com/sirupsen/logrus v1.9.3
-	github.com/streadway/amqp v1.1.0
 	github.com/stretchr/testify v1.8.4
 	github.com/willf/bloom v2.0.3+incompatible
 	github.com/zsais/go-gin-prometheus v0.1.0

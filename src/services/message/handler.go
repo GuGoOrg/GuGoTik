@@ -405,7 +405,7 @@ func addMessage(ctx context.Context, fromUserId uint32, toUserId uint32, Context
 
 	} else {
 
-		err = channel.Publish("", strings.MessageActionEvent, false, false,
+		err = channel.PublishWithContext(ctx, "", strings.MessageActionEvent, false, false,
 			amqp.Publishing{
 				DeliveryMode: amqp.Persistent,
 				ContentType:  "text/plain",

@@ -18,7 +18,6 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/sashabaranov/go-openai"
 	"github.com/sirupsen/logrus"
-	"github.com/streadway/amqp"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -393,7 +392,7 @@ func errorHandler(channel *amqp.Channel, d amqp.Delivery, requeue bool, logger *
 
 			logger.Debugf("Retrying %d times", curRetry)
 
-			err = channel.Publish(
+			err = channel.PublishWithContext(context.Background(),
 				strings.MessageExchange,
 				strings.MessageGptActionEvent,
 				false,
