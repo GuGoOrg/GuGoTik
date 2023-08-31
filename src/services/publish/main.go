@@ -56,8 +56,11 @@ func main() {
 	)
 	reg := prom.Client
 	reg.MustRegister(srvMetrics)
+	maxSize := 500 * 1024 * 1024
 
 	s := grpc.NewServer(
+		grpc.MaxRecvMsgSize(maxSize),
+		grpc.MaxSendMsgSize(maxSize),
 		grpc.UnaryInterceptor(otelgrpc.UnaryServerInterceptor()),
 		grpc.ChainUnaryInterceptor(srvMetrics.UnaryServerInterceptor(grpcprom.WithExemplarFromContext(prom.ExtractContext))),
 		grpc.ChainStreamInterceptor(srvMetrics.StreamServerInterceptor(grpcprom.WithExemplarFromContext(prom.ExtractContext))),
