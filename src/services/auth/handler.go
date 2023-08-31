@@ -376,6 +376,10 @@ func (a AuthServiceImpl) Login(ctx context.Context, request *auth.LoginRequest) 
 		return
 	}
 
+	logger.WithFields(logrus.Fields{
+		"token":  token,
+		"userId": user.ID,
+	}).Infof("User log in sucess !")
 	resp = &auth.LoginResponse{
 		StatusCode: strings.ServiceOKCode,
 		StatusMsg:  strings.ServiceOK,

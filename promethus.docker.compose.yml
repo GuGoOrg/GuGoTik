@@ -24,7 +24,14 @@ scrape_configs:
     # metrics_path defaults to '/metrics'
     # scheme defaults to 'http'.
     static_configs:
-      - targets: ["localhost:9090"]
-      - targets: ["gateway:37000"]
-      - targets: ["auth:37099"]
-      - targets: ["user:37099"]
+      - targets: [ "localhost:9090" ]
+      - targets: [ "gateway:37000" ]
+      - targets: [ "auth:37099" ]
+      - targets: [ "user:37099" ]
+      - targets: [ "comment:37099" ]
+      - targets: [ "favorite:37099" ]
+      - targets: [ "feed:37099" ]
+      - targets: [ "message:37099" ]
+      - targets: [ "publish:37099" ]
+      - targets: [ "recommend:37099" ]
+      - targets: [ "relation:37099" ]
