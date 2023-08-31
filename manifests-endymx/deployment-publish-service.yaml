@@ -50,10 +50,10 @@ spec:
             resources:
               limits:
                 cpu: 2000m
-                memory: 1024Mi
+                memory: 2048Mi
               requests:
                 cpu: 1000m
-                memory: 512Mi
+                memory: 1024Mi
             volumeMounts:
               - mountPath: /data/apps/gugotik-service-bundle/data
                 name: volume
