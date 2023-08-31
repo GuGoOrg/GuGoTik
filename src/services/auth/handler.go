@@ -11,6 +11,7 @@ import (
 	user2 "GuGoTik/src/rpc/user"
 	"GuGoTik/src/storage/cached"
 	"GuGoTik/src/storage/database"
+	"GuGoTik/src/storage/redis"
 	grpc2 "GuGoTik/src/utils/grpc"
 	"GuGoTik/src/utils/logging"
 	"context"
@@ -36,7 +37,7 @@ var relationClient relation.RelationServiceClient
 var userClient user2.UserServiceClient
 var recommendClient recommend.RecommendServiceClient
 
-var bloomFilter *bloom.BloomFilter
+var BloomFilter *bloom.BloomFilter
 
 type AuthServiceImpl struct {
 	auth.AuthServiceServer
@@ -49,9 +50,6 @@ func (a AuthServiceImpl) New() {
 	userClient = user2.NewUserServiceClient(userRpcConn)
 	recommendRpcConn := grpc2.Connect(config.RecommendRpcServiceName)
 	recommendClient = recommend.NewRecommendServiceClient(recommendRpcConn)
-
-	// Create a new Bloom filter with a target false positive rate of 0.1%
-	bloomFilter = bloom.NewWithEstimates(10000000, 0.001) // assuming we have 1 million users
 }
 
 func (a AuthServiceImpl) Authenticate(ctx context.Context, request *auth.AuthenticateRequest) (resp *auth.AuthenticateResponse, err error) {
@@ -239,7 +237,20 @@ func (a AuthServiceImpl) Register(ctx context.Context, request *auth.RegisterReq
 	resp.StatusCode = strings.ServiceOKCode
 	resp.StatusMsg = strings.ServiceOK
 
-	bloomFilter.AddString(user.UserName)
+	// Publish the username to redis
+	BloomFilter.AddString(user.UserName)
+	logger.WithFields(logrus.Fields{
+		"username": user.UserName,
+	}).Infof("Publishing user name to redis channel")
+	err = redis.Client.Publish(ctx, config.BloomRedisChannel, user.UserName).Err()
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"err":      err,
+			"username": user.UserName,
+		}).Errorf("Publishing user name to redis channel happens error")
+		logging.SetSpanError(span, err)
+	}
+
 	addMagicUserFriend(ctx, &span, user.ID)
 
 	return
@@ -255,7 +266,7 @@ func (a AuthServiceImpl) Login(ctx context.Context, request *auth.LoginRequest) 
 	}).Infof("User try to log in.")
 
 	// Check if a username might be in the filter
-	if !bloomFilter.TestString(request.Username) {
+	if !BloomFilter.TestString(request.Username) {
 		resp = &auth.LoginResponse{
 			StatusCode: strings.UnableToQueryUserErrorCode,
 			StatusMsg:  strings.UnableToQueryUserError,

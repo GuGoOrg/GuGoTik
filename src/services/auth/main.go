@@ -4,9 +4,12 @@ import (
 	"GuGoTik/src/constant/config"
 	"GuGoTik/src/extra/profiling"
 	"GuGoTik/src/extra/tracing"
+	"GuGoTik/src/models"
 	"GuGoTik/src/rpc/auth"
 	"GuGoTik/src/rpc/health"
 	healthImpl "GuGoTik/src/services/health"
+	"GuGoTik/src/storage/database"
+	"GuGoTik/src/storage/redis"
 	"GuGoTik/src/utils/consul"
 	"GuGoTik/src/utils/logging"
 	"GuGoTik/src/utils/prom"
@@ -17,7 +20,9 @@ import (
 	_ "github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	_ "github.com/prometheus/client_golang/prometheus/promhttp"
+	redis2 "github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
+	"github.com/willf/bloom"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 	"net"
@@ -60,6 +65,43 @@ func main() {
 
 	reg := prom.Client
 	reg.MustRegister(srvMetrics)
+
+	// Create a new Bloom filter with a target false positive rate of 0.1%
+	BloomFilter = bloom.NewWithEstimates(10000000, 0.001) // assuming we have 1 million users
+
+	// Initialize BloomFilter from database
+	var users []models.User
+	userNamesResult := database.Client.WithContext(context.Background()).Select("user_name").Find(&users)
+	if userNamesResult.Error != nil {
+		log.Panicf("Getting user names from databse happens error: %s", userNamesResult.Error)
+		panic(userNamesResult.Error)
+	}
+	for _, u := range users {
+		BloomFilter.AddString(u.UserName)
+	}
+
+	// Create a go routine to receive redis message and add it to BloomFilter
+	go func() {
+		pubSub := redis.Client.Subscribe(context.Background(), config.BloomRedisChannel)
+		defer func(pubSub *redis2.PubSub) {
+			err := pubSub.Close()
+			if err != nil {
+				log.Panicf("Closing redis pubsub happend error: %s", err)
+			}
+		}(pubSub)
+
+		_, err := pubSub.ReceiveMessage(context.Background())
+		if err != nil {
+			log.Panicf("Reveiving message from redis happens error: %s", err)
+			panic(err)
+		}
+
+		ch := pubSub.Channel()
+		for msg := range ch {
+			log.Infof("Add user name to BloomFilter: %s", msg.Payload)
+			BloomFilter.AddString(msg.Payload)
+		}
+	}()
 
 	s := grpc.NewServer(
 		grpc.UnaryInterceptor(otelgrpc.UnaryServerInterceptor()),
