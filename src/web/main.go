@@ -51,7 +51,7 @@ func main() {
 	// Configure Tracing
 	g.Use(otelgin.Middleware(config.WebServiceName))
 	g.Use(middleware.TokenAuthMiddleware())
-	g.Use(middleware.RateLimiterMiddleWare(time.Second, 100, 100))
+	g.Use(middleware.RateLimiterMiddleWare(time.Second, 10000, 10000))
 
 	// Configure Pyroscope
 	profiling.InitPyroscope("GuGoTik.GateWay")

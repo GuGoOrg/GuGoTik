@@ -18,7 +18,7 @@ export const options = {
 }
 
 export function login() {
-    http.post('http://127.0.0.1:37000/douyin/user/login?username=epicmo&password=epicmo')
+    http.post('http://localhost:37000/douyin/user/login?username=epicmo&password=epicmo')
 
     sleep(3)
 }
