@@ -49,11 +49,11 @@ func init() {
 func main() {
 	conn, err := amqp.Dial(rabbitmq.BuildMQConnAddr())
 	if err != nil {
-		failOnError(err, "Fialed to conenct to RabbitMQ")
+		failOnError(err, "Failed to connect to RabbitMQ")
 	}
 	defer func(conn *amqp.Connection) {
 		err := conn.Close()
-		failOnError(err, "Fialed to close conn")
+		failOnError(err, "Failed to close connection")
 	}(conn)
 
 	tp, err := tracing.SetTraceProvider(config.MsgConsumer)
@@ -77,7 +77,7 @@ func main() {
 
 	defer func(channel *amqp.Channel) {
 		err := channel.Close()
-		failOnError(err, "Fialed to close channel")
+		failOnError(err, "Failed to close channel")
 	}(channel)
 
 	err = channel.ExchangeDeclare(
@@ -143,7 +143,7 @@ func main() {
 		failOnError(err, "Failed to Consume")
 	}
 
-	var foreever chan struct{}
+	var forever chan struct{}
 
 	logger := logging.LogService("msgConsumer")
 	logger.Infof(strings.MessageActionEvent + " is running now")
@@ -179,15 +179,15 @@ func main() {
 				continue
 			}
 
-			pmessage := models.Message{
+			pMessage := models.Message{
 				ToUserId:       message.ToUserId,
 				FromUserId:     message.FromUserId,
 				ConversationId: message.ConversationId,
 				Content:        message.Content,
 			}
-			logger.Info(pmessage)
+			logger.Info(pMessage)
 			//可能会重新插入数据 开启事务 晚点改
-			result := database.Client.WithContext(context.Background()).Create(&pmessage)
+			result := database.Client.WithContext(context.Background()).Create(&pMessage)
 			if result.Error != nil {
 				logger.WithFields(logrus.Fields{
 					"from_id": message.FromUserId,
@@ -223,12 +223,12 @@ func main() {
 
 	go ss(channel)
 
-	<-foreever
+	<-forever
 
 }
 
 func ss(channel *amqp.Channel) {
-	gptmsg, err := channel.Consume(
+	gptMsg, err := channel.Consume(
 		strings.MessageGptActionEvent,
 		"",
 		false, false, false, false,
@@ -239,7 +239,7 @@ func ss(channel *amqp.Channel) {
 	}
 	var message models.Message
 
-	for body := range gptmsg {
+	for body := range gptMsg {
 		ctx := rabbitmq.ExtractAMQPHeaders(context.Background(), body.Headers)
 		ctx, span := tracing.Tracer.Start(ctx, "message_send Service")
 		logger := logging.LogService("message_send").WithContext(ctx)
@@ -271,14 +271,14 @@ func ss(channel *amqp.Channel) {
 			continue
 		}
 
-		pmessage := models.Message{
+		pMessage := models.Message{
 			ToUserId:       message.ToUserId,
 			FromUserId:     message.FromUserId,
 			ConversationId: message.ConversationId,
 			Content:        message.Content,
 		}
 		//可能会重新插入数据 开启事务 晚点改
-		result := database.Client.WithContext(context.Background()).Create(&pmessage)
+		result := database.Client.WithContext(context.Background()).Create(&pMessage)
 		//发一份消息到openai api
 		if result.Error != nil {
 			logger.WithFields(logrus.Fields{
@@ -318,7 +318,7 @@ func ss(channel *amqp.Channel) {
 		}
 
 		text := resp.Choices[0].Message.Content
-		pmessage = models.Message{
+		pMessage = models.Message{
 			ToUserId:       message.FromUserId,
 			FromUserId:     message.ToUserId,
 			ConversationId: message.ConversationId,
@@ -326,7 +326,7 @@ func ss(channel *amqp.Channel) {
 			// Content: "111",
 		}
 
-		result = database.Client.WithContext(context.Background()).Create(&pmessage)
+		result = database.Client.WithContext(context.Background()).Create(&pMessage)
 
 		if result.Error != nil {
 			logger.WithFields(logrus.Fields{
