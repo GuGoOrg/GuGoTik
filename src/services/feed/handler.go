@@ -18,7 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/streadway/amqp"
+	amqp "github.com/rabbitmq/amqp091-go"
 	"gorm.io/gorm"
 	"strconv"
 	"sync"
@@ -106,7 +106,7 @@ func produceFeed(ctx context.Context, event models.RecommendEvent) {
 
 	headers := rabbitmq.InjectAMQPHeaders(ctx)
 
-	err = channel.Publish(
+	err = channel.PublishWithContext(ctx,
 		strings.EventExchange,
 		strings.VideoGetEvent,
 		false,
@@ -134,7 +134,7 @@ func (s FeedServiceImpl) ListVideosByRecommend(ctx context.Context, request *fee
 
 	now := time.Now().UnixMilli()
 	latestTime := now
-	if request.LatestTime != nil && *request.LatestTime != "" {
+	if request.LatestTime != nil && *request.LatestTime != "" && *request.LatestTime != "0" {
 		// Check if request.LatestTime is a timestamp
 		t, ok := isUnixMilliTimestamp(*request.LatestTime)
 		if ok {

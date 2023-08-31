@@ -12,7 +12,6 @@ import (
 	"GuGoTik/src/rpc/user"
 	"GuGoTik/src/storage/database"
 	"GuGoTik/src/storage/redis"
-	grpc2 "GuGoTik/src/utils/grpc"
 	"GuGoTik/src/utils/logging"
 	"GuGoTik/src/utils/ptr"
 	"GuGoTik/src/utils/rabbitmq"
@@ -20,11 +19,12 @@ import (
 	"encoding/json"
 	"fmt"
 
+	grpc2 "GuGoTik/src/utils/grpc"
 	"time"
 
 	"github.com/go-redis/redis_rate/v10"
+	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/robfig/cron/v3"
-	"github.com/streadway/amqp"
 	"gorm.io/gorm"
 
 	"github.com/sirupsen/logrus"
@@ -48,8 +48,9 @@ var channel *amqp.Channel
 
 func failOnError(err error, msg string) {
 	//打日志
-	logging.Logger.Errorf("err %s", msg)
-
+	logging.Logger.WithFields(logrus.Fields{
+		"err": err,
+	}).Errorf(msg)
 }
 
 func (c MessageServiceImpl) New() {
@@ -57,7 +58,7 @@ func (c MessageServiceImpl) New() {
 	var err error
 	conn, err = amqp.Dial(rabbitmq.BuildMQConnAddr())
 	if err != nil {
-		failOnError(err, "Fialed to conenct to RabbitMQ")
+		failOnError(err, "Failed to connect to RabbitMQ")
 	}
 
 	channel, err = conn.Channel()
@@ -79,12 +80,44 @@ func (c MessageServiceImpl) New() {
 
 	_, err = channel.QueueDeclare(
 		strings.MessageActionEvent,
-		false, false, false, false,
+		true, false, false, false,
 		nil,
 	)
 
 	if err != nil {
 		failOnError(err, "Failed to define queue")
+	}
+
+	_, err = channel.QueueDeclare(
+		strings.MessageGptActionEvent,
+		true, false, false, false,
+		nil,
+	)
+
+	if err != nil {
+		failOnError(err, "Failed to define queue")
+	}
+
+	err = channel.QueueBind(
+		strings.MessageActionEvent,
+		strings.MessageActionEvent,
+		strings.MessageExchange,
+		false,
+		nil,
+	)
+	if err != nil {
+		failOnError(err, "Failed to bind queue to exchange")
+	}
+
+	err = channel.QueueBind(
+		strings.MessageGptActionEvent,
+		strings.MessageGptActionEvent,
+		strings.MessageExchange,
+		false,
+		nil,
+	)
+	if err != nil {
+		failOnError(err, "Failed to bind queue  to exchange")
 	}
 
 	userRpcConn := grpc2.Connect(config.UserRpcServerName)
@@ -285,7 +318,7 @@ func (c MessageServiceImpl) Chat(ctx context.Context, request *chat.ChatRequest)
 			"user_id":      request.UserId,
 			"ActorId":      request.ActorId,
 			"pre_msg_time": request.PreMsgTime,
-		}).Errorf("ChatServiceImpl list chat failed to response when listing message,database err")
+		}).Errorf("ChatServiceImpl list chat failed to response when listing message, database err")
 		logging.SetSpanError(span, err)
 
 		resp = &chat.ChatResponse{
@@ -359,13 +392,27 @@ func addMessage(ctx context.Context, fromUserId uint32, toUserId uint32, Context
 		return
 	}
 	headers := rabbitmq.InjectAMQPHeaders(ctx)
-	err = channel.Publish("", strings.MessageActionEvent, false, false,
-		amqp.Publishing{
-			DeliveryMode: amqp.Persistent,
-			ContentType:  "text/plain",
-			Body:         body,
-			Headers:      headers,
-		})
+
+	if message.ToUserId == config.EnvCfg.MagicUserId {
+		err = channel.PublishWithContext(ctx,
+			"", strings.MessageGptActionEvent, false, false,
+			amqp.Publishing{
+				DeliveryMode: amqp.Persistent,
+				ContentType:  "text/plain",
+				Body:         body,
+				Headers:      headers,
+			})
+
+	} else {
+
+		err = channel.PublishWithContext(ctx, "", strings.MessageActionEvent, false, false,
+			amqp.Publishing{
+				DeliveryMode: amqp.Persistent,
+				ContentType:  "text/plain",
+				Body:         body,
+				Headers:      headers,
+			})
+	}
 
 	// result := database.Client.WithContext(ctx).Create(&message)
 

@@ -5,8 +5,6 @@ import (
 	"GuGoTik/src/extra/profiling"
 	"GuGoTik/src/extra/tracing"
 	"GuGoTik/src/rpc/chat"
-	"GuGoTik/src/rpc/health"
-	healthImpl "GuGoTik/src/services/health"
 	"GuGoTik/src/utils/consul"
 	"GuGoTik/src/utils/logging"
 	"GuGoTik/src/utils/prom"
@@ -14,6 +12,8 @@ import (
 	grpcprom "github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus"
 	"github.com/oklog/run"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"google.golang.org/grpc/health"
+	"google.golang.org/grpc/health/grpc_health_v1"
 	"net"
 	"net/http"
 	"os"
@@ -58,7 +58,7 @@ func main() {
 
 	reg := prom.Client
 	reg.MustRegister(srvMetrics)
-
+	defer CloseMQConn()
 	s := grpc.NewServer(
 		grpc.UnaryInterceptor(otelgrpc.UnaryServerInterceptor()),
 		grpc.ChainUnaryInterceptor(srvMetrics.UnaryServerInterceptor(grpcprom.WithExemplarFromContext(prom.ExtractContext))),
@@ -71,10 +71,9 @@ func main() {
 	log.Infof("Rpc %s is running at %s now", config.MessageRpcServerName, config.MessageRpcServerPort)
 
 	var srv MessageServiceImpl
-	var probe healthImpl.ProbeImpl
 	chat.RegisterChatServiceServer(s, srv)
-	health.RegisterHealthServer(s, &probe)
-
+	grpc_health_v1.RegisterHealthServer(s, health.NewServer())
+	defer CloseMQConn()
 	srv.New()
 	srvMetrics.InitializeMetrics(s)
 

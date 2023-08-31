@@ -96,6 +96,12 @@ services:
       - GF_AUTH_DISABLE_LOGIN_FORM=true
     ports:
       - "3000:3000"
+  influxdb:
+    container_name: "GuGoTik-Extra-InfluxDB"
+    image: tutum/influxdb
+    ports:
+      - "8083:8083"
+      - "8011:8086"
   rabbitmq:
     container_name: "GuGoTik-Extra-RabbitMQ"
     image: epicmo/rabbitmq-manager:1.0

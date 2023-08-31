@@ -4,6 +4,7 @@ import (
 	"GuGoTik/src/constant/config"
 	"GuGoTik/src/utils/logging"
 	"fmt"
+	"github.com/google/uuid"
 	capi "github.com/hashicorp/consul/api"
 	log "github.com/sirupsen/logrus"
 	"strconv"
@@ -34,14 +35,15 @@ func RegisterConsul(name string, port string) error {
 		return err
 	}
 	reg := &capi.AgentServiceRegistration{
-		ID:      fmt.Sprintf("%s-1", name),
+		ID:      fmt.Sprintf("%s-%s", name, uuid.New().String()[:5]),
 		Name:    name,
 		Address: config.EnvCfg.PodIpAddr,
 		Port:    parsedPort,
 		Check: &capi.AgentServiceCheck{
 			Interval:                       "5s",
 			Timeout:                        "5s",
-			GRPC:                           fmt.Sprintf("%s:%d/Heath", config.EnvCfg.PodIpAddr, parsedPort),
+			GRPC:                           fmt.Sprintf("%s:%d", config.EnvCfg.PodIpAddr, parsedPort),
+			GRPCUseTLS:                     false,
 			DeregisterCriticalServiceAfter: "30s",
 		},
 	}

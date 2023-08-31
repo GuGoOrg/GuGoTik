@@ -19,8 +19,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/go-redis/redis_rate/v10"
+	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/sirupsen/logrus"
-	"github.com/streadway/amqp"
 	"math/rand"
 	"net/http"
 	"time"
@@ -316,7 +316,7 @@ func (a PublishServiceImpl) CreateVideo(ctx context.Context, request *publish.Cr
 	routingKeys := []string{strings.VideoPicker, strings.VideoSummary}
 	for _, key := range routingKeys {
 		// Send raw video to all queues bound the exchange
-		err = channel.Publish(strings.VideoExchange, key, false, false,
+		err = channel.PublishWithContext(ctx, strings.VideoExchange, key, false, false,
 			amqp.Publishing{
 				DeliveryMode: amqp.Persistent,
 				ContentType:  "text/plain",

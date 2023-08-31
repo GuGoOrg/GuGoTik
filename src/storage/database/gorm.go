@@ -7,7 +7,9 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/schema"
+	"gorm.io/plugin/dbresolver"
 	"gorm.io/plugin/opentelemetry/tracing"
+	"strings"
 	"time"
 )
 
@@ -50,14 +52,41 @@ func init() {
 		panic(err)
 	}
 
+	if config.EnvCfg.PostgreSQLReplicaState == "enable" {
+		var replicas []gorm.Dialector
+		for _, addr := range strings.Split(config.EnvCfg.PostgreSQLReplicaAddress, ",") {
+			pair := strings.Split(addr, ":")
+			if len(pair) != 2 {
+				continue
+			}
+
+			replicas = append(replicas, postgres.Open(
+				fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s",
+					pair[0],
+					config.EnvCfg.PostgreSQLReplicaUsername,
+					config.EnvCfg.PostgreSQLReplicaPassword,
+					config.EnvCfg.PostgreSQLDataBase,
+					pair[1])))
+		}
+
+		err := Client.Use(dbresolver.Register(dbresolver.Config{
+			Replicas: replicas,
+			Policy:   dbresolver.RandomPolicy{},
+		}))
+		if err != nil {
+			panic(err)
+		}
+	}
+
 	sqlDB, err := Client.DB()
 	if err != nil {
 		panic(err)
 	}
 
-	sqlDB.SetMaxIdleConns(10)
-	sqlDB.SetMaxOpenConns(100)
-	sqlDB.SetConnMaxLifetime(time.Hour)
+	sqlDB.SetMaxIdleConns(100)
+	sqlDB.SetMaxOpenConns(200)
+	sqlDB.SetConnMaxLifetime(24 * time.Hour)
+	sqlDB.SetConnMaxIdleTime(time.Hour)
 
 	if err := Client.Use(tracing.NewPlugin()); err != nil {
 		panic(err)

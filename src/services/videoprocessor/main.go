@@ -14,8 +14,8 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/golang/freetype/truetype"
+	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/sirupsen/logrus"
-	"github.com/streadway/amqp"
 	"gorm.io/gorm/clause"
 	"image"
 	"image/color"
@@ -154,7 +154,7 @@ func Consume(channel *amqp.Channel) {
 			logger.WithFields(logrus.Fields{
 				"err": err,
 			}).Errorf("Error when unmarshaling the prepare json body.")
-			return
+			continue
 		}
 
 		// 截取封面

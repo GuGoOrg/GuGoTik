@@ -3,9 +3,11 @@ package tracing
 import (
 	"GuGoTik/src/constant/config"
 	"GuGoTik/src/utils/logging"
+	"context"
 	"github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/exporters/jaeger"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/resource"
 	"go.opentelemetry.io/otel/sdk/trace"
@@ -16,8 +18,11 @@ import (
 var Tracer trace2.Tracer
 
 func SetTraceProvider(name string) (*trace.TracerProvider, error) {
-	url := config.EnvCfg.TracingEndPoint
-	jexp, err := jaeger.New(jaeger.WithCollectorEndpoint(jaeger.WithEndpoint(url)))
+	client := otlptracehttp.NewClient(
+		otlptracehttp.WithEndpoint(config.EnvCfg.TracingEndPoint),
+		otlptracehttp.WithInsecure(),
+	)
+	exporter, err := otlptrace.New(context.Background(), client)
 	if err != nil {
 		logging.Logger.WithFields(logrus.Fields{
 			"err": err,
@@ -26,7 +31,7 @@ func SetTraceProvider(name string) (*trace.TracerProvider, error) {
 	}
 
 	tp := trace.NewTracerProvider(
-		trace.WithBatcher(jexp),
+		trace.WithBatcher(exporter),
 		trace.WithResource(
 			resource.NewWithAttributes(
 				semconv.SchemaURL,

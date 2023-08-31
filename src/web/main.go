@@ -16,8 +16,6 @@ import (
 	relation2 "GuGoTik/src/web/relation"
 	user2 "GuGoTik/src/web/user"
 	"context"
-	"time"
-
 	"github.com/gin-contrib/gzip"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
@@ -51,7 +49,7 @@ func main() {
 	// Configure Tracing
 	g.Use(otelgin.Middleware(config.WebServiceName))
 	g.Use(middleware.TokenAuthMiddleware())
-	g.Use(middleware.RateLimiterMiddleWare(time.Second, 100, 100))
+	//g.Use(middleware.RateLimiterMiddleWare(time.Second, 10000, 10000))
 
 	// Configure Pyroscope
 	profiling.InitPyroscope("GuGoTik.GateWay")

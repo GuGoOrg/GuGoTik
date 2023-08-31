@@ -17,8 +17,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/go-redis/redis_rate/v10"
+	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/sirupsen/logrus"
-	"github.com/streadway/amqp"
 	"go.opentelemetry.io/otel/trace"
 	"strconv"
 	"sync"
@@ -104,7 +104,7 @@ func produceComment(ctx context.Context, event models.RecommendEvent) {
 
 	headers := rabbitmq.InjectAMQPHeaders(ctx)
 
-	err = channel.Publish(
+	err = channel.PublishWithContext(ctx,
 		strings.EventExchange,
 		strings.VideoCommentEvent,
 		false,
