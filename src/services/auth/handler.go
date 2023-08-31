@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
+	"github.com/willf/bloom"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/crypto/bcrypt"
@@ -35,6 +36,8 @@ var relationClient relation.RelationServiceClient
 var userClient user2.UserServiceClient
 var recommendClient recommend.RecommendServiceClient
 
+var bloomFilter *bloom.BloomFilter
+
 type AuthServiceImpl struct {
 	auth.AuthServiceServer
 }
@@ -46,6 +49,9 @@ func (a AuthServiceImpl) New() {
 	userClient = user2.NewUserServiceClient(userRpcConn)
 	recommendRpcConn := grpc2.Connect(config.RecommendRpcServiceName)
 	recommendClient = recommend.NewRecommendServiceClient(recommendRpcConn)
+
+	// Create a new Bloom filter with a target false positive rate of 0.1%
+	bloomFilter = bloom.NewWithEstimates(10000000, 0.001) // assuming we have 1 million users
 }
 
 func (a AuthServiceImpl) Authenticate(ctx context.Context, request *auth.AuthenticateRequest) (resp *auth.AuthenticateResponse, err error) {
@@ -233,6 +239,7 @@ func (a AuthServiceImpl) Register(ctx context.Context, request *auth.RegisterReq
 	resp.StatusCode = strings.ServiceOKCode
 	resp.StatusMsg = strings.ServiceOK
 
+	bloomFilter.AddString(user.UserName)
 	addMagicUserFriend(ctx, &span, user.ID)
 
 	return
@@ -246,6 +253,19 @@ func (a AuthServiceImpl) Login(ctx context.Context, request *auth.LoginRequest) 
 	logger.WithFields(logrus.Fields{
 		"username": request.Username,
 	}).Infof("User try to log in.")
+
+	// Check if a username might be in the filter
+	if !bloomFilter.TestString(request.Username) {
+		resp = &auth.LoginResponse{
+			StatusCode: strings.UnableToQueryUserErrorCode,
+			StatusMsg:  strings.UnableToQueryUserError,
+		}
+
+		logger.WithFields(logrus.Fields{
+			"username": request.Username,
+		}).Infof("The user is blocked by Bloom Filter")
+		return
+	}
 
 	resp = &auth.LoginResponse{}
 	user := models.User{

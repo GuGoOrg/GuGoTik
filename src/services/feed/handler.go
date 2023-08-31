@@ -134,7 +134,7 @@ func (s FeedServiceImpl) ListVideosByRecommend(ctx context.Context, request *fee
 
 	now := time.Now().UnixMilli()
 	latestTime := now
-	if request.LatestTime != nil && *request.LatestTime != "" {
+	if request.LatestTime != nil && *request.LatestTime != "" && *request.LatestTime != "0" {
 		// Check if request.LatestTime is a timestamp
 		t, ok := isUnixMilliTimestamp(*request.LatestTime)
 		if ok {
