@@ -50,6 +50,14 @@ func ActionMessageHandler(c *gin.Context) {
 	var res *chat.ActionResponse
 	var err error
 
+	if req.ActionType != 1 {
+		c.JSON(http.StatusOK, models.ActionCommentRes{
+			StatusCode: strings.GateWayParamsErrorCode,
+			StatusMsg:  strings.GateWayParamsError,
+		})
+		return
+	}
+
 	res, err = Client.ChatAction(c.Request.Context(), &chat.ActionRequest{
 		ActorId:    uint32(req.ActorId),
 		UserId:     uint32(req.ToUserId),
