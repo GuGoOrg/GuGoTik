@@ -7,6 +7,7 @@ import (
 	"GuGoTik/src/models"
 	"GuGoTik/src/rpc/feed"
 	"GuGoTik/src/rpc/publish"
+	"GuGoTik/src/storage/cached"
 	"GuGoTik/src/storage/database"
 	"GuGoTik/src/storage/file"
 	"GuGoTik/src/storage/redis"
@@ -23,6 +24,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"math/rand"
 	"net/http"
+	"strconv"
 	"time"
 )
 
@@ -185,26 +187,50 @@ func (a PublishServiceImpl) CountVideo(ctx context.Context, req *publish.CountVi
 	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("PublishServiceImpl.CountVideo").WithContext(ctx)
 
-	var count int64
-	err = database.Client.WithContext(ctx).Model(&models.Video{}).Where("user_id = ?", req.UserId).Count(&count).Error
+	countStringKey := fmt.Sprintf("VideoCount-%d", req.UserId)
+	countString, err := cached.GetWithFunc(ctx, countStringKey,
+		func(ctx context.Context, key string) (string, error) {
+			rCount, err := count(ctx, req.UserId)
+			return strconv.FormatInt(rCount, 10), err
+		})
+
 	if err != nil {
+		cached.TagDelete(ctx, "VideoCount")
 		logger.WithFields(logrus.Fields{
-			"err": err,
-		}).Warnf("failed to count video")
+			"err":     err,
+			"user_id": req.UserId,
+		}).Errorf("failed to count video")
+		logging.SetSpanError(span, err)
+
 		resp = &publish.CountVideoResponse{
 			StatusCode: strings.PublishServiceInnerErrorCode,
 			StatusMsg:  strings.PublishServiceInnerError,
 		}
-		logging.SetSpanError(span, err)
 		return
 	}
+	rCount, _ := strconv.ParseUint(countString, 10, 64)
 
 	resp = &publish.CountVideoResponse{
 		StatusCode: strings.ServiceOKCode,
 		StatusMsg:  strings.ServiceOK,
-		Count:      uint32(count),
+		Count:      uint32(rCount),
 	}
 	return
+}
+
+func count(ctx context.Context, userId uint32) (count int64, err error) {
+	ctx, span := tracing.Tracer.Start(ctx, "CountVideo")
+	defer span.End()
+	logger := logging.LogService("PublishService.CountVideo").WithContext(ctx)
+	result := database.Client.Model(&models.Video{}).WithContext(ctx).Where("user_id = ?", userId).Count(&count)
+
+	if result.Error != nil {
+		logger.WithFields(logrus.Fields{
+			"err": err,
+		}).Errorf("Error when counting video")
+		logging.SetSpanError(span, err)
+	}
+	return count, result.Error
 }
 
 func (a PublishServiceImpl) CreateVideo(ctx context.Context, request *publish.CreateVideoRequest) (resp *publish.CreateVideoResponse, err error) {
