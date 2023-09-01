@@ -88,4 +88,6 @@ const (
 	ChatActionLimitedError        = "发送消息频繁，请稍后再试！"
 	FollowLimitedCode             = 10012
 	FollowLimited                 = "关注频繁，请稍后再试！"
+	UserDoNotExistedCode          = 10013
+	UserDoNotExisted              = "查询用户不存在！"
 )

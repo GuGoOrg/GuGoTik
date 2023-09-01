@@ -196,6 +196,13 @@ func (c CommentServiceImpl) ActionComment(ctx context.Context, request *comment.
 	})
 
 	if err != nil || userResponse.StatusCode != strings.ServiceOKCode {
+		if userResponse.StatusCode == strings.UserNotExistedCode {
+			resp = &comment.ActionCommentResponse{
+				StatusCode: strings.UserDoNotExistedCode,
+				StatusMsg:  strings.UserNotExisted,
+			}
+			return
+		}
 		logger.WithFields(logrus.Fields{
 			"err":     err,
 			"ActorId": request.ActorId,

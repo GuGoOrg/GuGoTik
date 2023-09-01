@@ -292,8 +292,8 @@ func (a UserServiceImpl) GetUserExistInformation(ctx context.Context, request *u
 
 	if !ok {
 		resp = &user.UserExistResponse{
-			StatusCode: strings.UserNotExistedCode,
-			StatusMsg:  strings.UserNotExisted,
+			StatusCode: strings.ServiceOKCode,
+			StatusMsg:  strings.ServiceOK,
 			Existed:    false,
 		}
 		logger.WithFields(logrus.Fields{

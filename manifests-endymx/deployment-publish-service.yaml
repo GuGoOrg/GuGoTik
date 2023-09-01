@@ -52,8 +52,8 @@ spec:
                 cpu: 2000m
                 memory: 2048Mi
               requests:
-                cpu: 1000m
-                memory: 1024Mi
+                cpu: 100m
+                memory: 128Mi
             volumeMounts:
               - mountPath: /data/apps/gugotik-service-bundle/data
                 name: volume

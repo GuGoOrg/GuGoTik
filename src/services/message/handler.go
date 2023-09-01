@@ -189,6 +189,13 @@ func (c MessageServiceImpl) ChatAction(ctx context.Context, request *chat.Action
 		}, err
 	}
 
+	if !userResponse.Existed {
+		return &chat.ActionResponse{
+			StatusCode: strings.UserDoNotExistedCode,
+			StatusMsg:  strings.UserNotExisted,
+		}, nil
+	}
+
 	res, err = addMessage(ctx, request.ActorId, request.UserId, request.Content)
 	if err != nil {
 		logger.WithFields(logrus.Fields{
@@ -237,6 +244,13 @@ func (c MessageServiceImpl) Chat(ctx context.Context, request *chat.ChatRequest)
 			StatusMsg:  strings.UnableToQueryMessageError,
 		}
 		return
+	}
+
+	if !userResponse.Existed {
+		return &chat.ChatResponse{
+			StatusCode: strings.UserDoNotExistedCode,
+			StatusMsg:  strings.UserNotExisted,
+		}, nil
 	}
 
 	toUserId := request.UserId

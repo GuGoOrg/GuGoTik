@@ -10,6 +10,7 @@ import (
 	"GuGoTik/src/rpc/feed"
 	"GuGoTik/src/rpc/recommend"
 	"GuGoTik/src/rpc/user"
+	"GuGoTik/src/storage/cached"
 	"GuGoTik/src/storage/database"
 	"GuGoTik/src/storage/file"
 	grpc2 "GuGoTik/src/utils/grpc"
@@ -360,9 +361,15 @@ func (s FeedServiceImpl) QueryVideoExisted(ctx context.Context, req *feed.VideoE
 	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("FeedService.QueryVideoExisted").WithContext(ctx)
 	var video models.Video
-	result := database.Client.WithContext(ctx).Where("id = ?", req.VideoId).First(&video)
-	if result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+	_, err = cached.GetWithFunc(ctx, "VideoExistedCached", func(ctx context.Context, key string) (string, error) {
+		row := database.Client.WithContext(ctx).Where("id = ?", req.VideoId).First(&video)
+		if row.Error != nil {
+			return "false", row.Error
+		}
+		return "true", nil
+	})
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			logger.WithFields(logrus.Fields{
 				"video_id": req.VideoId,
 			}).Warnf("gorm.ErrRecordNotFound")
@@ -383,7 +390,7 @@ func (s FeedServiceImpl) QueryVideoExisted(ctx context.Context, req *feed.VideoE
 				StatusMsg:  strings.FeedServiceInnerError,
 				Existed:    false,
 			}
-			return resp, result.Error
+			return resp, err
 		}
 	}
 	resp = &feed.VideoExistResponse{

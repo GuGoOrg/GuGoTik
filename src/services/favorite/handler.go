@@ -289,6 +289,14 @@ func (c FavoriteServiceServerImpl) FavoriteList(ctx context.Context, req *favori
 		}, err
 	}
 
+	if !userResponse.Existed {
+		resp = &favorite.FavoriteListResponse{
+			StatusCode: strings.UserDoNotExistedCode,
+			StatusMsg:  strings.UserDoNotExisted,
+		}
+		return
+	}
+
 	userId := fmt.Sprintf("%suser_like_%d", config.EnvCfg.RedisPrefix, req.UserId)
 	arr, err := redis2.Client.ZRevRange(ctx, userId, 0, -1).Result()
 	if err != nil {
@@ -499,6 +507,15 @@ func (c FavoriteServiceServerImpl) CountUserFavorite(ctx context.Context, req *f
 			StatusMsg:  strings.FavoriteServiceError,
 		}, err
 	}
+
+	if !userResponse.Existed {
+		resp = &favorite.CountUserFavoriteResponse{
+			StatusCode: strings.UserDoNotExistedCode,
+			StatusMsg:  strings.UserDoNotExisted,
+		}
+		return
+	}
+
 	user_like_id := fmt.Sprintf("%suser_like_%d", config.EnvCfg.RedisPrefix, req.UserId)
 
 	value, err := redis2.Client.ZCard(ctx, user_like_id).Result()
@@ -561,6 +578,15 @@ func (c FavoriteServiceServerImpl) CountUserTotalFavorited(ctx context.Context, 
 			StatusMsg:  strings.FavoriteServiceError,
 		}, err
 	}
+
+	if !userResponse.Existed {
+		resp = &favorite.CountUserTotalFavoritedResponse{
+			StatusCode: strings.UserDoNotExistedCode,
+			StatusMsg:  strings.UserDoNotExisted,
+		}
+		return
+	}
+
 	user_liked_id := fmt.Sprintf("%suser_liked_%d", config.EnvCfg.RedisPrefix, req.UserId)
 
 	value, err := redis2.Client.Get(ctx, user_liked_id).Result()

@@ -21,6 +21,7 @@ func TokenAuthMiddleware() gin.HandlerFunc {
 		ctx, span := tracing.Tracer.Start(c.Request.Context(), "AuthMiddleWare")
 		defer span.End()
 		logging.SetSpanWithHostname(span)
+		logger := logging.LogService("GateWay.AuthMiddleWare").WithContext(ctx)
 
 		if c.Request.URL.Path == "/douyin/user/login/" ||
 			c.Request.URL.Path == "/douyin/user/register/" ||
@@ -29,7 +30,11 @@ func TokenAuthMiddleware() gin.HandlerFunc {
 			c.Request.URL.Path == "/douyin/publish/list/" ||
 			c.Request.URL.Path == "/douyin/favorite/list/" ||
 			c.Request.URL.Path == "/douyin/relation/follower/list/" {
+			c.Request.URL.RawQuery += "&actor_id=114514"
 			c.Next()
+			logger.WithFields(logrus.Fields{
+				"Path": c.Request.URL.Path,
+			}).Debugf("Skip Auth with targeted url")
 			return
 		}
 
@@ -45,7 +50,6 @@ func TokenAuthMiddleware() gin.HandlerFunc {
 			return
 		}
 		span.SetAttributes(attribute.String("token", token))
-		logger := logging.LogService("GateWay.AuthMiddleWare").WithContext(ctx)
 		// Verify User Token
 		authenticate, err := client.Authenticate(c.Request.Context(), &auth.AuthenticateRequest{Token: token})
 		if err != nil {
