@@ -49,6 +49,7 @@ type envConfig struct {
 	PostgreSQLReplicaPassword string  `env:"POSTGRESQL_REPLICA_PASSWORD"`
 	OtelState                 string  `env:"TRACING_STATE" envDefault:"enable"`
 	OtelSampler               float64 `env:"TRACING_SAMPLER" envDefault:"0.01"`
+	AnonymityUser             string  `env:"ANONYMITY_USER" envDefault:"114514"`
 }
 
 func init() {

@@ -7,17 +7,15 @@ export const options = {
             executor: 'ramping-vus',
             gracefulStop: '30s',
             stages: [
-                { target: 1000, duration: '15s' },
-                { target: 1500, duration: '30s' },
-                { target: 1000, duration: '15s' },
+                { target: 1000, duration: '60s' },
             ],
             gracefulRampDown: '30s',
-            exec: 'login',
+            exec: 'feed',
         },
     },
 }
 
-export function login() {
+export function feed() {
     http.get('https://gugotik.endymx.qzwxsaedc.cn/douyin/feed?')
 
     sleep(3)

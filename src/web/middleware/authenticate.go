@@ -30,7 +30,7 @@ func TokenAuthMiddleware() gin.HandlerFunc {
 			c.Request.URL.Path == "/douyin/publish/list/" ||
 			c.Request.URL.Path == "/douyin/favorite/list/" ||
 			c.Request.URL.Path == "/douyin/relation/follower/list/" {
-			c.Request.URL.RawQuery += "&actor_id=114514"
+			c.Request.URL.RawQuery += "&actor_id=" + config.EnvCfg.AnonymityUser
 			c.Next()
 			logger.WithFields(logrus.Fields{
 				"Path": c.Request.URL.Path,
