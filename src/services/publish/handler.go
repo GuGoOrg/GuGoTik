@@ -359,6 +359,8 @@ func (a PublishServiceImpl) CreateVideo(ctx context.Context, request *publish.Cr
 		}
 	}
 
+	countStringKey := fmt.Sprintf("VideoCount-%d", request.ActorId)
+	cached.TagDelete(ctx, countStringKey)
 	resp = &publish.CreateVideoResponse{
 		StatusCode: strings.ServiceOKCode,
 		StatusMsg:  strings.ServiceOK,

@@ -19,6 +19,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"gorm.io/gorm"
 	"strconv"
@@ -361,7 +362,7 @@ func (s FeedServiceImpl) QueryVideoExisted(ctx context.Context, req *feed.VideoE
 	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("FeedService.QueryVideoExisted").WithContext(ctx)
 	var video models.Video
-	_, err = cached.GetWithFunc(ctx, "VideoExistedCached", func(ctx context.Context, key string) (string, error) {
+	_, err = cached.GetWithFunc(ctx, fmt.Sprintf("VideoExistedCached-%d", req.VideoId), func(ctx context.Context, key string) (string, error) {
 		row := database.Client.WithContext(ctx).Where("id = ?", req.VideoId).First(&video)
 		if row.Error != nil {
 			return "false", row.Error
