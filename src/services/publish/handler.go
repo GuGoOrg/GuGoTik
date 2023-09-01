@@ -181,7 +181,6 @@ func (a PublishServiceImpl) ListVideo(ctx context.Context, req *publish.ListVide
 	return
 }
 
-// CountVideo todo:添加缓存
 func (a PublishServiceImpl) CountVideo(ctx context.Context, req *publish.CountVideoRequest) (resp *publish.CountVideoResponse, err error) {
 	ctx, span := tracing.Tracer.Start(ctx, "CountVideoService")
 	defer span.End()
