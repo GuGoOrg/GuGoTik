@@ -50,6 +50,12 @@ func ActionRelationHandler(c *gin.Context) {
 			ActorId: uint32(req.ActorId),
 			UserId:  uint32(req.UserId),
 		})
+	} else {
+		c.JSON(http.StatusOK, models.ActionCommentRes{
+			StatusCode: strings.GateWayParamsErrorCode,
+			StatusMsg:  strings.GateWayParamsError,
+		})
+		return
 	}
 
 	if err != nil {

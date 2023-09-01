@@ -7,6 +7,7 @@ import (
 	"GuGoTik/src/models"
 	"GuGoTik/src/rpc/feed"
 	"GuGoTik/src/rpc/publish"
+	"GuGoTik/src/rpc/user"
 	"GuGoTik/src/storage/cached"
 	"GuGoTik/src/storage/database"
 	"GuGoTik/src/storage/file"
@@ -37,6 +38,7 @@ var conn *amqp.Connection
 var channel *amqp.Channel
 
 var FeedClient feed.FeedServiceClient
+var userClient user.UserServiceClient
 
 func exitOnError(err error) {
 	if err != nil {
@@ -66,6 +68,10 @@ func createVideoLimitKey(userId uint32) string {
 func (a PublishServiceImpl) New() {
 	FeedRpcConn := grpc2.Connect(config.FeedRpcServerName)
 	FeedClient = feed.NewFeedServiceClient(FeedRpcConn)
+
+	userRpcConn := grpc2.Connect(config.UserRpcServerName)
+	userClient = user.NewUserServiceClient(userRpcConn)
+
 	var err error
 
 	conn, err = amqp.Dial(rabbitmq.BuildMQConnAddr())
@@ -132,6 +138,34 @@ func (a PublishServiceImpl) ListVideo(ctx context.Context, req *publish.ListVide
 	defer span.End()
 	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("PublishServiceImpl.ListVideo").WithContext(ctx)
+
+	// Check if user exist
+	userExistResp, err := userClient.GetUserExistInformation(ctx, &user.UserExistRequest{
+		UserId: req.UserId,
+	})
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"err": err,
+		}).Errorf("Query user existence happens error")
+		logging.SetSpanError(span, err)
+		resp = &publish.ListVideoResponse{
+			StatusCode: strings.UserServiceInnerErrorCode,
+			StatusMsg:  strings.UserServiceInnerError,
+		}
+		return
+	}
+
+	if !userExistResp.Existed {
+		logger.WithFields(logrus.Fields{
+			"UserID": req.UserId,
+		}).Errorf("User ID does not exist")
+		logging.SetSpanError(span, err)
+		resp = &publish.ListVideoResponse{
+			StatusCode: strings.UserDoNotExistedCode,
+			StatusMsg:  strings.UserDoNotExisted,
+		}
+		return
+	}
 
 	var videos []models.Video
 	err = database.Client.WithContext(ctx).

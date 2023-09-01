@@ -125,6 +125,34 @@ func (c FavoriteServiceServerImpl) FavoriteAction(ctx context.Context, req *favo
 		"action_type": req.ActionType, //点赞 1 2 取消点赞
 	}).Debugf("Process start")
 
+	// Check if video exists
+	videoExistResp, err := feedClient.QueryVideoExisted(ctx, &feed.VideoExistRequest{
+		VideoId: req.VideoId,
+	})
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"err": err,
+		}).Errorf("Query video existence happens error")
+		logging.SetSpanError(span, err)
+		resp = &favorite.FavoriteResponse{
+			StatusCode: strings.FeedServiceInnerErrorCode,
+			StatusMsg:  strings.FeedServiceInnerError,
+		}
+		return
+	}
+
+	if !videoExistResp.Existed {
+		logger.WithFields(logrus.Fields{
+			"VideoId": req.VideoId,
+		}).Errorf("Video ID does not exist")
+		logging.SetSpanError(span, err)
+		resp = &favorite.FavoriteResponse{
+			StatusCode: strings.UnableToQueryVideoErrorCode,
+			StatusMsg:  strings.UnableToQueryVideoError,
+		}
+		return
+	}
+
 	VideosRes, err := feedClient.QueryVideos(ctx, &feed.QueryVideosRequest{
 		ActorId:  req.ActorId,
 		VideoIds: []uint32{req.VideoId},

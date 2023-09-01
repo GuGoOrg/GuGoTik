@@ -6,6 +6,7 @@ import (
 	"GuGoTik/src/extra/tracing"
 	"GuGoTik/src/models"
 	"GuGoTik/src/rpc/comment"
+	"GuGoTik/src/rpc/feed"
 	"GuGoTik/src/rpc/user"
 	"GuGoTik/src/storage/cached"
 	"GuGoTik/src/storage/database"
@@ -26,6 +27,7 @@ import (
 )
 
 var userClient user.UserServiceClient
+var feedClient feed.FeedServiceClient
 
 var actionCommentLimitKeyPrefix = config.EnvCfg.RedisPrefix + "comment_freq_limit"
 
@@ -57,6 +59,9 @@ var channel *amqp.Channel
 func (c CommentServiceImpl) New() {
 	userRpcConn := grpc2.Connect(config.UserRpcServerName)
 	userClient = user.NewUserServiceClient(userRpcConn)
+
+	feedRpcConn := grpc2.Connect(config.FeedRpcServerName)
+	feedClient = feed.NewFeedServiceClient(feedRpcConn)
 
 	var err error
 
@@ -189,6 +194,34 @@ func (c CommentServiceImpl) ActionComment(ctx context.Context, request *comment.
 		return
 	}
 
+	// Check if video exists
+	videoExistResp, err := feedClient.QueryVideoExisted(ctx, &feed.VideoExistRequest{
+		VideoId: request.VideoId,
+	})
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"err": err,
+		}).Errorf("Query video existence happens error")
+		logging.SetSpanError(span, err)
+		resp = &comment.ActionCommentResponse{
+			StatusCode: strings.FeedServiceInnerErrorCode,
+			StatusMsg:  strings.FeedServiceInnerError,
+		}
+		return
+	}
+
+	if !videoExistResp.Existed {
+		logger.WithFields(logrus.Fields{
+			"VideoId": request.VideoId,
+		}).Errorf("Video ID does not exist")
+		logging.SetSpanError(span, err)
+		resp = &comment.ActionCommentResponse{
+			StatusCode: strings.UnableToQueryVideoErrorCode,
+			StatusMsg:  strings.UnableToQueryVideoError,
+		}
+		return
+	}
+
 	// Get target user
 	userResponse, err := userClient.GetUserInfo(ctx, &user.UserRequest{
 		UserId:  request.ActorId,
@@ -249,6 +282,34 @@ func (c CommentServiceImpl) ListComment(ctx context.Context, request *comment.Li
 		"user_id":  request.ActorId,
 		"video_id": request.VideoId,
 	}).Debugf("Process start")
+
+	// Check if video exists
+	videoExistResp, err := feedClient.QueryVideoExisted(ctx, &feed.VideoExistRequest{
+		VideoId: request.VideoId,
+	})
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"err": err,
+		}).Errorf("Query video existence happens error")
+		logging.SetSpanError(span, err)
+		resp = &comment.ListCommentResponse{
+			StatusCode: strings.FeedServiceInnerErrorCode,
+			StatusMsg:  strings.FeedServiceInnerError,
+		}
+		return
+	}
+
+	if !videoExistResp.Existed {
+		logger.WithFields(logrus.Fields{
+			"VideoId": request.VideoId,
+		}).Errorf("Video ID does not exist")
+		logging.SetSpanError(span, err)
+		resp = &comment.ListCommentResponse{
+			StatusCode: strings.UnableToQueryVideoErrorCode,
+			StatusMsg:  strings.UnableToQueryVideoError,
+		}
+		return
+	}
 
 	var pCommentList []models.Comment
 	result := database.Client.WithContext(ctx).
