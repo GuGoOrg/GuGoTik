@@ -12,12 +12,12 @@ Project Developer: This is a group of Contributors from all over the world, from
 - [amazing-compass](https://github.com/amazing-compass)
 - [XFFFCCCC](https://github.com/XFFFCCCC)
 
-特别感谢：
+Special Thanks：
 - [Eric](https://github.com/ExerciseBook)
 - [Huang Yongliang](https://github.com/956237586)
 - [nicognaW](https://github.com/nicognaW)
 
-以及有事而无法参与项目的小伙伴：
+And the friends who can not participle in our development due to the personal things：
 - [Chuanwise](https://github.com/Chuanwise)
 
 # 项目结构
