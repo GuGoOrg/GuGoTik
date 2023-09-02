@@ -463,7 +463,7 @@ func sendMagicMessage() {
 			logger.WithFields(logrus.Fields{
 				"UserId": friend.Id,
 				"Err":    err,
-			}).Errorf("Cannot get recommend video of user %d", friend.Id)
+			}).Errorf("Cannot get recommend video of user")
 			logging.SetSpanError(span, err)
 			continue
 		}
@@ -476,7 +476,7 @@ func sendMagicMessage() {
 				ActorId:  config.EnvCfg.MagicUserId,
 				VideoIds: []uint32{videoId},
 			})
-			if err != nil {
+			if err != nil || len(videoQueryResponse.VideoList) < 1 {
 				logger.WithFields(logrus.Fields{
 					"UserId":  friend.Id,
 					"VideoId": videoId,
