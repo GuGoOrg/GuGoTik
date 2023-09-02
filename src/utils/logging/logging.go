@@ -7,6 +7,7 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
+	"io"
 	"os"
 )
 
@@ -29,9 +30,17 @@ func init() {
 	case "TRACE":
 		log.SetLevel(log.TraceLevel)
 	}
-	log.SetOutput(os.Stdout)
+
+	logFile := "log.txt"
+	f, err := os.OpenFile(logFile, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
+	if err != nil {
+		panic(err)
+	}
+
 	log.SetFormatter(&log.JSONFormatter{})
 	log.AddHook(logTraceHook{})
+	log.SetOutput(io.MultiWriter(f, os.Stdout))
+
 	Logger = log.WithFields(log.Fields{
 		"Tied":     config.EnvCfg.TiedLogging,
 		"Hostname": hostname,
