@@ -39,9 +39,9 @@ func TestListVideo(t *testing.T) {
 }
 
 func TestPublishVideo(t *testing.T) {
-	url := "http://43.248.96.203:32192/douyin/publish/action"
+	url := "http://127.0.0.1:37000/douyin/publish/action"
 	method := "POST"
-	filePath := "E:\\Administrator\\Downloads\\Video\\1245212692-1-192.mp4"
+	filePath := "E:\\Administrator\\Videos\\1.mp4"
 
 	payload := &bytes.Buffer{}
 	writer := multipart.NewWriter(payload)

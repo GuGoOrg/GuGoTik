@@ -30,6 +30,13 @@ func SetTraceProvider(name string) (*trace.TracerProvider, error) {
 		return nil, err
 	}
 
+	var sampler trace.Sampler
+	if config.EnvCfg.OtelState == "disable" {
+		sampler = trace.NeverSample()
+	} else {
+		sampler = trace.TraceIDRatioBased(config.EnvCfg.OtelSampler)
+	}
+
 	tp := trace.NewTracerProvider(
 		trace.WithBatcher(exporter),
 		trace.WithResource(
@@ -38,7 +45,7 @@ func SetTraceProvider(name string) (*trace.TracerProvider, error) {
 				semconv.ServiceNameKey.String(name),
 			),
 		),
-		trace.WithSampler(trace.AlwaysSample()),
+		trace.WithSampler(sampler),
 	)
 	otel.SetTracerProvider(tp)
 	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))

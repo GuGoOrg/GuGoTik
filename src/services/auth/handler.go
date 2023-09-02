@@ -263,7 +263,7 @@ func (a AuthServiceImpl) Login(ctx context.Context, request *auth.LoginRequest) 
 	logger := logging.LogService("AuthService.Login").WithContext(ctx)
 	logger.WithFields(logrus.Fields{
 		"username": request.Username,
-	}).Infof("User try to log in.")
+	}).Debugf("User try to log in.")
 
 	// Check if a username might be in the filter
 	if !BloomFilter.TestString(request.Username) {
@@ -379,7 +379,7 @@ func (a AuthServiceImpl) Login(ctx context.Context, request *auth.LoginRequest) 
 	logger.WithFields(logrus.Fields{
 		"token":  token,
 		"userId": user.ID,
-	}).Infof("User log in sucess !")
+	}).Debugf("User log in sucess !")
 	resp = &auth.LoginResponse{
 		StatusCode: strings.ServiceOKCode,
 		StatusMsg:  strings.ServiceOK,
@@ -411,7 +411,7 @@ func getToken(ctx context.Context, userId uint32) (string, error) {
 	logger := logging.LogService("AuthService.Login").WithContext(ctx)
 	logger.WithFields(logrus.Fields{
 		"userId": userId,
-	}).Infof("Select for user token")
+	}).Debugf("Select for user token")
 	return cached.GetWithFunc(ctx, "U2T"+strconv.FormatUint(uint64(userId), 10),
 		func(ctx context.Context, key string) (string, error) {
 			span := trace.SpanFromContext(ctx)

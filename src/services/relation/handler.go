@@ -13,10 +13,12 @@ import (
 	grpc2 "GuGoTik/src/utils/grpc"
 	"GuGoTik/src/utils/logging"
 	"context"
+	"errors"
 	"fmt"
 	"github.com/go-redis/redis_rate/v10"
 	"github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel/trace"
+	"gorm.io/gorm"
 	"strconv"
 	"sync"
 	"time"
@@ -94,6 +96,14 @@ func (r RelationServiceImpl) Follow(ctx context.Context, request *relation.Relat
 		return
 	}
 
+	if !userExist.Existed {
+		resp = &relation.RelationActionResponse{
+			StatusCode: strings.UserDoNotExistedCode,
+			StatusMsg:  strings.UserDoNotExisted,
+		}
+		return
+	}
+
 	if request.UserId == request.ActorId {
 		resp = &relation.RelationActionResponse{
 			StatusCode: strings.UnableToRelateYourselfErrorCode,
@@ -114,6 +124,14 @@ func (r RelationServiceImpl) Follow(ctx context.Context, request *relation.Relat
 		resp = &relation.RelationActionResponse{
 			StatusCode: strings.UnableToQueryUserErrorCode,
 			StatusMsg:  strings.UnableToQueryUserError,
+		}
+		return
+	}
+
+	if !userExist.Existed {
+		resp = &relation.RelationActionResponse{
+			StatusCode: strings.UserDoNotExistedCode,
+			StatusMsg:  strings.UserDoNotExisted,
 		}
 		return
 	}
@@ -190,6 +208,7 @@ func (r RelationServiceImpl) Follow(ctx context.Context, request *relation.Relat
 		logging.SetSpanError(span, err)
 		return
 	}
+	cached.TagDelete(ctx, fmt.Sprintf("IsFollowedCache-%d-%d", request.UserId, request.ActorId))
 	resp = &relation.RelationActionResponse{
 		StatusCode: strings.ServiceOKCode,
 		StatusMsg:  strings.ServiceOK,
@@ -219,6 +238,13 @@ func (r RelationServiceImpl) Unfollow(ctx context.Context, request *relation.Rel
 		}
 		return
 	}
+	if !userExist.Existed {
+		resp = &relation.RelationActionResponse{
+			StatusCode: strings.UserDoNotExistedCode,
+			StatusMsg:  strings.UserDoNotExisted,
+		}
+		return
+	}
 
 	if request.UserId == request.ActorId {
 		resp = &relation.RelationActionResponse{
@@ -240,6 +266,14 @@ func (r RelationServiceImpl) Unfollow(ctx context.Context, request *relation.Rel
 		resp = &relation.RelationActionResponse{
 			StatusCode: strings.UnableToQueryUserErrorCode,
 			StatusMsg:  strings.UnableToQueryUserError,
+		}
+		return
+	}
+
+	if !userExist.Existed {
+		resp = &relation.RelationActionResponse{
+			StatusCode: strings.UserDoNotExistedCode,
+			StatusMsg:  strings.UserDoNotExisted,
 		}
 		return
 	}
@@ -312,7 +346,7 @@ func (r RelationServiceImpl) Unfollow(ctx context.Context, request *relation.Rel
 		logging.SetSpanError(span, err)
 		return
 	}
-
+	cached.TagDelete(ctx, fmt.Sprintf("IsFollowedCache-%d-%d", request.UserId, request.ActorId))
 	resp = &relation.RelationActionResponse{
 		StatusCode: strings.ServiceOKCode,
 		StatusMsg:  strings.ServiceOK,
@@ -338,6 +372,14 @@ func (r RelationServiceImpl) CountFollowList(ctx context.Context, request *relat
 		resp = &relation.CountFollowListResponse{
 			StatusCode: strings.UnableToQueryUserErrorCode,
 			StatusMsg:  strings.UnableToQueryUserError,
+		}
+		return
+	}
+
+	if !userExist.Existed {
+		resp = &relation.CountFollowListResponse{
+			StatusCode: strings.UserDoNotExistedCode,
+			StatusMsg:  strings.UserDoNotExisted,
 		}
 		return
 	}
@@ -427,6 +469,14 @@ func (r RelationServiceImpl) CountFollowerList(ctx context.Context, request *rel
 		resp = &relation.CountFollowerListResponse{
 			StatusCode: strings.UnableToQueryUserErrorCode,
 			StatusMsg:  strings.UnableToQueryUserError,
+		}
+		return
+	}
+
+	if !userExist.Existed {
+		resp = &relation.CountFollowerListResponse{
+			StatusCode: strings.UserDoNotExistedCode,
+			StatusMsg:  strings.UserDoNotExisted,
 		}
 		return
 	}
@@ -693,15 +743,21 @@ func (r RelationServiceImpl) IsFollow(ctx context.Context, request *relation.IsF
 	logging.SetSpanWithHostname(span)
 	logger := logging.LogService("RelationService.isFollow").WithContext(ctx)
 
-	var count int64
-	result := database.Client.WithContext(ctx).
-		Model(&models.Relation{}).
-		Where("user_id = ? AND actor_id = ?", request.UserId, request.ActorId).
-		Count(&count)
+	res, err := cached.GetWithFunc(ctx, fmt.Sprintf("IsFollowedCache-%d-%d", request.UserId, request.ActorId), func(ctx context.Context, key string) (string, error) {
+		var count int64
+		row := database.Client.WithContext(ctx).
+			Model(&models.Relation{}).
+			Where("user_id = ? AND actor_id = ?", request.UserId, request.ActorId).
+			Count(&count)
+		if row.Error != nil && !errors.Is(row.Error, gorm.ErrRecordNotFound) {
+			return "false", row.Error
+		}
+		return strconv.FormatInt(count, 10), nil
+	})
 
-	if result.Error != nil {
+	if err != nil {
 		logger.WithFields(logrus.Fields{
-			"err":     result.Error,
+			"err":     err,
 			"ActorId": request.ActorId,
 			"UserId":  request.UserId,
 		}).Errorf("IsFollowService failed")
@@ -718,7 +774,7 @@ func (r RelationServiceImpl) IsFollow(ctx context.Context, request *relation.IsF
 	resp = &relation.IsFollowResponse{
 		StatusCode: strings.ServiceOKCode,
 		StatusMsg:  strings.ServiceOK,
-		Result:     count > 0,
+		Result:     res != "0",
 	}
 	return
 }
@@ -781,7 +837,7 @@ func (r RelationServiceImpl) GetFollowList(ctx context.Context, request *relatio
 		}
 	}
 
-	rFollowList, err := r.idList2UserList(ctx, followIdListInt, request.UserId, logger, span)
+	rFollowList, err := r.idList2UserList(ctx, followIdListInt, request.ActorId, logger, span)
 	if err != nil {
 		resp = &relation.FollowListResponse{
 			StatusCode: strings.UnableToGetFollowListErrorCode,
@@ -861,7 +917,7 @@ func (r RelationServiceImpl) GetFollowerList(ctx context.Context, request *relat
 		}
 	}
 
-	rFollowerList, err := r.idList2UserList(ctx, followerIdListInt, request.UserId, logger, span)
+	rFollowerList, err := r.idList2UserList(ctx, followerIdListInt, request.ActorId, logger, span)
 	if err != nil {
 		resp = &relation.FollowerListResponse{
 			StatusCode: strings.UnableToGetFollowerListErrorCode,
@@ -1149,6 +1205,10 @@ func isUserExist(ctx context.Context, actorID uint32, userID uint32, span trace.
 		return
 	}
 
+	if !userExist.Existed {
+		ok = false
+		return
+	}
 	userExist, err = userClient.GetUserExistInformation(ctx, &user.UserExistRequest{UserId: userID})
 
 	if err != nil || userExist.StatusCode != strings.ServiceOKCode {
@@ -1160,6 +1220,12 @@ func isUserExist(ctx context.Context, actorID uint32, userID uint32, span trace.
 		ok = false
 		return
 	}
+
+	if !userExist.Existed {
+		ok = false
+		return
+	}
+
 	ok = true
 	return
 }

@@ -13,6 +13,7 @@ import (
 	_ "github.com/mbobakov/grpc-consul-resolver"
 	"github.com/sirupsen/logrus"
 	"net/http"
+	"strconv"
 )
 
 var Client feed.FeedServiceClient
@@ -42,7 +43,17 @@ func ListVideosByRecommendHandle(c *gin.Context) {
 	actorId := uint32(req.ActorId)
 	var res *feed.ListFeedResponse
 	var err error
-	if actorId == 0 {
+	anonymity, err := strconv.ParseUint(config.EnvCfg.AnonymityUser, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusOK, models.ListVideosRes{
+			StatusCode: strings.FeedServiceInnerErrorCode,
+			StatusMsg:  strings.FeedServiceInnerError,
+			NextTime:   nil,
+			VideoList:  nil,
+		})
+		return
+	}
+	if actorId == uint32(anonymity) {
 		res, err = Client.ListVideos(c.Request.Context(), &feed.ListFeedRequest{
 			LatestTime: &latestTime,
 			ActorId:    &actorId,

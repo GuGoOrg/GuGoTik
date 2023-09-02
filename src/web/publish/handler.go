@@ -37,7 +37,10 @@ func ListPublishHandle(c *gin.Context) {
 		})
 		return
 	}
-
+	logger.WithFields(logrus.Fields{
+		"ActorId": req.ActorId,
+		"UserId":  req.UserId,
+	}).Debugf("List user video information")
 	res, err := Client.ListVideo(c.Request.Context(), &publish.ListVideoRequest{
 		ActorId: req.ActorId,
 		UserId:  req.UserId,
@@ -45,14 +48,14 @@ func ListPublishHandle(c *gin.Context) {
 	if err != nil {
 		logger.WithFields(logrus.Fields{
 			"UserId": req.UserId,
-		}).Warnf("Error when trying to connect with PublishService")
+		}).Errorf("Error when trying to connect with PublishService")
 		c.Render(http.StatusOK, utils.CustomJSON{Data: res, Context: c})
 		return
 	}
 	userId := req.UserId
 	logger.WithFields(logrus.Fields{
 		"UserId": userId,
-	}).Infof("Publish List videos")
+	}).Debugf("Publish List videos")
 
 	c.Render(http.StatusOK, utils.CustomJSON{Data: res, Context: c})
 }

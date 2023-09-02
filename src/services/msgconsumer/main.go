@@ -5,27 +5,34 @@ import (
 	"GuGoTik/src/constant/strings"
 	"GuGoTik/src/extra/tracing"
 	"GuGoTik/src/models"
+	"GuGoTik/src/rpc/chat"
 	"GuGoTik/src/storage/database"
+	grpc2 "GuGoTik/src/utils/grpc"
 	"GuGoTik/src/utils/logging"
 	"GuGoTik/src/utils/rabbitmq"
 	"context"
 	"encoding/json"
 	"errors"
-	"net/http"
-
-	url2 "net/url"
-
 	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/sashabaranov/go-openai"
 	"github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel/trace"
+	"net/http"
+	url2 "net/url"
+	"sync"
 )
+
+var chatClient chat.ChatServiceClient
+var conn *amqp.Connection
+var channel *amqp.Channel
 
 func failOnError(err error, msg string) {
 	//打日志
-	logging.Logger.WithFields(logrus.Fields{
-		"err": err,
-	}).Errorf(msg)
+	if err != nil {
+		logging.Logger.WithFields(logrus.Fields{
+			"err": err,
+		}).Errorf(msg)
+	}
 }
 
 var delayTime = int32(2 * 60 * 1000) //2 minutes
@@ -47,15 +54,23 @@ func init() {
 	openaiClient = openai.NewClientWithConfig(cfg)
 }
 
-func main() {
-	conn, err := amqp.Dial(rabbitmq.BuildMQConnAddr())
-	if err != nil {
-		failOnError(err, "Failed to connect to RabbitMQ")
+func CloseMQConn() {
+	if err := conn.Close(); err != nil {
+		panic(err)
 	}
-	defer func(conn *amqp.Connection) {
-		err := conn.Close()
-		failOnError(err, "Failed to close connection")
-	}(conn)
+
+	if err := channel.Close(); err != nil {
+		panic(err)
+	}
+}
+
+func main() {
+	chatRpcConn := grpc2.Connect(config.MessageRpcServerName)
+	chatClient = chat.NewChatServiceClient(chatRpcConn)
+
+	var err error
+	conn, err = amqp.Dial(rabbitmq.BuildMQConnAddr())
+	failOnError(err, "Failed to connect to RabbitMQ")
 
 	tp, err := tracing.SetTraceProvider(config.MsgConsumer)
 	if err != nil {
@@ -71,179 +86,82 @@ func main() {
 		}
 	}()
 
-	channel, err := conn.Channel()
+	channel, err = conn.Channel()
 	if err != nil {
 		failOnError(err, "Failed to open a channel")
 	}
-
-	defer func(channel *amqp.Channel) {
-		err := channel.Close()
-		failOnError(err, "Failed to close channel")
-	}(channel)
 
 	err = channel.ExchangeDeclare(
 		strings.MessageExchange,
 		"x-delayed-message",
 		true, false, false, false,
 		amqp.Table{
-			"x-delayed-type": "direct",
+			"x-delayed-type": "topic",
 		},
 	)
-	if err != nil {
-		failOnError(err, "Failed to get exchange")
-	}
+	failOnError(err, "Failed to get exchange")
 
 	_, err = channel.QueueDeclare(
-		strings.MessageActionEvent,
-		false, false, false, false,
+		strings.MessageCommon,
+		true, false, false, false,
 		nil,
 	)
-	if err != nil {
-		failOnError(err, "Failed to define queue")
-	}
+	failOnError(err, "Failed to define queue")
 
 	_, err = channel.QueueDeclare(
-		strings.MessageGptActionEvent,
-		false, false, false, false,
+		strings.MessageGPT,
+		true, false, false, false,
 		nil,
 	)
-
-	if err != nil {
-		failOnError(err, "Failed to define queue")
-	}
+	failOnError(err, "Failed to define queue")
 
 	err = channel.QueueBind(
-		strings.MessageActionEvent,
-		strings.MessageActionEvent,
+		strings.MessageCommon,
+		"message.#",
 		strings.MessageExchange,
 		false,
 		nil,
 	)
-	if err != nil {
-		failOnError(err, "Failed to bind queue to exchange")
-	}
+	failOnError(err, "Failed to bind queue to exchange")
 
 	err = channel.QueueBind(
-		strings.MessageGptActionEvent,
+		strings.MessageGPT,
 		strings.MessageGptActionEvent,
 		strings.MessageExchange,
 		false,
 		nil,
 	)
-	if err != nil {
-		failOnError(err, "Failed to bind queue  to exchange")
-	}
+	failOnError(err, "Failed to bind queue to exchange")
 
-	msg, err := channel.Consume(
-		strings.MessageActionEvent,
-		"",
-		false, false, false, false,
-		nil,
-	)
-	if err != nil {
-		failOnError(err, "Failed to Consume")
-	}
-
-	var forever chan struct{}
-
-	logger := logging.LogService("msgConsumer")
+	go saveMessage(channel)
+	logger := logging.LogService("MessageSend")
 	logger.Infof(strings.MessageActionEvent + " is running now")
-	go func() {
-		var message models.Message
-		for body := range msg {
-			ctx := rabbitmq.ExtractAMQPHeaders(context.Background(), body.Headers)
 
-			ctx, span := tracing.Tracer.Start(ctx, "message_send Service")
-			logger := logging.LogService("message_send").WithContext(ctx)
+	go chatWithGPT(channel)
+	logger = logging.LogService("MessageGPTSend")
+	logger.Infof(strings.MessageGptActionEvent + " is running now")
 
-			if err := json.Unmarshal(body.Body, &message); err != nil {
-				logger.WithFields(logrus.Fields{
-					"from_id": message.FromUserId,
-					"to_id":   message.ToUserId,
-					"content": message.Content,
-					"err":     err,
-				}).Errorf("Error when unmarshaling the prepare json body.")
-				logging.SetSpanError(span, err)
-				err = body.Nack(false, true)
-				if err != nil {
-					logger.WithFields(
-						logrus.Fields{
-							"from_id": message.FromUserId,
-							"to_id":   message.ToUserId,
-							"content": message.Content,
-							"err":     err,
-						},
-					).Errorf("Error when nack the message")
-					logging.SetSpanError(span, err)
-				}
-				span.End()
-				continue
-			}
+	defer CloseMQConn()
 
-			pMessage := models.Message{
-				ToUserId:       message.ToUserId,
-				FromUserId:     message.FromUserId,
-				ConversationId: message.ConversationId,
-				Content:        message.Content,
-			}
-			logger.Info(pMessage)
-			//可能会重新插入数据 开启事务 晚点改
-			result := database.Client.WithContext(context.Background()).Create(&pMessage)
-			if result.Error != nil {
-				logger.WithFields(logrus.Fields{
-					"from_id": message.FromUserId,
-					"to_id":   message.ToUserId,
-					"content": message.Content,
-					"err":     result.Error,
-				}).Errorf("Error when insert message to database.")
-				logging.SetSpanError(span, err)
-				err = body.Nack(false, true)
-				if err != nil {
-					logger.WithFields(
-						logrus.Fields{
-							"from_id": message.FromUserId,
-							"to_id":   message.ToUserId,
-							"content": message.Content,
-							"err":     err,
-						}).Errorf("Error when nack the message")
-					logging.SetSpanError(span, err)
-				}
-				span.End()
-				continue
-			}
-			err = body.Ack(false)
-
-			if err != nil {
-				logger.WithFields(logrus.Fields{
-					"err": err,
-				}).Errorf("Error when dealing with the message...")
-				logging.SetSpanError(span, err)
-			}
-		}
-	}()
-
-	go ss(channel)
-
-	<-forever
-
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	wg.Wait()
 }
 
-func ss(channel *amqp.Channel) {
-	gptMsg, err := channel.Consume(
-		strings.MessageGptActionEvent,
+func saveMessage(channel *amqp.Channel) {
+	msg, err := channel.Consume(
+		strings.MessageCommon,
 		"",
 		false, false, false, false,
 		nil,
 	)
-	if err != nil {
-		failOnError(err, "Failed to Consume")
-	}
+	failOnError(err, "Failed to Consume")
 	var message models.Message
-
-	for body := range gptMsg {
+	for body := range msg {
 		ctx := rabbitmq.ExtractAMQPHeaders(context.Background(), body.Headers)
-		ctx, span := tracing.Tracer.Start(ctx, "message_send Service")
-		logger := logging.LogService("message_send").WithContext(ctx)
+
+		ctx, span := tracing.Tracer.Start(ctx, "MessageSendService")
+		logger := logging.LogService("MessageSend").WithContext(ctx)
 
 		if err := json.Unmarshal(body.Body, &message); err != nil {
 			logger.WithFields(logrus.Fields{
@@ -253,10 +171,7 @@ func ss(channel *amqp.Channel) {
 				"err":     err,
 			}).Errorf("Error when unmarshaling the prepare json body.")
 			logging.SetSpanError(span, err)
-
-			//重试
-			errorHandler(channel, body, false, logger, &span)
-
+			err = body.Nack(false, true)
 			if err != nil {
 				logger.WithFields(
 					logrus.Fields{
@@ -272,83 +187,143 @@ func ss(channel *amqp.Channel) {
 			continue
 		}
 
-		pMessage := models.Message{
+		pmessage := models.Message{
 			ToUserId:       message.ToUserId,
 			FromUserId:     message.FromUserId,
 			ConversationId: message.ConversationId,
 			Content:        message.Content,
 		}
+		logger.WithFields(logrus.Fields{
+			"message": pmessage,
+		}).Debugf("Receive message event")
+
 		//可能会重新插入数据 开启事务 晚点改
-		result := database.Client.WithContext(context.Background()).Create(&pMessage)
-		//发一份消息到openai api
+		result := database.Client.WithContext(context.Background()).Create(&pmessage)
 		if result.Error != nil {
 			logger.WithFields(logrus.Fields{
 				"from_id": message.FromUserId,
 				"to_id":   message.ToUserId,
+				"content": message.Content,
 				"err":     result.Error,
 			}).Errorf("Error when insert message to database.")
 			logging.SetSpanError(span, err)
-			//重试?
+			err = body.Nack(false, true)
+			if err != nil {
+				logger.WithFields(
+					logrus.Fields{
+						"from_id": message.FromUserId,
+						"to_id":   message.ToUserId,
+						"content": message.Content,
+						"err":     err,
+					}).Errorf("Error when nack the message")
+				logging.SetSpanError(span, err)
+			}
+			span.End()
+			continue
+		}
+		err = body.Ack(false)
+
+		if err != nil {
+			logger.WithFields(logrus.Fields{
+				"err": err,
+			}).Errorf("Error when dealing with the message...3")
+			logging.SetSpanError(span, err)
+
+		}
+	}
+}
+
+func chatWithGPT(channel *amqp.Channel) {
+	gptmsg, err := channel.Consume(
+		strings.MessageGPT,
+		"",
+		false, false, false, false,
+		nil,
+	)
+	if err != nil {
+		failOnError(err, "Failed to Consume")
+	}
+	var message models.Message
+
+	for body := range gptmsg {
+		ctx := rabbitmq.ExtractAMQPHeaders(context.Background(), body.Headers)
+		ctx, span := tracing.Tracer.Start(ctx, "MessageGPTSendService")
+		logger := logging.LogService("MessageGPTSend").WithContext(ctx)
+
+		if err := json.Unmarshal(body.Body, &message); err != nil {
+			logger.WithFields(logrus.Fields{
+				"from_id": message.FromUserId,
+				"to_id":   message.ToUserId,
+				"content": message.Content,
+				"err":     err,
+			}).Errorf("Error when unmarshaling the prepare json body.")
+			logging.SetSpanError(span, err)
+
+			//重试
+			errorHandler(channel, body, false, logger, &span)
+			span.End()
 			continue
 		}
 
+		logger.WithFields(logrus.Fields{
+			"content": message.Content,
+		}).Debugf("Receive ChatGPT message event")
+
 		req := openai.ChatCompletionRequest{
 			Model: openai.GPT3Dot5Turbo,
-			Messages: []openai.ChatCompletionMessage{{
-				Role:    openai.ChatMessageRoleUser,
-				Content: message.Content,
-			},
+			Messages: []openai.ChatCompletionMessage{
+				{
+					Role:    openai.ChatMessageRoleUser,
+					Content: message.Content,
+				},
 			},
 		}
 
-		resp, err := openaiClient.CreateChatCompletion(
-			context.Background(),
-			req,
-		)
+		resp, err := openaiClient.CreateChatCompletion(ctx, req)
 
 		if err != nil {
 			logger.WithFields(logrus.Fields{
 				"Err":     err,
 				"from_id": message.FromUserId,
 				"context": message.Content,
-			}).Errorf("Failed to get keywords from ChatGPT")
+			}).Errorf("Failed to get reply from ChatGPT")
 
 			logging.SetSpanError(span, err)
 			//重试
 			errorHandler(channel, body, true, logger, &span)
-		}
-
-		text := resp.Choices[0].Message.Content
-		pMessage = models.Message{
-			ToUserId:       message.FromUserId,
-			FromUserId:     message.ToUserId,
-			ConversationId: message.ConversationId,
-			Content:        text,
-			// Content: "111",
-		}
-
-		result = database.Client.WithContext(context.Background()).Create(&pMessage)
-
-		if result.Error != nil {
-			logger.WithFields(logrus.Fields{
-				"from_id": message.FromUserId,
-				"to_id":   message.ToUserId,
-				"err":     result.Error,
-			}).Errorf("Error when insert message to database.")
-			logging.SetSpanError(span, err)
-			//重试?
+			span.End()
 			continue
 		}
 
+		text := resp.Choices[0].Message.Content
+		logger.WithFields(logrus.Fields{
+			"reply": text,
+		}).Infof("Successfully get the reply for ChatGPT")
+
+		_, err = chatClient.ChatAction(ctx, &chat.ActionRequest{
+			ActorId:    message.ToUserId,
+			UserId:     message.FromUserId,
+			ActionType: 1,
+			Content:    text,
+		})
+		if err != nil {
+			logger.WithFields(logrus.Fields{
+				"err": err,
+			}).Errorf("Replying to user happens error")
+			errorHandler(channel, body, true, logger, &span)
+			continue
+		}
+		logger.Infof("Successfully send the reply to user")
+
+		span.End()
 		err = body.Ack(false)
 
 		if err != nil {
 			logger.WithFields(logrus.Fields{
 				"err": err,
-			}).Errorf("Error when dealing with the message...")
+			}).Errorf("Error when dealing with the message...4")
 			logging.SetSpanError(span, err)
 		}
-
 	}
 }
 
@@ -358,7 +333,7 @@ func errorHandler(channel *amqp.Channel, d amqp.Delivery, requeue bool, logger *
 		if err != nil {
 			logger.WithFields(logrus.Fields{
 				"err": err,
-			}).Errorf("Error when nacking the video...")
+			}).Errorf("Error when nacking the message event...")
 			logging.SetSpanError(*span, err)
 		}
 	} else { // Re-publish the message
@@ -375,7 +350,7 @@ func errorHandler(channel *amqp.Channel, d amqp.Delivery, requeue bool, logger *
 			if err != nil {
 				logger.WithFields(logrus.Fields{
 					"err": err,
-				}).Errorf("Error when dealing with the video...")
+				}).Errorf("Error when dealing with the message event...1")
 			}
 		} else {
 			curRetry++
@@ -387,12 +362,13 @@ func errorHandler(channel *amqp.Channel, d amqp.Delivery, requeue bool, logger *
 			if err != nil {
 				logger.WithFields(logrus.Fields{
 					"err": err,
-				}).Errorf("Error when dealing with the video...")
+				}).Errorf("Error when dealing with the message event...2")
 			}
 
 			logger.Debugf("Retrying %d times", curRetry)
 
-			err = channel.PublishWithContext(context.Background(),
+			err = channel.PublishWithContext(
+				context.Background(),
 				strings.MessageExchange,
 				strings.MessageGptActionEvent,
 				false,
@@ -407,7 +383,7 @@ func errorHandler(channel *amqp.Channel, d amqp.Delivery, requeue bool, logger *
 			if err != nil {
 				logger.WithFields(logrus.Fields{
 					"err": err,
-				}).Errorf("Error when re-publishing the video to queue...")
+				}).Errorf("Error when re-publishing the message event to queue...")
 				logging.SetSpanError(*span, err)
 			}
 		}
