@@ -1,5 +1,7 @@
 # GuGoTik  
-GuGoTik是 第六届字节跳动青训营后端进阶 实战项目，题目为编写一个小型的抖音后端。
+GuGoTik是 第六届字节跳动青训营后端进阶 实战项目，题目为编写一个小型的抖音后端。  
+
+如果你想了解更多信息，请等待 青训营结束后 ，GuGoTik 会提供完整的项目开发文档，请给本项目一个 Star ~
 # 贡献者
 项目开发者：这是一群来自五湖四海的 Contributors，来自于 WHU，HNU，NJUPT。
 - [EpicMo](https://github.com/liaosunny123)  
@@ -15,6 +17,22 @@ GuGoTik是 第六届字节跳动青训营后端进阶 实战项目，题目为�
 
 以及有事而无法参与项目的小伙伴：  
 - [Chuanwise](https://github.com/Chuanwise)  
+
+# 项目结构  
+- docker: 基础镜像，为项目的Dockerfile提供基础镜像，或者是为 K8S 技术设施提供基础镜像
+- scripts: 构建脚本
+- src: 项目源代码
+  - constant: 项目常量
+  - extra: 外部服务依赖
+  - idl: idl文件
+  - models: 数据模型
+  - rpc: Rpc 代码
+  - services: 微服务实例
+  - storage: 存储相关
+  - utils: 辅助代码
+  - web: 网关代码
+- test: 项目测试
+- 其他单文件：Docker Compose 文件和使用的demo环境变量
 
 # 外部服务依赖
 - Redis (Cluster)
@@ -34,8 +52,8 @@ Profile 性能分析：
 
 # 自部署流程  
 由 梦想珈 RyzeBot 提供自动推送至K8S集群构建流程。  
-PR 至 Dev 分支，经过基于 Action 的 UnitTest + Code Analysis + Lint + BuildCheck 后，可合并至 Master 分支。
-Master 分支会自动触发 CD，构建镜像并推送，由 RyzeBot 完成向 K8S 的推送，自动部署。
+PR 至 Dev 分支，经过基于 Action 的 UnitTest + Code Analysis + Lint + BuildCheck 后，可合并至 endymx 分支。
+endymx 分支会自动触发 CD，构建镜像并推送，由 RyzeBot 完成向 K8S 的推送，自动部署。
 
 # 配置  
 GuGoTik可以自动捕获环境变量，也可以以 .env 文件的方式手动提供，覆盖顺序为：  
