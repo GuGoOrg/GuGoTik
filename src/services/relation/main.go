@@ -5,6 +5,7 @@ import (
 	"GuGoTik/src/extra/profiling"
 	"GuGoTik/src/extra/tracing"
 	"GuGoTik/src/rpc/relation"
+	"GuGoTik/src/utils/audit"
 	"GuGoTik/src/utils/consul"
 	"GuGoTik/src/utils/logging"
 	"GuGoTik/src/utils/prom"
@@ -12,6 +13,7 @@ import (
 	grpcprom "github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus"
 	"github.com/oklog/run"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/sirupsen/logrus"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
@@ -22,6 +24,9 @@ import (
 	"os"
 	"syscall"
 )
+
+var conn = &amqp.Connection{}
+var channel = &amqp.Channel{}
 
 func main() {
 	tp, err := tracing.SetTraceProvider(config.RelationRpcServerName)
@@ -74,6 +79,11 @@ func main() {
 	grpc_health_v1.RegisterHealthServer(s, health.NewServer())
 
 	srv.New()
+
+	// Initialize the audit_exchange
+	audit.DeclareAuditExchange(channel)
+	defer CloseMQConn()
+
 	srvMetrics.InitializeMetrics(s)
 
 	g := &run.Group{}

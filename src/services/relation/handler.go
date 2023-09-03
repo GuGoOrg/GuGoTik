@@ -10,12 +10,16 @@ import (
 	"GuGoTik/src/storage/cached"
 	"GuGoTik/src/storage/database"
 	redis2 "GuGoTik/src/storage/redis"
+	"GuGoTik/src/utils/audit"
 	grpc2 "GuGoTik/src/utils/grpc"
 	"GuGoTik/src/utils/logging"
+	"GuGoTik/src/utils/rabbitmq"
 	"context"
 	"errors"
 	"fmt"
 	"github.com/go-redis/redis_rate/v10"
+	"github.com/google/uuid"
+	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel/trace"
 	"gorm.io/gorm"
@@ -38,9 +42,33 @@ func actionRelationLimitKey(userId uint32) string {
 	return fmt.Sprintf("%s-%d", actionRelationLimitKeyPrefix, userId)
 }
 
+func exitOnError(err error) {
+	if err != nil {
+		panic(err)
+	}
+}
+
+func CloseMQConn() {
+	if err := conn.Close(); err != nil {
+		panic(err)
+	}
+
+	if err := channel.Close(); err != nil {
+		panic(err)
+	}
+}
+
 func (r RelationServiceImpl) New() {
 	userRPCConn := grpc2.Connect(config.UserRpcServerName)
 	userClient = user.NewUserServiceClient(userRPCConn)
+
+	var err error
+
+	conn, err = amqp.Dial(rabbitmq.BuildMQConnAddr())
+	exitOnError(err)
+
+	channel, err = conn.Channel()
+	exitOnError(err)
 }
 
 func (r RelationServiceImpl) Follow(ctx context.Context, request *relation.RelationActionRequest) (resp *relation.RelationActionResponse, err error) {
@@ -213,6 +241,30 @@ func (r RelationServiceImpl) Follow(ctx context.Context, request *relation.Relat
 		StatusCode: strings.ServiceOKCode,
 		StatusMsg:  strings.ServiceOK,
 	}
+
+	// Publish event to event_exchange and audit_exchange
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		action := &models.Action{
+			Type:         strings.FollowIdActionLog,
+			Name:         strings.FollowNameActionLog,
+			SubName:      strings.FollowUpActionSubLog,
+			ServiceName:  strings.FollowServiceName,
+			ActorId:      request.ActorId,
+			VideoId:      0,
+			AffectUserId: request.UserId,
+			AffectAction: 1,
+			AffectedData: "1",
+			EventId:      uuid.New().String(),
+			TraceId:      trace.SpanContextFromContext(ctx).TraceID().String(),
+			SpanId:       trace.SpanContextFromContext(ctx).SpanID().String(),
+		}
+		audit.PublishAuditEvent(ctx, action, channel)
+	}()
+	wg.Wait()
+
 	return
 }
 
@@ -351,6 +403,30 @@ func (r RelationServiceImpl) Unfollow(ctx context.Context, request *relation.Rel
 		StatusCode: strings.ServiceOKCode,
 		StatusMsg:  strings.ServiceOK,
 	}
+
+	// Publish event to event_exchange and audit_exchange
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		action := &models.Action{
+			Type:         strings.FollowIdActionLog,
+			Name:         strings.FollowNameActionLog,
+			SubName:      strings.FollowDownActionSubLog,
+			ServiceName:  strings.FollowServiceName,
+			ActorId:      request.ActorId,
+			VideoId:      0,
+			AffectUserId: request.UserId,
+			AffectAction: 1,
+			AffectedData: "-1",
+			EventId:      uuid.New().String(),
+			TraceId:      trace.SpanContextFromContext(ctx).TraceID().String(),
+			SpanId:       trace.SpanContextFromContext(ctx).SpanID().String(),
+		}
+		audit.PublishAuditEvent(ctx, action, channel)
+	}()
+	wg.Wait()
+
 	return
 }
 
