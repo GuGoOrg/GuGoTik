@@ -1,7 +1,7 @@
 # GuGoTik  
 GuGoTik is sixth practice project of ByteDance campus, themed of a micro TikTok backend.
 
-If you want to learn more information, please wait util the competition finished. GuGoTik will provide the whole develop document, please give us a star~
+If you want to learn more information, please wait util the competition finished. GuGoTik will provide the whole develop document, **please give us a star**~
 
 English | [简体中文](docs/README-CN.md)
 # Contributor  
@@ -20,7 +20,7 @@ Special Thanks：
 And the friends who can not participle in our development due to the personal things：
 - [Chuanwise](https://github.com/Chuanwise)
 
-# 项目结构
+# Project 
 - docker: Built as basic image for project's dockerfile or kubernetes's basic infrastructure.  
 - scripts: Build scripts
 - src: The source of the project  
