@@ -25,6 +25,11 @@ spec:
         - name: volume
           persistentVolumeClaim:
             claimName: storage
+        - name: config
+          configMap:
+            name: gugotik-log-config
+        - name: log-volume
+          emptyDir: { }
       imagePullSecrets:
         -   name: regcred
       containers:
@@ -54,4 +59,21 @@ spec:
             volumeMounts:
               - mountPath: /data/apps/gugotik-service-bundle/data
                 name: volume
+              - mountPath: /var/log/gugotik
+                name: log-volume
+        - name: logger
+          image: fluent/fluent-bit:1.8.4
+          imagePullPolicy: IfNotPresent
+          resources:
+            requests:
+              cpu: 20m
+              memory: 100Mi
+            limits:
+              cpu: 100m
+              memory: 200Mi
+          volumeMounts:
+            - mountPath: /fluent-bit/etc
+              name: config
+            - mountPath: /var/log/gugotik
+              name: log-volume
       terminationGracePeriodSeconds: 30
