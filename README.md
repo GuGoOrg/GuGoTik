@@ -1,4 +1,6 @@
 # GuGoTik  
+**GIVE US A STAR PLEASE MY SIR !!! | 请给我们一个 Star 求求了 !!!**
+
 GuGoTik is sixth practice project of ByteDance campus, themed of a micro TikTok backend.
 
 If you want to learn more information, please wait util the competition finished. GuGoTik will provide the whole develop document, **please give us a star**~
