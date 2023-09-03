@@ -20,4 +20,12 @@ const (
 
 	MessageActionEvent    = "message.common"
 	MessageGptActionEvent = "message.gpt"
+
+	// Action Id
+	FavoriteIdActionLog = 1 // 用户点赞相关操作
+
+	// Action Name
+	FavoriteNameActionLog    = "favorite.action" // 用户点赞操作名称
+	FavoriteUpActionSubLog   = "up"
+	FavoriteDownActionSubLog = "down"
 )
