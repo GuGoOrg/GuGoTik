@@ -65,13 +65,13 @@ spec:
               memory: 200Mi
           volumeMounts:
             - mountPath: /fluent-bit/etc
-              name: gugotik-log-config
+              name: config
             - mountPath: /var/log/gugotik
               name: log-volume
       volumes:
         - name: config
           configMap:
-            name: fluentbit-config
+            name: gugotik-log-config
         - name: log-volume
           emptyDir: { }
       terminationGracePeriodSeconds: 30
