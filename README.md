@@ -20,7 +20,7 @@ Special Thanks：
 And the friends who can not participle in our development due to the personal things：
 - [Chuanwise](https://github.com/Chuanwise)
 
-# Project 
+# File structure 
 - docker: Built as basic image for project's dockerfile or kubernetes's basic infrastructure.  
 - scripts: Build scripts
 - src: The source of the project  
