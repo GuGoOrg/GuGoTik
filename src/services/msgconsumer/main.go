@@ -13,13 +13,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net/http"
+	url2 "net/url"
+	"sync"
+
 	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/sashabaranov/go-openai"
 	"github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel/trace"
-	"net/http"
-	url2 "net/url"
-	"sync"
 )
 
 var chatClient chat.ChatServiceClient
@@ -113,10 +114,27 @@ func main() {
 		true, false, false, false,
 		nil,
 	)
+
+	failOnError(err, "Failed to define queue")
+	_, err = channel.QueueDeclare(
+		strings.MessageES,
+		true, false, false, false,
+		nil,
+	)
+
 	failOnError(err, "Failed to define queue")
 
 	err = channel.QueueBind(
 		strings.MessageCommon,
+		"message.#",
+		strings.MessageExchange,
+		false,
+		nil,
+	)
+	failOnError(err, "Failed to bind queue to exchange")
+
+	err = channel.QueueBind(
+		strings.MessageES,
 		"message.#",
 		strings.MessageExchange,
 		false,
@@ -140,6 +158,10 @@ func main() {
 	go chatWithGPT(channel)
 	logger = logging.LogService("MessageGPTSend")
 	logger.Infof(strings.MessageGptActionEvent + " is running now")
+
+	go esSaveMessage(channel)
+	logger = logging.LogService("esSaveMessage")
+	logger.Infof(strings.VideoPicker + " is running now")
 
 	defer CloseMQConn()
 
@@ -198,7 +220,10 @@ func saveMessage(channel *amqp.Channel) {
 		}).Debugf("Receive message event")
 
 		//可能会重新插入数据 开启事务 晚点改
-		result := database.Client.WithContext(context.Background()).Create(&pmessage)
+		//写入数据库
+
+		result := database.Client.WithContext(ctx).Create(&pmessage)
+
 		if result.Error != nil {
 			logger.WithFields(logrus.Fields{
 				"from_id": message.FromUserId,
@@ -228,7 +253,6 @@ func saveMessage(channel *amqp.Channel) {
 				"err": err,
 			}).Errorf("Error when dealing with the message...3")
 			logging.SetSpanError(span, err)
-
 		}
 	}
 }

@@ -11,6 +11,7 @@ const (
 	VideoSummary  = "video_summary"
 	MessageCommon = "message_common"
 	MessageGPT    = "message_gpt"
+	MessageES     = "message_es"
 
 	// Routing key
 	FavoriteActionEvent = "video.favorite.action"
