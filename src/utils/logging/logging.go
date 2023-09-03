@@ -9,6 +9,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"io"
 	"os"
+	"path"
 )
 
 var hostname string
@@ -31,8 +32,13 @@ func init() {
 		log.SetLevel(log.TraceLevel)
 	}
 
-	logFile := "log.txt"
-	f, err := os.OpenFile(logFile, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
+	filePath := path.Join("var", "log", "gugotik", "gugotik.log")
+	dir := path.Dir(filePath)
+	if err := os.MkdirAll(dir, os.FileMode(0755)); err != nil {
+		panic(err)
+	}
+
+	f, err := os.OpenFile(filePath, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
 	if err != nil {
 		panic(err)
 	}

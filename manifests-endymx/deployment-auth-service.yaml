@@ -22,32 +22,56 @@ spec:
         dream-unit: gugotik-auth-service
     spec:
       imagePullSecrets:
-        -   name: regcred
+        -  name: regcred
       containers:
-        -   image: ${IMAGE}
-            imagePullPolicy: IfNotPresent
-            name: gugotik-auth-service
-            command:
-              - ./services/auth/AuthService
-            envFrom:
-              - configMapRef:
-                  name: env-config
-              - configMapRef:
-                  name: gugotik-env
-              - secretRef:
-                  name: gugotik-secret
-            ports:
-              - name: grpc-37001
-                containerPort: 37001
-                protocol: TCP
-              - name: metrics-37099
-                containerPort: 37099
-                protocol: TCP
-            resources:
-              limits:
-                cpu: 2000m
-                memory: 2048Mi
-              requests:
-                cpu: 100m
-                memory: 128Mi
+        - image: ${IMAGE}
+          imagePullPolicy: IfNotPresent
+          name: gugotik-auth-service
+          command:
+            - ./services/auth/AuthService
+          envFrom:
+            - configMapRef:
+                name: env-config
+            - configMapRef:
+                name: gugotik-env
+            - secretRef:
+                name: gugotik-secret
+          ports:
+            - name: grpc-37001
+              containerPort: 37001
+              protocol: TCP
+            - name: metrics-37099
+              containerPort: 37099
+              protocol: TCP
+          volumeMounts:
+            - mountPath: /var/log/gugotik
+              name: log-volume
+          resources:
+            limits:
+              cpu: 2000m
+              memory: 2048Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+        - name: logger
+          image: fluent/fluent-bit:1.8.4
+          imagePullPolicy: IfNotPresent
+          resources:
+            requests:
+              cpu: 20m
+              memory: 100Mi
+            limits:
+              cpu: 100m
+              memory: 200Mi
+          volumeMounts:
+            - mountPath: /fluent-bit/etc
+              name: gugotik-log-config
+            - mountPath: /var/log/gugotik
+              name: log-volume
+      volumes:
+        - name: config
+          configMap:
+            name: fluentbit-config
+        - name: log-volume
+          emptyDir: { }
       terminationGracePeriodSeconds: 30
