@@ -7,7 +7,9 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
+	"io"
 	"os"
+	"path"
 )
 
 var hostname string
@@ -29,9 +31,22 @@ func init() {
 	case "TRACE":
 		log.SetLevel(log.TraceLevel)
 	}
-	log.SetOutput(os.Stdout)
+
+	filePath := path.Join("var", "log", "gugotik", "gugotik.log")
+	dir := path.Dir(filePath)
+	if err := os.MkdirAll(dir, os.FileMode(0755)); err != nil {
+		panic(err)
+	}
+
+	f, err := os.OpenFile(filePath, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
+	if err != nil {
+		panic(err)
+	}
+
 	log.SetFormatter(&log.JSONFormatter{})
 	log.AddHook(logTraceHook{})
+	log.SetOutput(io.MultiWriter(f, os.Stdout))
+
 	Logger = log.WithFields(log.Fields{
 		"Tied":     config.EnvCfg.TiedLogging,
 		"Hostname": hostname,
