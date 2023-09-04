@@ -13,13 +13,15 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net/http"
+	url2 "net/url"
+	"sync"
+
+	"fmt"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/sashabaranov/go-openai"
 	"github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel/trace"
-	"net/http"
-	url2 "net/url"
-	"sync"
 )
 
 var chatClient chat.ChatServiceClient
@@ -101,6 +103,14 @@ func main() {
 	)
 	failOnError(err, "Failed to get exchange")
 
+	err = channel.ExchangeDeclare(
+		strings.AuditExchange,
+		"direct",
+		true, false, false, false,
+		nil,
+	)
+	failOnError(err, fmt.Sprintf("Failed to get %s exchange", strings.AuditExchange))
+
 	_, err = channel.QueueDeclare(
 		strings.MessageCommon,
 		true, false, false, false,
@@ -113,10 +123,34 @@ func main() {
 		true, false, false, false,
 		nil,
 	)
+
 	failOnError(err, "Failed to define queue")
+	_, err = channel.QueueDeclare(
+		strings.MessageES,
+		true, false, false, false,
+		nil,
+	)
+
+	failOnError(err, "Failed to define queue")
+
+	_, err = channel.QueueDeclare(
+		strings.AuditPicker,
+		true, false, false, false,
+		nil,
+	)
+	failOnError(err, fmt.Sprintf("Failed to define %s queue", strings.AuditPicker))
 
 	err = channel.QueueBind(
 		strings.MessageCommon,
+		"message.#",
+		strings.MessageExchange,
+		false,
+		nil,
+	)
+	failOnError(err, "Failed to bind queue to exchange")
+
+	err = channel.QueueBind(
+		strings.MessageES,
 		"message.#",
 		strings.MessageExchange,
 		false,
@@ -133,6 +167,15 @@ func main() {
 	)
 	failOnError(err, "Failed to bind queue to exchange")
 
+	err = channel.QueueBind(
+		strings.AuditPicker,
+		strings.AuditPublishEvent,
+		strings.AuditExchange,
+		false,
+		nil,
+	)
+	failOnError(err, fmt.Sprintf("Failed to bind %s queue to %s exchange", strings.AuditPicker, strings.AuditExchange))
+
 	go saveMessage(channel)
 	logger := logging.LogService("MessageSend")
 	logger.Infof(strings.MessageActionEvent + " is running now")
@@ -140,6 +183,14 @@ func main() {
 	go chatWithGPT(channel)
 	logger = logging.LogService("MessageGPTSend")
 	logger.Infof(strings.MessageGptActionEvent + " is running now")
+
+	go saveAuditAction(channel)
+	logger = logging.LogService("AuditPublish")
+	logger.Infof(strings.AuditPublishEvent + " is running now")
+
+	go esSaveMessage(channel)
+	logger = logging.LogService("esSaveMessage")
+	logger.Infof(strings.VideoPicker + " is running now")
 
 	defer CloseMQConn()
 
@@ -198,7 +249,10 @@ func saveMessage(channel *amqp.Channel) {
 		}).Debugf("Receive message event")
 
 		//可能会重新插入数据 开启事务 晚点改
-		result := database.Client.WithContext(context.Background()).Create(&pmessage)
+		//写入数据库
+
+		result := database.Client.WithContext(ctx).Create(&pmessage)
+
 		if result.Error != nil {
 			logger.WithFields(logrus.Fields{
 				"from_id": message.FromUserId,
@@ -322,6 +376,98 @@ func chatWithGPT(channel *amqp.Channel) {
 			logger.WithFields(logrus.Fields{
 				"err": err,
 			}).Errorf("Error when dealing with the message...4")
+			logging.SetSpanError(span, err)
+		}
+	}
+}
+
+func saveAuditAction(channel *amqp.Channel) {
+	msg, err := channel.Consume(
+		strings.AuditPicker,
+		"",
+		false, false, false, false,
+		nil,
+	)
+	failOnError(err, "Failed to Consume")
+
+	var action models.Action
+	for body := range msg {
+		ctx := rabbitmq.ExtractAMQPHeaders(context.Background(), body.Headers)
+
+		ctx, span := tracing.Tracer.Start(ctx, "AuditPublishService")
+		logger := logging.LogService("AuditPublish").WithContext(ctx)
+
+		if err := json.Unmarshal(body.Body, &action); err != nil {
+			logger.WithFields(logrus.Fields{
+				"err": err,
+			}).Errorf("Error when unmarshaling the prepare json body.")
+			logging.SetSpanError(span, err)
+			err = body.Nack(false, true)
+			if err != nil {
+				logger.WithFields(
+					logrus.Fields{
+						"err":         err,
+						"Type":        action.Type,
+						"SubName":     action.SubName,
+						"ServiceName": action.ServiceName,
+					},
+				).Errorf("Error when nack the message")
+				logging.SetSpanError(span, err)
+			}
+			span.End()
+			continue
+		}
+
+		pAction := models.Action{
+			Type:         action.Type,
+			Name:         action.Name,
+			SubName:      action.SubName,
+			ServiceName:  action.ServiceName,
+			Attached:     action.Attached,
+			ActorId:      action.ActorId,
+			VideoId:      action.VideoId,
+			AffectAction: action.AffectAction,
+			AffectedData: action.AffectedData,
+			EventId:      action.EventId,
+			TraceId:      action.TraceId,
+			SpanId:       action.SpanId,
+		}
+		logger.WithFields(logrus.Fields{
+			"action": pAction,
+		}).Debugf("Recevie action event")
+
+		result := database.Client.WithContext(ctx).Create(&pAction)
+		if result.Error != nil {
+			logger.WithFields(
+				logrus.Fields{
+					"err":         err,
+					"Type":        action.Type,
+					"SubName":     action.SubName,
+					"ServiceName": action.ServiceName,
+				},
+			).Errorf("Error when nack the message")
+			logging.SetSpanError(span, err)
+			err = body.Nack(false, true)
+			if err != nil {
+				logger.WithFields(
+					logrus.Fields{
+						"err":         err,
+						"Type":        action.Type,
+						"SubName":     action.SubName,
+						"ServiceName": action.ServiceName,
+					},
+				).Errorf("Error when nack the message")
+				logging.SetSpanError(span, err)
+			}
+			span.End()
+			continue
+		}
+		err = body.Ack(false)
+
+		if err != nil {
+			logger.WithFields(logrus.Fields{
+				"err": err,
+			}).Errorf("Error when dealing with the action...")
 			logging.SetSpanError(span, err)
 		}
 	}

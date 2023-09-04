@@ -36,6 +36,9 @@ spec:
                   name: gugotik-env
               - secretRef:
                   name: gugotik-secret
+            volumeMounts:
+              - mountPath: /var/log/gugotik
+                name: log-volume
             ports:
               - name: grpc-37002
                 containerPort: 37002
@@ -50,4 +53,25 @@ spec:
               requests:
                 cpu: 100m
                 memory: 128Mi
+        - name: logger
+          image: fluent/fluent-bit:1.8.4
+          imagePullPolicy: IfNotPresent
+          resources:
+            requests:
+              cpu: 20m
+              memory: 100Mi
+            limits:
+              cpu: 100m
+              memory: 200Mi
+          volumeMounts:
+            - mountPath: /fluent-bit/etc
+              name: config
+            - mountPath: /var/log/gugotik
+              name: log-volume
+      volumes:
+        - name: config
+          configMap:
+            name: gugotik-log-config
+        - name: log-volume
+          emptyDir: { }
       terminationGracePeriodSeconds: 30

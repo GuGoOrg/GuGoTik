@@ -12,19 +12,20 @@ import (
 	"GuGoTik/src/rpc/user"
 	"GuGoTik/src/storage/database"
 	"GuGoTik/src/storage/redis"
+	grpc2 "GuGoTik/src/utils/grpc"
 	"GuGoTik/src/utils/logging"
 	"GuGoTik/src/utils/ptr"
 	"GuGoTik/src/utils/rabbitmq"
 	"context"
 	"encoding/json"
 	"fmt"
-	amqp "github.com/rabbitmq/amqp091-go"
 
-	grpc2 "GuGoTik/src/utils/grpc"
+	amqp "github.com/rabbitmq/amqp091-go"
+	"github.com/robfig/cron/v3"
+
 	"time"
 
 	"github.com/go-redis/redis_rate/v10"
-	"github.com/robfig/cron/v3"
 	"gorm.io/gorm"
 
 	"github.com/sirupsen/logrus"
@@ -72,9 +73,56 @@ func (c MessageServiceImpl) New() {
 		},
 	)
 	failOnError(err, "Failed to get exchange")
+	_, err = channel.QueueDeclare(
+		strings.MessageCommon,
+		true, false, false, false,
+		nil,
+	)
+	failOnError(err, "Failed to define queue")
+
+	_, err = channel.QueueDeclare(
+		strings.MessageGPT,
+		true, false, false, false,
+		nil,
+	)
+
+	failOnError(err, "Failed to define queue")
+	_, err = channel.QueueDeclare(
+		strings.MessageES,
+		true, false, false, false,
+		nil,
+	)
+
+	failOnError(err, "Failed to define queue")
+
+	err = channel.QueueBind(
+		strings.MessageCommon,
+		"message.#",
+		strings.MessageExchange,
+		false,
+		nil,
+	)
+	failOnError(err, "Failed to bind queue to exchange")
+
+	err = channel.QueueBind(
+		strings.MessageES,
+		"message.#",
+		strings.MessageExchange,
+		false,
+		nil,
+	)
+	failOnError(err, "Failed to bind queue to exchange")
+
+	err = channel.QueueBind(
+		strings.MessageGPT,
+		strings.MessageGptActionEvent,
+		strings.MessageExchange,
+		false,
+		nil,
+	)
+	failOnError(err, "Failed to bind queue to exchange")
 
 	userRpcConn := grpc2.Connect(config.UserRpcServerName)
-
 	userClient = user.NewUserServiceClient(userRpcConn)
 
 	recommendRpcConn := grpc2.Connect(config.RecommendRpcServiceName)
@@ -345,6 +393,9 @@ func addMessage(ctx context.Context, fromUserId uint32, toUserId uint32, Context
 		FromUserId:     fromUserId,
 		Content:        Context,
 		ConversationId: conversationId,
+	}
+	message.Model = gorm.Model{
+		CreatedAt: time.Now(),
 	}
 
 	body, err := json.Marshal(message)

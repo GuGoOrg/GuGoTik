@@ -32,7 +32,7 @@ func init() {
 		log.SetLevel(log.TraceLevel)
 	}
 
-	filePath := path.Join("var", "log", "gugotik", "gugotik.log")
+	filePath := path.Join("/var", "log", "gugotik", "gugotik.log")
 	dir := path.Dir(filePath)
 	if err := os.MkdirAll(dir, os.FileMode(0755)); err != nil {
 		panic(err)
