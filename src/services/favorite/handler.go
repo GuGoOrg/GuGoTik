@@ -9,13 +9,16 @@ import (
 	"GuGoTik/src/rpc/feed"
 	"GuGoTik/src/rpc/user"
 	redis2 "GuGoTik/src/storage/redis"
+	"GuGoTik/src/utils/audit"
 	grpc2 "GuGoTik/src/utils/grpc"
 	"GuGoTik/src/utils/logging"
 	"GuGoTik/src/utils/rabbitmq"
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/google/uuid"
 	amqp "github.com/rabbitmq/amqp091-go"
+	"go.opentelemetry.io/otel/trace"
 	"strconv"
 	"sync"
 	"time"
@@ -215,8 +218,9 @@ func (c FavoriteServiceServerImpl) FavoriteAction(ctx context.Context, req *favo
 				pipe.ZAdd(ctx, user_like_Id, redis.Z{Score: float64(time.Now().Unix()), Member: req.VideoId})
 				return nil
 			})
+			// Publish event to event_exchange and audit_exchange
 			wg := sync.WaitGroup{}
-			wg.Add(1)
+			wg.Add(2)
 			go func() {
 				defer wg.Done()
 				produceFavorite(ctx, models.RecommendEvent{
@@ -225,6 +229,23 @@ func (c FavoriteServiceServerImpl) FavoriteAction(ctx context.Context, req *favo
 					Type:    2,
 					Source:  config.FavoriteRpcServerName,
 				})
+			}()
+			go func() {
+				defer wg.Done()
+				action := &models.Action{
+					Type:         strings.FavoriteIdActionLog,
+					Name:         strings.FavoriteNameActionLog,
+					SubName:      strings.FavoriteUpActionSubLog,
+					ServiceName:  strings.FavoriteServiceName,
+					ActorId:      req.ActorId,
+					VideoId:      req.VideoId,
+					AffectAction: 1,
+					AffectedData: "1",
+					EventId:      uuid.New().String(),
+					TraceId:      trace.SpanContextFromContext(ctx).TraceID().String(),
+					SpanId:       trace.SpanContextFromContext(ctx).SpanID().String(),
+				}
+				audit.PublishAuditEvent(ctx, action, channel)
 			}()
 			wg.Wait()
 			if err == redis.Nil {
@@ -255,6 +276,29 @@ func (c FavoriteServiceServerImpl) FavoriteAction(ctx context.Context, req *favo
 
 				return nil
 			})
+
+			// Publish event to event_exchange and audit_exchange
+			wg := sync.WaitGroup{}
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				action := &models.Action{
+					Type:         strings.FavoriteIdActionLog,
+					Name:         strings.FavoriteNameActionLog,
+					SubName:      strings.FavoriteDownActionSubLog,
+					ServiceName:  strings.FavoriteServiceName,
+					ActorId:      req.ActorId,
+					VideoId:      req.VideoId,
+					AffectAction: 1,
+					AffectedData: "-1",
+					EventId:      uuid.New().String(),
+					TraceId:      trace.SpanContextFromContext(ctx).TraceID().String(),
+					SpanId:       trace.SpanContextFromContext(ctx).SpanID().String(),
+				}
+				audit.PublishAuditEvent(ctx, action, channel)
+			}()
+			wg.Wait()
+
 			if err == redis.Nil {
 				err = nil
 			}

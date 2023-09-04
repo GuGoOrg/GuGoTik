@@ -5,6 +5,7 @@ import (
 	"GuGoTik/src/extra/profiling"
 	"GuGoTik/src/extra/tracing"
 	"GuGoTik/src/rpc/favorite"
+	"GuGoTik/src/utils/audit"
 	"GuGoTik/src/utils/consul"
 	"GuGoTik/src/utils/logging"
 	"GuGoTik/src/utils/prom"
@@ -77,6 +78,10 @@ func main() {
 		log.Panicf("Rpc %s register consul happens error for: %v", config.FavoriteRpcServerName, err)
 	}
 	srv.New()
+
+	// Initialize the audit_exchange
+	audit.DeclareAuditExchange(channel)
+
 	srvMetrics.InitializeMetrics(s)
 
 	g := &run.Group{}
