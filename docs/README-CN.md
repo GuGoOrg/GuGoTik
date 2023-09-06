@@ -1,4 +1,40 @@
-# GuGoTik  
+<p align="center">
+  <a href="https://github.com/GuGoOrg/GuGoTik">
+    <img src="https://avatars.githubusercontent.com/u/140634467?s=200&v=4" width="200" height="200" alt="GuGoTik">
+  </a>
+</p>
+
+<div align="center">
+
+# GuGOTik
+
+_✨ 第六届字节跳动青训营后端实战项目，迷你抖音后端 GuGoTik ✨_  
+
+
+</div>
+
+<p align="center">
+  <a href="https://raw.githubusercontent.com/GuGoOrg/GuGoTik/master/LICENSE">
+    <img src="https://img.shields.io/github/license/GuGoOrg/GuGoTik" alt="license">
+  </a>
+  <a href="https://github.com/GuGoOrg/GuGoTik/releases">
+    <img src="https://img.shields.io/github/v/release/GuGoOrg/GuGoTik?color=blueviolet&include_prereleases" alt="release">
+  </a>
+  <a href="https://github.com/GuGoOrg/GuGoTik/actions">
+    <img src="https://github.com/GuGoOrg/GuGoTik/actions/workflows/devcheck.yml/badge.svg" alt="action">
+  </a>
+
+<p align="center">
+  <a href="https://github.com/GuGoOrg/GuGoTik/releases">下载</a>
+  ·
+  <a href="https://github.com/GuGoOrg/GuGoTik/blob/main/CONTRIBUTING_CN.md">参与贡献</a>
+</p>
+
+<p align="center">
+    <img src="https://api.visitorbadge.io/api/visitors?path=https://github.com/GuGoOrg/GuGoTik&label=visitors&countColor=%231758F0" alter="Hello, GuGoTik !"/>
+    <p align= "center">GIVE US A STAR PLEASE MY SIR !!! | 请给我们一个 Star 求求了 !!!</p>
+</p>
+
 GuGoTik是 第六届字节跳动青训营后端进阶 实战项目，题目为编写一个小型的抖音后端。  
 
 如果你想了解更多信息，请等待 青训营结束后 ，GuGoTik 会提供完整的项目开发文档，请给本项目一个 Star ~
