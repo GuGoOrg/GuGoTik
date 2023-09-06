@@ -1,8 +1,41 @@
-# GuGoTik  
-**GIVE US A STAR PLEASE MY SIR !!! | 请给我们一个 Star 求求了 !!!**  
-[![Visitors](https://api.visitorbadge.io/api/visitors?path=https://github.com/GuGoOrg/GuGoTik&label=visitors&countColor=%231758F0)](https://visitorbadge.io/status?path=https://github.com/GuGoOrg/GuGoTk)
+<p align="center">
+  <a href="https://github.com/GuGoOrg/GuGoTik">
+    <img src="https://avatars.githubusercontent.com/u/140634467?s=200&v=4" width="200" height="200" alt="GuGoTik">
+  </a>
+</p>
 
-GuGoTik is sixth practice project of ByteDance campus, themed of a micro TikTok backend.
+<div align="center">
+
+# GuGOTik
+
+_✨ 第六届字节跳动青训营后端实战项目，迷你抖音后端 GuGoTik ✨_  
+
+
+</div>
+
+<p align="center">
+  <a href="https://raw.githubusercontent.com/GuGoOrg/GuGoTik/master/LICENSE">
+    <img src="https://img.shields.io/github/license/GuGoOrg/GuGoTik" alt="license">
+  </a>
+  <a href="https://github.com/GuGoOrg/GuGoTik/releases">
+    <img src="https://img.shields.io/github/v/release/GuGoOrg/GuGoTik?color=blueviolet&include_prereleases" alt="release">
+  </a>
+  <a href="https://github.com/GuGoOrg/GuGoTik/actions">
+    <img src="https://github.com/GuGoOrg/GuGoTik/actions/workflows/devcheck.yml/badge.svg" alt="action">
+  </a>
+
+<p align="center">
+  <a href="https://github.com/GuGoOrg/GuGoTik/releases">Download</a>
+  ·
+  <a href="https://github.com/GuGoOrg/GuGoTik/blob/main/CONTRIBUTING.md">Contribute</a>
+</p>
+
+<p align="center">
+    <img src="https://api.visitorbadge.io/api/visitors?path=https://github.com/GuGoOrg/GuGoTik&label=visitors&countColor=%231758F0" alter="Hello, GuGoTik !"/>
+    <p align= "center">GIVE US A STAR PLEASE MY SIR !!! | 请给我们一个 Star 求求了 !!!</p>
+</p>
+
+GuGoTik is sixth practice project of ByteDance campus, themed of a micro TikTok backend.  
 
 If you want to learn more information, please wait util the competition finished. GuGoTik will provide the whole develop document, **please give us a star**~
 
