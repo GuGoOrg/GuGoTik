@@ -6,7 +6,7 @@
 
 <div align="center">
 
-# GuGOTik
+# GuGoTik
 
 _✨ 第六届字节跳动青训营后端实战项目，迷你抖音后端 GuGoTik ✨_  
 
