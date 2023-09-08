@@ -110,6 +110,17 @@ func ActionPublishHandle(c *gin.Context) {
 		}
 	}(opened)
 
+	if file.Size > config.MaxVideoSize {
+		logger.WithFields(logrus.Fields{
+			"FileSize": file.Size,
+		}).Errorf("Maximum file size is 200MB")
+		c.JSON(http.StatusOK, models.ActionPublishRes{
+			StatusCode: strings.OversizeVideoCode,
+			StatusMsg:  strings.OversizeVideo,
+		})
+		return
+	}
+
 	var data = make([]byte, file.Size)
 	readSize, err := opened.Read(data)
 	if err != nil {

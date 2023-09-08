@@ -56,7 +56,7 @@ func main() {
 	)
 	reg := prom.Client
 	reg.MustRegister(srvMetrics)
-	maxSize := 500 * 1024 * 1024
+	maxSize := config.MaxVideoSize
 
 	s := grpc.NewServer(
 		grpc.MaxRecvMsgSize(maxSize),
