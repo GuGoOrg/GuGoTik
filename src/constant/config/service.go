@@ -38,3 +38,5 @@ const Event = "GuGoTik-Recommend"
 const MsgConsumer = "GuGoTik-MgsConsumer"
 
 const BloomRedisChannel = "GuGoTik-Bloom"
+
+const MaxVideoSize = 200 * 1024 * 1024
