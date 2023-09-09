@@ -90,4 +90,6 @@ const (
 	FollowLimited                 = "关注频繁，请稍后再试！"
 	UserDoNotExistedCode          = 10013
 	UserDoNotExisted              = "查询用户不存在！"
+	OversizeVideoCode             = 10014
+	OversizeVideo                 = "上传视频超过了200MB"
 )

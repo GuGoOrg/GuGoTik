@@ -214,6 +214,20 @@ func saveMessage(channel *amqp.Channel) {
 		ctx, span := tracing.Tracer.Start(ctx, "MessageSendService")
 		logger := logging.LogService("MessageSend").WithContext(ctx)
 
+		// Check if it is a re-publish message
+		retry, ok := body.Headers["x-retry"].(int32)
+		if ok || retry >= 1 {
+			err := body.Ack(false)
+			if err != nil {
+				logger.WithFields(logrus.Fields{
+					"err": err,
+				}).Errorf("Error when dealing with the message...")
+				logging.SetSpanError(span, err)
+			}
+			span.End()
+			continue
+		}
+
 		if err := json.Unmarshal(body.Body, &message); err != nil {
 			logger.WithFields(logrus.Fields{
 				"from_id": message.FromUserId,
@@ -280,10 +294,10 @@ func saveMessage(channel *amqp.Channel) {
 		if err != nil {
 			logger.WithFields(logrus.Fields{
 				"err": err,
-			}).Errorf("Error when dealing with the message...3")
+			}).Errorf("Error when dealing with the message...")
 			logging.SetSpanError(span, err)
-
 		}
+		span.End()
 	}
 }
 
@@ -369,15 +383,15 @@ func chatWithGPT(channel *amqp.Channel) {
 		}
 		logger.Infof("Successfully send the reply to user")
 
-		span.End()
 		err = body.Ack(false)
 
 		if err != nil {
 			logger.WithFields(logrus.Fields{
 				"err": err,
-			}).Errorf("Error when dealing with the message...4")
+			}).Errorf("Error when dealing with the message...")
 			logging.SetSpanError(span, err)
 		}
+		span.End()
 	}
 }
 
@@ -470,6 +484,7 @@ func saveAuditAction(channel *amqp.Channel) {
 			}).Errorf("Error when dealing with the action...")
 			logging.SetSpanError(span, err)
 		}
+		span.End()
 	}
 }
 
@@ -496,7 +511,7 @@ func errorHandler(channel *amqp.Channel, d amqp.Delivery, requeue bool, logger *
 			if err != nil {
 				logger.WithFields(logrus.Fields{
 					"err": err,
-				}).Errorf("Error when dealing with the message event...1")
+				}).Errorf("Error when dealing with the message event...")
 			}
 		} else {
 			curRetry++
@@ -508,7 +523,7 @@ func errorHandler(channel *amqp.Channel, d amqp.Delivery, requeue bool, logger *
 			if err != nil {
 				logger.WithFields(logrus.Fields{
 					"err": err,
-				}).Errorf("Error when dealing with the message event...2")
+				}).Errorf("Error when dealing with the message event...")
 			}
 
 			logger.Debugf("Retrying %d times", curRetry)
