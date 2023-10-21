@@ -23,6 +23,8 @@ _✨ 第六届字节跳动青训营进阶班后端实战项目第一名，迷你
   <a href="https://github.com/GuGoOrg/GuGoTik/actions">
     <img src="https://github.com/GuGoOrg/GuGoTik/actions/workflows/devcheck.yml/badge.svg" alt="action">
   </a>
+    ·
+  <a href="https://z37kw7eggp.feishu.cn/docx/Y3KCdaFMSoKKNjxPOHAcWMiInZb">文档</a>
 
 <p align="center">
   <a href="https://github.com/GuGoOrg/GuGoTik/releases">下载</a>
