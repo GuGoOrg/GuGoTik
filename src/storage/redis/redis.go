@@ -22,7 +22,4 @@ func init() {
 		panic(err)
 	}
 
-	if err := redisotel.InstrumentMetrics(Client); err != nil {
-		panic(err)
-	}
 }
