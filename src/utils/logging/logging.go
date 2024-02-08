@@ -106,11 +106,13 @@ func LogService(name string) *log.Entry {
 func SetSpanError(span trace.Span, err error) {
 	span.RecordError(err)
 	span.SetStatus(codes.Error, "Internal Error")
+	span.SetAttributes(attribute.String("errorMsg", err.Error()))
 }
 
 func SetSpanErrorWithDesc(span trace.Span, err error, desc string) {
 	span.RecordError(err)
 	span.SetStatus(codes.Error, desc)
+	span.SetAttributes(attribute.String("error", err.Error()))
 }
 
 func SetSpanWithHostname(span trace.Span) {

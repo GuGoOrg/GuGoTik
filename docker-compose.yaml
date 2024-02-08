@@ -86,7 +86,7 @@ services:
       - '--opentsdbListenAddr=:4242'
       - '--httpListenAddr=:8428'
       - '--influxListenAddr=:8089'
-    restart: always
+    restart: unless-stopped
   grafana:
     container_name: "GuGoTik-Extra-Grafana"
     image: grafana/grafana
@@ -99,7 +99,7 @@ services:
   elasticsearch:
     image: elasticsearch:7.17.12
     container_name: "GuGoTik-Extra-ElasticSearch"
-    restart: always
+    restart: unless-stopped
     environment:
       - bootstrap.memory_lock=true
       - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
@@ -119,7 +119,7 @@ services:
   kibana:
     image: kibana:7.17.12
     container_name: "GuGoTik-Extra-Kibana"
-    restart: always
+    restart: unless-stopped
     environment:
       ELASTICSEARCH_HOSTS: http://elasticsearch:9200
       I18N_LOCALE: zh-CN

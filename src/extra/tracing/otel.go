@@ -34,7 +34,7 @@ func SetTraceProvider(name string) (*trace.TracerProvider, error) {
 	if config.EnvCfg.OtelState == "disable" {
 		sampler = trace.NeverSample()
 	} else {
-		sampler = trace.TraceIDRatioBased(config.EnvCfg.OtelSampler)
+		sampler = GetGuGoTikSampler(config.EnvCfg.OtelSampler)
 	}
 
 	tp := trace.NewTracerProvider(
